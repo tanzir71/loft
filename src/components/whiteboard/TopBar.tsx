@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Share2, Sparkles, Users, Keyboard, X, ChevronDown, PencilLine, Menu } from "lucide-react";
+import { Share2, Sparkles, Users, Keyboard, X, ChevronDown, PencilLine, Menu, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -40,6 +40,7 @@ export const TopBar = ({
   rooms,
   onRenameRoom,
   onSwitchRoom,
+  onCreateRoom,
   isOwner,
   onDeleteRoom,
   users,
@@ -51,6 +52,7 @@ export const TopBar = ({
   rooms: RoomEntry[];
   onRenameRoom: (name: string) => void;
   onSwitchRoom: (roomId: string) => void;
+  onCreateRoom: () => void;
   isOwner: boolean;
   onDeleteRoom: () => void;
   users: PresenceUser[];
@@ -125,7 +127,7 @@ export const TopBar = ({
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between p-5">
       {/* Brand & Info */}
-      <div className="flex flex-col gap-3">
+      <div className="hidden min-[1200px]:flex flex-col gap-3">
         <div 
           className="pointer-events-auto glass flex cursor-pointer items-center gap-3 rounded-2xl px-3.5 py-2 transition-transform hover:scale-[1.02] anim-rise"
           onClick={(e) => {
@@ -172,6 +174,13 @@ export const TopBar = ({
               >
                 <PencilLine className="h-4 w-4" />
                 Rename this room
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => onCreateRoom()}
+                className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                New room
               </DropdownMenuItem>
               {isOwner && (
                 <DropdownMenuItem
@@ -312,10 +321,54 @@ export const TopBar = ({
             </SheetTrigger>
             <SheetContent side="right" className="w-[320px] p-5">
               <SheetHeader>
-                <SheetTitle>Menu</SheetTitle>
+                <SheetTitle className="flex items-center gap-2">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-foreground text-background">
+                    <Sparkles className="h-4 w-4" />
+                  </span>
+                  <span className="font-display italic">
+                    tutorapp<span className="text-primary">.</span>quest
+                  </span>
+                </SheetTitle>
               </SheetHeader>
 
               <div className="mt-5 flex flex-col gap-3">
+                <div className="rounded-2xl border border-black/5 bg-white/80 px-4 py-3">
+                  <div className="text-[11px] font-semibold text-surface-muted">Current room</div>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-foreground">{roomName}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-wider text-surface-muted">
+                        {roomId}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openRoomRename();
+                        setMenuOpen(false);
+                      }}
+                      className="grid h-9 w-9 place-items-center rounded-xl text-surface-muted hover:bg-black/5 hover:text-foreground"
+                      aria-label="Rename room"
+                    >
+                      <PencilLine className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCreateRoom();
+                    setMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between rounded-2xl border border-black/5 bg-white/80 px-4 py-3 text-sm font-medium text-foreground"
+                >
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    New room
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={async () => {

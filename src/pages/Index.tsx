@@ -204,6 +204,21 @@ const Index = () => {
     return existing?.name?.trim() || defaultRoomName;
   });
 
+  const removeRoomFromHistory = useCallback(() => {
+    try {
+      localStorage.removeItem(`whiteboard-room:${roomId}`);
+      localStorage.removeItem(`whiteboard-presence:${roomId}`);
+      localStorage.removeItem(`tutorapp-ownerkey:${roomId}`);
+    } catch {
+      // ignore
+    }
+    setRooms((prev) => {
+      const next = prev.filter((r) => r.id !== roomId);
+      saveRooms(next);
+      return next;
+    });
+  }, [roomId]);
+
   useEffect(() => {
     const nowMs = Date.now();
     setRooms((prev) => {
@@ -238,6 +253,13 @@ const Index = () => {
   const switchRoom = useCallback((id: string) => {
     const nextId = id.trim();
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(nextId)) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", nextId);
+    window.location.assign(url.toString());
+  }, []);
+
+  const createNewRoom = useCallback(() => {
+    const nextId = makeRoomId();
     const url = new URL(window.location.href);
     url.searchParams.set("room", nextId);
     window.location.assign(url.toString());
@@ -518,6 +540,7 @@ const Index = () => {
       if (res.status === 410) {
         setRoomStatus("deleted");
         gatedToast("room-deleted", "Room was deleted", "This room no longer exists.");
+        removeRoomFromHistory();
         return;
       }
       if (!res.ok || !isJsonResponse(res)) throw new Error("backend");
@@ -560,6 +583,7 @@ const Index = () => {
         if (res.status === 410) {
           setRoomStatus("deleted");
           gatedToast("room-deleted", "Room was deleted", "This room no longer exists.");
+          removeRoomFromHistory();
           return;
         }
         if (!res.ok) return;
@@ -615,6 +639,7 @@ const Index = () => {
         if (res.status === 410) {
           setRoomStatus("deleted");
           gatedToast("room-deleted", "Room was deleted", "This room no longer exists.");
+          removeRoomFromHistory();
           return;
         }
         if (!res.ok) return;
@@ -810,22 +835,11 @@ const Index = () => {
       setRoomStatus("deleted");
       setIsOwner(false);
       gatedToast("room-deleted", "Room deleted", "This link will no longer work.");
-      try {
-        localStorage.removeItem(`whiteboard-room:${roomId}`);
-        localStorage.removeItem(`whiteboard-presence:${roomId}`);
-        localStorage.removeItem(`tutorapp-ownerkey:${roomId}`);
-      } catch {
-        // ignore
-      }
-      setRooms((prev) => {
-        const next = prev.filter((r) => r.id !== roomId);
-        saveRooms(next);
-        return next;
-      });
+      removeRoomFromHistory();
     } catch {
       gatedToast("room-delete-error", "Failed to delete room", "Try again in a moment.");
     }
-  }, [gatedToast, ownerKey, roomId, saveUrl]);
+  }, [gatedToast, ownerKey, removeRoomFromHistory, saveUrl]);
 
   const usersForBar = useMemo(() => {
     const nowMs = Date.now();
@@ -878,6 +892,7 @@ const Index = () => {
         rooms={rooms}
         onRenameRoom={renameRoom}
         onSwitchRoom={switchRoom}
+        onCreateRoom={createNewRoom}
         isOwner={isOwner}
         onDeleteRoom={deleteRoom}
         users={usersForBar}

@@ -92,8 +92,15 @@ export const ChatOverlay = ({
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-40 transition-all duration-300 ease-out"
-      style={{ width: expanded ? 360 : undefined }}
+      className={cn(
+        "fixed z-40 transition-all duration-300 ease-out",
+        expanded
+          ? "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-32px)] max-w-[420px]"
+          : "bottom-5 right-5",
+        expanded ? "" : "",
+        "min-[1200px]:bottom-5 min-[1200px]:right-5 min-[1200px]:left-auto min-[1200px]:top-auto min-[1200px]:translate-x-0 min-[1200px]:translate-y-0",
+        expanded ? "min-[1200px]:w-[360px]" : "",
+      )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >

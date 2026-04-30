@@ -36,7 +36,7 @@ export const Toolbar = ({
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
 
   return (
-    <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2">
+    <div className="pointer-events-none fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
       <div className="pointer-events-none relative flex items-center gap-2">
         {/* Mobile "More" stack */}
         <div
