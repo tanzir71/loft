@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export type Tool = "pen" | "eraser";
+export type Tool = "pen" | "eraser" | "text" | "sticky";
 
 interface WhiteboardProps {
   tool: Tool;
