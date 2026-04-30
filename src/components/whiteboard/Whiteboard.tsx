@@ -63,8 +63,8 @@ export const Whiteboard = ({
     if (current.current) drawStroke(ctx, current.current);
   };
 
-  const drawStroke = (ctx: CanvasRenderingContext2D, s: Stroke) => {
-    if (s.points.length < 1) return;
+  const drawStroke = (ctx: CanvasRenderingContext2D, s: Stroke | null) => {
+    if (!s || !s.points || s.points.length < 1) return;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = s.size;
