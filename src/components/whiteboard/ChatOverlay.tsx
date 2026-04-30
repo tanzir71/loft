@@ -35,7 +35,8 @@ const DEMO_INCOMING: Omit<ChatMessage, "id" | "time">[] = [
   { author: "Ada", avatarColor: "#6d5cff", text: "Anyone want to jump on a quick call?" },
 ];
 
-const AUTO_COLLAPSE_MS = 4500;
+const AUTO_COLLAPSE_MS = 12000;
+const DEMO_INTERVAL_MS = 30000;
 
 export const ChatOverlay = () => {
   const [expanded, setExpanded] = useState(false);
@@ -93,7 +94,7 @@ export const ChatOverlay = () => {
       setUnread(0);
       if (!pinned) scheduleCollapse();
     };
-    const interval = window.setInterval(tick, 9000);
+    const interval = window.setInterval(tick, DEMO_INTERVAL_MS);
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinned]);
