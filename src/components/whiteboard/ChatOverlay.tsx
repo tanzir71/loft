@@ -135,7 +135,8 @@ export const ChatOverlay = () => {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-40 w-[340px]"
+      className="fixed bottom-5 right-5 z-40 transition-[width] duration-300 ease-out"
+      style={{ width: expanded ? 360 : 220 }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -145,7 +146,7 @@ export const ChatOverlay = () => {
           "transition-all duration-300 ease-out",
         )}
         style={{
-          height: expanded ? 440 : 56,
+          height: expanded ? 440 : 52,
         }}
       >
         {/* Header (always visible) */}
