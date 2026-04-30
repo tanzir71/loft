@@ -1,4 +1,4 @@
-import { Eraser, Pen, Trash2, Download, Minus, Plus, Type, StickyNote } from "lucide-react";
+import { Eraser, Pen, Trash2, Download, Minus, Plus, Type, StickyNote, Hand } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tool } from "./Whiteboard";
 
@@ -37,6 +37,14 @@ export const Toolbar = ({
       {/* Tools */}
       <div className="glass pointer-events-auto flex items-center gap-1 rounded-2xl p-1.5 anim-rise">
         <ToolBtn
+          active={tool === "move"}
+          onClick={() => setTool("move")}
+          label="Move"
+          shortcut="Esc"
+        >
+          <Hand className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn
           active={tool === "pen"}
           onClick={() => setTool("pen")}
           label="Pen"
@@ -71,7 +79,12 @@ export const Toolbar = ({
       </div>
 
       {/* Colors */}
-      <div className="glass pointer-events-auto flex items-center gap-1.5 rounded-2xl p-2 anim-rise">
+      <div
+        className={cn(
+          "glass pointer-events-auto flex items-center gap-1.5 rounded-2xl p-2 anim-rise",
+          tool !== "pen" && "hidden xl:flex"
+        )}
+      >
         {COLORS.map((c) => (
           <button
             key={c.value}
@@ -98,7 +111,12 @@ export const Toolbar = ({
       </div>
 
       {/* Stroke size */}
-      <div className="glass pointer-events-auto flex items-center gap-1 rounded-2xl p-1.5 anim-rise">
+      <div
+        className={cn(
+          "glass pointer-events-auto flex items-center gap-1 rounded-2xl p-1.5 anim-rise",
+          tool !== "pen" && "hidden xl:flex"
+        )}
+      >
         <button
           onClick={() => setSize(Math.max(1, size - 1))}
           className="grid h-8 w-8 place-items-center rounded-xl text-surface-muted hover:bg-secondary"
