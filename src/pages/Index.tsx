@@ -17,6 +17,8 @@ const Index = () => {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
       if (e.key === "p" || e.key === "P") setTool("pen");
       if (e.key === "e" || e.key === "E") setTool("eraser");
+      if (e.key === "t" || e.key === "T") setTool("text");
+      if (e.key === "s" || e.key === "S") setTool("sticky");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
