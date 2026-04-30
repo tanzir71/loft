@@ -11,11 +11,22 @@ interface WhiteboardProps {
 }
 
 interface Stroke {
-  tool: Tool;
+  tool: "pen" | "eraser";
   color: string;
   size: number;
   points: { x: number; y: number }[];
 }
+
+interface TextItem {
+  id: string;
+  type: "text" | "sticky";
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+}
+
+const STICKY_COLORS = ["#fff59d", "#ffcc80", "#ce93d8", "#90caf9", "#a5d6a7"];
 
 export const Whiteboard = ({
   tool,
@@ -27,6 +38,8 @@ export const Whiteboard = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [items, setItems] = useState<TextItem[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const drawing = useRef(false);
   const current = useRef<Stroke | null>(null);
 
@@ -90,10 +103,28 @@ export const Whiteboard = ({
   };
 
   const onDown = (e: React.PointerEvent) => {
+    if (tool === "text" || tool === "sticky") {
+      const pos = getPos(e);
+      const id = crypto.randomUUID();
+      const newItem: TextItem = {
+        id,
+        type: tool,
+        x: pos.x,
+        y: pos.y,
+        text: "",
+        color:
+          tool === "sticky"
+            ? STICKY_COLORS[items.length % STICKY_COLORS.length]
+            : color,
+      };
+      setItems((prev) => [...prev, newItem]);
+      setEditingId(id);
+      return;
+    }
     (e.target as Element).setPointerCapture(e.pointerId);
     drawing.current = true;
     current.current = {
-      tool,
+      tool: tool === "eraser" ? "eraser" : "pen",
       color,
       size: tool === "eraser" ? size * 2.5 : size,
       points: [getPos(e)],
