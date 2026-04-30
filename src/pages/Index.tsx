@@ -33,6 +33,12 @@ type RoomFileV1 = {
   user?: PresenceUser;
 };
 
+type RoomEntry = {
+  id: string;
+  name: string;
+  lastOpened: number;
+};
+
 const makeRoomId = () => {
   const bytes = new Uint8Array(9);
   crypto.getRandomValues(bytes);
@@ -115,16 +121,127 @@ const isJsonResponse = (res: Response) => {
   return ct.includes("application/json");
 };
 
+const ROOMS_KEY = "tutorapp.rooms:v1";
+
+const loadRooms = (): RoomEntry[] => {
+  const raw = localStorage.getItem(ROOMS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const list: RoomEntry[] = [];
+    for (const it of parsed) {
+      if (!it || typeof it !== "object") continue;
+      const anyIt = it as any;
+      const id = typeof anyIt.id === "string" ? anyIt.id : "";
+      const name = typeof anyIt.name === "string" ? anyIt.name : "";
+      const lastOpened = typeof anyIt.lastOpened === "number" ? anyIt.lastOpened : 0;
+      if (!id || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) continue;
+      const cleanName = name.trim().slice(0, 60);
+      list.push({
+        id,
+        name: cleanName || `Room ${id.slice(0, 4)}`,
+        lastOpened,
+      });
+    }
+    return list;
+  } catch {
+    return [];
+  }
+};
+
+const saveRooms = (rooms: RoomEntry[]) => {
+  try {
+    localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms));
+  } catch {
+    return;
+  }
+};
+
 const Index = () => {
-  const [roomId] = useState(() => {
+  const [{ roomId, roomWasProvided }] = useState(() => {
     const url = new URL(window.location.href);
     const fromParam = url.searchParams.get("room")?.trim();
     const ok = !!fromParam && /^[a-zA-Z0-9_-]{1,64}$/.test(fromParam);
     const id = ok ? fromParam! : makeRoomId();
     url.searchParams.set("room", id);
     window.history.replaceState(null, "", url.toString());
-    return id;
+    return { roomId: id, roomWasProvided: ok };
   });
+
+  const ownerKey = useMemo(() => {
+    const key = `tutorapp-ownerkey:${roomId}`;
+    const existing = localStorage.getItem(key);
+    if (existing && existing.length >= 16) return existing;
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const created = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    try {
+      localStorage.setItem(key, created);
+    } catch {
+      // ignore
+    }
+    return created;
+  }, [roomId]);
+
+  const defaultRoomName = useMemo(() => `Room ${roomId.slice(0, 4)}`, [roomId]);
+
+  const [rooms, setRooms] = useState<RoomEntry[]>(() => {
+    const nowMs = Date.now();
+    const list = loadRooms();
+    const existing = list.find((r) => r.id === roomId);
+    const nextName = existing?.name?.trim() || defaultRoomName;
+    const upserted: RoomEntry[] = [
+      { id: roomId, name: nextName, lastOpened: nowMs },
+      ...list.filter((r) => r.id !== roomId),
+    ].slice(0, 50);
+    saveRooms(upserted);
+    return upserted;
+  });
+
+  const [roomName, setRoomName] = useState<string>(() => {
+    const existing = rooms.find((r) => r.id === roomId);
+    return existing?.name?.trim() || defaultRoomName;
+  });
+
+  useEffect(() => {
+    const nowMs = Date.now();
+    setRooms((prev) => {
+      const existing = prev.find((r) => r.id === roomId);
+      const name = roomName.trim() || existing?.name?.trim() || defaultRoomName;
+      const next: RoomEntry[] = [
+        { id: roomId, name, lastOpened: nowMs },
+        ...prev.filter((r) => r.id !== roomId),
+      ].slice(0, 50);
+      saveRooms(next);
+      return next;
+    });
+  }, [defaultRoomName, roomId, roomName]);
+
+  const renameRoom = useCallback(
+    (name: string) => {
+      const next = name.trim().slice(0, 60) || defaultRoomName;
+      setRoomName(next);
+      const nowMs = Date.now();
+      setRooms((prev) => {
+        const list: RoomEntry[] = [
+          { id: roomId, name: next, lastOpened: nowMs },
+          ...prev.filter((r) => r.id !== roomId),
+        ].slice(0, 50);
+        saveRooms(list);
+        return list;
+      });
+    },
+    [defaultRoomName, roomId],
+  );
+
+  const switchRoom = useCallback((id: string) => {
+    const nextId = id.trim();
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(nextId)) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", nextId);
+    window.location.assign(url.toString());
+  }, []);
 
   const clientId = useRef<string>("");
   if (!clientId.current) {
@@ -244,6 +361,11 @@ const Index = () => {
     url.searchParams.set("room", roomId);
     return url.toString();
   }, [roomId]);
+
+  const [roomStatus, setRoomStatus] = useState<"unknown" | "active" | "missing" | "deleted">(
+    "unknown",
+  );
+  const [isOwner, setIsOwner] = useState(false);
 
   const storageKey = useMemo(() => `whiteboard-room:${roomId}`, [roomId]);
   const presenceKey = useMemo(() => `whiteboard-presence:${roomId}`, [roomId]);
@@ -367,6 +489,7 @@ const Index = () => {
   );
 
   const saveNow = useCallback(async () => {
+    if (roomStatus === "deleted") return;
     const nowMs = Date.now();
     const me: PresenceUser = {
       id: clientId.current,
@@ -389,16 +512,24 @@ const Index = () => {
       const res = await fetch(saveUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, ownerKey }),
         cache: "no-store",
       });
+      if (res.status === 410) {
+        setRoomStatus("deleted");
+        gatedToast("room-deleted", "Room was deleted", "This room no longer exists.");
+        return;
+      }
       if (!res.ok || !isJsonResponse(res)) throw new Error("backend");
+      const data = (await res.json()) as { ok?: boolean; isOwner?: boolean };
       backendModeRef.current = "php";
+      setRoomStatus("active");
+      setIsOwner(!!data?.isOwner);
     } catch {
       backendModeRef.current = "local";
       saveToLocal(payload);
     }
-  }, [roomId, saveToLocal, saveUrl, self.avatarColor, self.name, users]);
+  }, [gatedToast, ownerKey, roomId, roomStatus, saveToLocal, saveUrl, self.avatarColor, self.name, users]);
 
   useEffect(() => {
     if (applyingRemoteRef.current) return;
@@ -415,11 +546,28 @@ const Index = () => {
     const load = async () => {
       try {
         const res = await fetch(`${saveUrl}&t=${Date.now()}`, { cache: "no-store" });
+        if (res.status === 404) {
+          setRoomStatus("missing");
+          if (roomWasProvided) {
+            gatedToast(
+              "room-missing",
+              "Room not found",
+              "Check the link. If you start drawing, a new room will be created.",
+            );
+          }
+          return;
+        }
+        if (res.status === 410) {
+          setRoomStatus("deleted");
+          gatedToast("room-deleted", "Room was deleted", "This room no longer exists.");
+          return;
+        }
         if (!res.ok) return;
         if (!isJsonResponse(res)) throw new Error("backend");
         const data = (await res.json()) as RoomFileV1;
         if (!data || data.v !== 1) return;
         backendModeRef.current = "php";
+        setRoomStatus("active");
         if ((data.updatedAt || 0) > lastSeenUpdatedAtRef.current) applyRemote(data);
       } catch {
         backendModeRef.current = "local";
@@ -428,18 +576,53 @@ const Index = () => {
       }
     };
     load();
-  }, [applyRemote, loadFromLocal, saveUrl]);
+  }, [applyRemote, gatedToast, loadFromLocal, roomWasProvided, saveUrl]);
+
+  useEffect(() => {
+    if (roomStatus !== "active") {
+      setIsOwner(false);
+      return;
+    }
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`${saveUrl}&mode=check_owner&t=${Date.now()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ownerKey }),
+          cache: "no-store",
+        });
+        if (!res.ok || !isJsonResponse(res)) return;
+        const data = (await res.json()) as { ok?: boolean; isOwner?: boolean };
+        if (cancelled) return;
+        setIsOwner(!!data?.isOwner);
+      } catch {
+        return;
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerKey, roomStatus, saveUrl]);
 
   useEffect(() => {
     const poll = async () => {
       try {
+        if (roomStatus === "deleted") return;
         if (backendModeRef.current === "local") return;
         const res = await fetch(`${saveUrl}&t=${Date.now()}`, { cache: "no-store" });
+        if (res.status === 410) {
+          setRoomStatus("deleted");
+          gatedToast("room-deleted", "Room was deleted", "This room no longer exists.");
+          return;
+        }
         if (!res.ok) return;
         if (!isJsonResponse(res)) throw new Error("backend");
         const data = (await res.json()) as RoomFileV1;
         if (!data || data.v !== 1) return;
         backendModeRef.current = "php";
+        setRoomStatus("active");
         if (data.updatedBy === clientId.current) return;
         if ((data.updatedAt || 0) <= lastSeenUpdatedAtRef.current) return;
         applyRemote(data);
@@ -450,7 +633,7 @@ const Index = () => {
 
     const id = window.setInterval(poll, 1200);
     return () => window.clearInterval(id);
-  }, [applyRemote, saveUrl]);
+  }, [applyRemote, gatedToast, roomStatus, saveUrl]);
 
   useEffect(() => {
     const SpeechRecognitionCtor =
@@ -602,6 +785,48 @@ const Index = () => {
     [roomId, sendPresence],
   );
 
+  const deleteRoom = useCallback(async () => {
+    try {
+      const res = await fetch(`${saveUrl}&mode=delete&t=${Date.now()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerKey, updatedBy: clientId.current }),
+        cache: "no-store",
+      });
+      if (res.status === 404 || res.status === 410) {
+        setRoomStatus(res.status === 410 ? "deleted" : "missing");
+        gatedToast(
+          "room-delete-missing",
+          "Room not found",
+          "This room does not exist or has already been deleted.",
+        );
+        return;
+      }
+      if (res.status === 403) {
+        gatedToast("room-delete-forbidden", "Only the room creator can delete this room.", "Ask the creator to delete it.");
+        return;
+      }
+      if (!res.ok || !isJsonResponse(res)) throw new Error("backend");
+      setRoomStatus("deleted");
+      setIsOwner(false);
+      gatedToast("room-deleted", "Room deleted", "This link will no longer work.");
+      try {
+        localStorage.removeItem(`whiteboard-room:${roomId}`);
+        localStorage.removeItem(`whiteboard-presence:${roomId}`);
+        localStorage.removeItem(`tutorapp-ownerkey:${roomId}`);
+      } catch {
+        // ignore
+      }
+      setRooms((prev) => {
+        const next = prev.filter((r) => r.id !== roomId);
+        saveRooms(next);
+        return next;
+      });
+    } catch {
+      gatedToast("room-delete-error", "Failed to delete room", "Try again in a moment.");
+    }
+  }, [gatedToast, ownerKey, roomId, saveUrl]);
+
   const usersForBar = useMemo(() => {
     const nowMs = Date.now();
     const ttlMs = 30000;
@@ -630,7 +855,7 @@ const Index = () => {
 
       {/* SEO H1 (visually hidden but present) */}
       <h1 className="sr-only">
-        WhiteboardChat — collaborative whiteboard with live chat overlay
+        tutorapp.quest — collaborative whiteboard with live chat overlay
       </h1>
 
       {/* Drawing surface — full bleed */}
@@ -647,7 +872,18 @@ const Index = () => {
       />
 
       {/* Floating chrome */}
-      <TopBar roomId={roomId} users={usersForBar} selfId={self.id} onRenameSelf={renameSelf} />
+      <TopBar
+        roomId={roomId}
+        roomName={roomName}
+        rooms={rooms}
+        onRenameRoom={renameRoom}
+        onSwitchRoom={switchRoom}
+        isOwner={isOwner}
+        onDeleteRoom={deleteRoom}
+        users={usersForBar}
+        selfId={self.id}
+        onRenameSelf={renameSelf}
+      />
       <Toolbar
         tool={tool}
         setTool={setTool}

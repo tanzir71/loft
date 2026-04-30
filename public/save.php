@@ -30,8 +30,13 @@ $filePath = $dir . DIRECTORY_SEPARATOR . $room . '.json';
 $empty = [
   'v' => 1,
   'room' => $room,
+  'createdAt' => 0,
+  'createdBy' => '',
   'updatedAt' => 0,
   'updatedBy' => '',
+  'deletedAt' => 0,
+  'deletedBy' => '',
+  'ownerHash' => '',
   'canvas' => ['strokes' => [], 'items' => []],
   'chat' => [],
   'users' => [],
@@ -84,23 +89,46 @@ function merge_presence(&$state, $user, $nowMs, $ttlMs) {
   $state['users'] = $out;
 }
 
+function is_deleted($state) {
+  return isset($state['deletedAt']) && (int)$state['deletedAt'] > 0;
+}
+
+function public_state($state) {
+  if (isset($state['ownerHash'])) unset($state['ownerHash']);
+  return $state;
+}
+
+function hash_owner_key($key) {
+  $k = (string)$key;
+  if ($k === '') return '';
+  return hash('sha256', $k);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   if (!is_file($filePath)) {
-    echo json_encode($empty, JSON_UNESCAPED_SLASHES);
+    http_response_code(404);
+    echo json_encode(['ok' => false, 'error' => 'not_found', 'room' => $room], JSON_UNESCAPED_SLASHES);
     exit;
   }
   $raw = @file_get_contents($filePath);
   if ($raw === false || trim($raw) === '') {
-    echo json_encode($empty, JSON_UNESCAPED_SLASHES);
+    http_response_code(404);
+    echo json_encode(['ok' => false, 'error' => 'not_found', 'room' => $room], JSON_UNESCAPED_SLASHES);
     exit;
   }
   $decoded = json_decode($raw, true);
   if (!is_array($decoded)) {
-    echo json_encode($empty, JSON_UNESCAPED_SLASHES);
+    http_response_code(404);
+    echo json_encode(['ok' => false, 'error' => 'not_found', 'room' => $room], JSON_UNESCAPED_SLASHES);
+    exit;
+  }
+  if (is_deleted($decoded)) {
+    http_response_code(410);
+    echo json_encode(['ok' => false, 'error' => 'deleted', 'room' => $room], JSON_UNESCAPED_SLASHES);
     exit;
   }
   merge_presence($decoded, null, $nowMs, $presenceTtlMs);
-  echo json_encode($decoded, JSON_UNESCAPED_SLASHES);
+  echo json_encode(public_state($decoded), JSON_UNESCAPED_SLASHES);
   exit;
 }
 
@@ -115,7 +143,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
   }
 
-  $fp = @fopen($filePath, 'c+');
+  $fileExists = is_file($filePath);
+
+  if (($mode === 'presence' || $mode === 'delete') && !$fileExists) {
+    http_response_code(404);
+    echo json_encode(['ok' => false, 'error' => 'not_found', 'room' => $room], JSON_UNESCAPED_SLASHES);
+    exit;
+  }
+
+  $fp = @fopen($filePath, $fileExists ? 'c+' : 'c+');
   if ($fp === false) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'Failed to open file'], JSON_UNESCAPED_SLASHES);
@@ -136,13 +172,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (is_array($existingDecoded)) $state = array_merge($state, $existingDecoded);
   }
 
+  if (is_deleted($state)) {
+    flock($fp, LOCK_UN);
+    fclose($fp);
+    http_response_code(410);
+    echo json_encode(['ok' => false, 'error' => 'deleted', 'room' => $room], JSON_UNESCAPED_SLASHES);
+    exit;
+  }
+
+  $ownerKey = isset($decoded['ownerKey']) ? (string)$decoded['ownerKey'] : '';
+  $ownerHash = $ownerKey !== '' ? hash_owner_key($ownerKey) : '';
+
   $user = null;
   if (isset($decoded['user'])) $user = normalize_user($decoded['user'], $nowMs);
   merge_presence($state, $user, $nowMs, $presenceTtlMs);
 
+  $isOwner = false;
+  $existingOwnerHash = isset($state['ownerHash']) ? (string)$state['ownerHash'] : '';
+  if ($existingOwnerHash !== '' && $ownerHash !== '' && hash_equals($existingOwnerHash, $ownerHash)) {
+    $isOwner = true;
+  }
+
+  if ($mode === 'check_owner') {
+    flock($fp, LOCK_UN);
+    fclose($fp);
+    echo json_encode(['ok' => true, 'isOwner' => $isOwner, 'room' => $room], JSON_UNESCAPED_SLASHES);
+    exit;
+  }
+
+  if ($mode === 'delete') {
+    if ($existingOwnerHash === '' || $ownerHash === '' || !hash_equals($existingOwnerHash, $ownerHash)) {
+      flock($fp, LOCK_UN);
+      fclose($fp);
+      http_response_code(403);
+      echo json_encode(['ok' => false, 'error' => 'forbidden', 'room' => $room], JSON_UNESCAPED_SLASHES);
+      exit;
+    }
+    $state['deletedAt'] = $nowMs;
+    $state['deletedBy'] = isset($decoded['updatedBy']) ? (string)$decoded['updatedBy'] : '';
+    $state['updatedAt'] = $nowMs;
+    $state['updatedBy'] = $state['deletedBy'];
+    $state['canvas'] = ['strokes' => [], 'items' => []];
+    $state['chat'] = [];
+    $state['users'] = [];
+  }
+
   if ($mode !== 'presence') {
     $state['v'] = 1;
     $state['room'] = $room;
+    if (!isset($state['createdAt']) || (int)$state['createdAt'] === 0) {
+      $state['createdAt'] = $nowMs;
+    }
+    if (!isset($state['createdBy']) || (string)$state['createdBy'] === '') {
+      $state['createdBy'] = isset($decoded['updatedBy']) ? (string)$decoded['updatedBy'] : '';
+    }
+    if (!isset($state['ownerHash']) || (string)$state['ownerHash'] === '') {
+      if ($ownerHash !== '') $state['ownerHash'] = $ownerHash;
+    }
     $state['updatedAt'] = isset($decoded['updatedAt']) ? (int)$decoded['updatedAt'] : $nowMs;
     $state['updatedBy'] = isset($decoded['updatedBy']) ? (string)$decoded['updatedBy'] : '';
     if (isset($decoded['canvas']) && is_array($decoded['canvas'])) $state['canvas'] = $decoded['canvas'];
@@ -165,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   flock($fp, LOCK_UN);
   fclose($fp);
 
-  echo json_encode(['ok' => true, 'saved' => $state], JSON_UNESCAPED_SLASHES);
+  echo json_encode(['ok' => true, 'saved' => public_state($state), 'isOwner' => $isOwner], JSON_UNESCAPED_SLASHES);
   exit;
 }
 

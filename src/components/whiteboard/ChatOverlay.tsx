@@ -101,7 +101,7 @@ export const ChatOverlay = ({
         className={cn(
           "overflow-hidden rounded-2xl border border-black/5 bg-white/75 text-foreground shadow-[0_20px_60px_-15px_rgba(20,20,40,0.18)] backdrop-blur-2xl",
           "transition-all duration-300 ease-out",
-          !expanded ? "w-[52px] xl:w-[220px]" : "w-full"
+          !expanded ? "w-[52px] min-[1200px]:w-[220px]" : "w-full"
         )}
         style={{
           height: expanded ? 440 : 52,
@@ -119,7 +119,7 @@ export const ChatOverlay = ({
               expand(false);
             }
           }}
-          className="flex h-[52px] w-full cursor-pointer items-center justify-center xl:justify-start gap-2.5 px-0 xl:px-3 text-left transition-colors hover:bg-black/[0.03]"
+          className="flex h-[52px] w-full cursor-pointer items-center justify-center min-[1200px]:justify-start gap-2.5 px-0 min-[1200px]:px-3 text-left transition-colors hover:bg-black/[0.03]"
           aria-label={expanded ? "Collapse chat" : "Expand chat"}
         >
           <div className="relative grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary">
@@ -129,7 +129,7 @@ export const ChatOverlay = ({
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
             {!expanded && unread > 0 && (
-              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground xl:hidden">
+              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground min-[1200px]:hidden">
                 {unread}
               </span>
             )}
@@ -137,14 +137,19 @@ export const ChatOverlay = ({
 
           {/* Collapsed: show latest message preview */}
           {!expanded && latest ? (
-            <div className="hidden xl:flex min-w-0 flex-1 items-center gap-2">
+            <div className="hidden min-[1200px]:flex min-w-0 flex-1 items-center gap-2">
               <span className="shrink-0 text-xs font-semibold text-foreground">
                 {latest.author}
               </span>
               <span className="truncate text-xs text-surface-muted">{latest.text}</span>
             </div>
           ) : (
-            <div className={cn("min-w-0 flex-1 items-center gap-2", expanded ? "flex" : "hidden xl:flex")}>
+            <div
+              className={cn(
+                "min-w-0 flex-1 items-center gap-2",
+                expanded ? "flex" : "hidden min-[1200px]:flex",
+              )}
+            >
               <span className="text-xs font-semibold tracking-wide text-foreground">
                 LIVE CHAT
               </span>
@@ -173,7 +178,7 @@ export const ChatOverlay = ({
             </div>
           ) : (
             unread > 0 && (
-              <span className="hidden xl:grid h-5 min-w-5 mr-3 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+              <span className="hidden min-[1200px]:grid h-5 min-w-5 mr-3 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                 {unread}
               </span>
             )
