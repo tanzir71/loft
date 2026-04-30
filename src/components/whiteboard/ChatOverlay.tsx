@@ -161,10 +161,10 @@ export const ChatOverlay = () => {
               expand(false);
             }
           }}
-          className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-black/[0.03]"
+          className="flex h-[52px] w-full items-center gap-2.5 px-3 text-left transition-colors hover:bg-black/[0.03]"
           aria-label={expanded ? "Collapse chat" : "Expand chat"}
         >
-          <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary">
+          <div className="relative grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary">
             <MessageCircle className="h-4 w-4 text-foreground/70" />
             <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 anim-pulse-dot" />
@@ -206,7 +206,7 @@ export const ChatOverlay = () => {
             "flex flex-col px-3 transition-opacity duration-200",
             expanded ? "opacity-100" : "pointer-events-none opacity-0",
           )}
-          style={{ height: 440 - 56 }}
+          style={{ height: 440 - 52 }}
         >
           <div
             ref={listRef}
