@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, MessageCircle, X, Mic, MicOff, ChevronDown } from "lucide-react";
+import { Send, MessageCircle, Minus, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ChatMessage {
@@ -23,32 +23,87 @@ const SEED: ChatMessage[] = [
     id: "2",
     author: "Kenji",
     avatarColor: "#1fc7a8",
-    text: "Love the asymmetry. Maybe pull the CTA to the right?",
+    text: "Love the asymmetry. Maybe pull the CTA right?",
     time: "08:31",
-  },
-  {
-    id: "3",
-    author: "Me",
-    avatarColor: "#ff6b6b",
-    text: "Trying that now — give me a sec.",
-    time: "08:32",
-    mine: true,
   },
 ];
 
+// Demo incoming messages so users can see auto-expand in action
+const DEMO_INCOMING: Omit<ChatMessage, "id" | "time">[] = [
+  { author: "Ada", avatarColor: "#6d5cff", text: "Just added a sticky note on the canvas 📌" },
+  { author: "Kenji", avatarColor: "#1fc7a8", text: "Looks great — shipping the v2 now." },
+  { author: "Ada", avatarColor: "#6d5cff", text: "Anyone want to jump on a quick call?" },
+];
+
+const AUTO_COLLAPSE_MS = 4500;
+
 export const ChatOverlay = () => {
-  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false); // user-forced open
   const [messages, setMessages] = useState<ChatMessage[]>(SEED);
   const [input, setInput] = useState("");
   const [micOn, setMicOn] = useState(true);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [unread, setUnread] = useState(0);
 
+  const listRef = useRef<HTMLDivElement>(null);
+  const collapseTimer = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const now = () =>
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const scheduleCollapse = () => {
+    if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
+    collapseTimer.current = window.setTimeout(() => {
+      if (!pinned && document.activeElement !== inputRef.current) {
+        setExpanded(false);
+      }
+    }, AUTO_COLLAPSE_MS);
+  };
+
+  const expand = (auto = false) => {
+    setExpanded(true);
+    setUnread(0);
+    if (auto) scheduleCollapse();
+  };
+
+  // Scroll to bottom when messages change & expanded
   useEffect(() => {
+    if (!expanded) return;
     listRef.current?.scrollTo({
       top: listRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, open]);
+  }, [messages, expanded]);
+
+  // Simulate incoming messages on a loop
+  useEffect(() => {
+    let i = 0;
+    const tick = () => {
+      const next = DEMO_INCOMING[i % DEMO_INCOMING.length];
+      i++;
+      const msg: ChatMessage = {
+        ...next,
+        id: crypto.randomUUID(),
+        time: now(),
+      };
+      setMessages((m) => [...m, msg]);
+      // Auto-expand on new message
+      setExpanded(true);
+      setUnread(0);
+      if (!pinned) scheduleCollapse();
+    };
+    const interval = window.setInterval(tick, 9000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinned]);
+
+  // When a new message arrives while collapsed, count unread
+  useEffect(() => {
+    if (!expanded && messages.length > 0) {
+      setUnread((u) => u + 0); // handled in tick; placeholder for clarity
+    }
+  }, [messages, expanded]);
 
   const send = () => {
     const text = input.trim();
@@ -60,115 +115,149 @@ export const ChatOverlay = () => {
         author: "Me",
         avatarColor: "#ff6b6b",
         text,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        time: now(),
         mine: true,
       },
     ]);
     setInput("");
+    if (!pinned) scheduleCollapse();
   };
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className={cn(
-          "fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3",
-          "glass-dark text-white anim-pop hover:scale-[1.02] transition-transform",
-        )}
-        aria-label="Open chat"
-      >
-        <MessageCircle className="h-4 w-4" />
-        <span className="text-sm font-medium">Chat</span>
-        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold">
-          {messages.length}
-        </span>
-      </button>
-    );
-  }
+  const latest = messages[messages.length - 1];
+
+  // Cancel auto-collapse while hovering
+  const onMouseEnter = () => {
+    if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
+  };
+  const onMouseLeave = () => {
+    if (!pinned && expanded) scheduleCollapse();
+  };
 
   return (
-    <div className="pointer-events-none absolute inset-y-0 right-0 z-30 flex w-full max-w-md flex-col">
-      {/* Gradient veil so chat reads on any background */}
+    <div
+      className="fixed bottom-5 right-5 z-40 w-[340px]"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "var(--gradient-chat)" }}
-      />
-
-      {/* Header */}
-      <div className="pointer-events-auto relative z-10 flex items-center justify-between px-5 pt-5">
-        <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-white/90 backdrop-blur-md">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 anim-pulse-dot" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-          </span>
-          <span className="text-xs font-medium tracking-wide">LIVE CHAT</span>
-          <span className="text-xs text-white/60">· 3 here</span>
-        </div>
-        <button
-          onClick={() => setOpen(false)}
-          className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white/80 hover:bg-white/20"
-          aria-label="Hide chat"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div
-        ref={listRef}
-        className="pointer-events-auto chat-fade-mask relative z-10 flex-1 overflow-y-auto px-5 pb-3 pt-6"
+        className={cn(
+          "overflow-hidden rounded-2xl border border-white/10 bg-black/55 text-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl",
+          "transition-all duration-300 ease-out",
+        )}
+        style={{
+          height: expanded ? 440 : 56,
+        }}
       >
-        <div className="flex flex-col gap-3">
-          {messages.map((m) => (
-            <Message key={m.id} m={m} />
-          ))}
-        </div>
-      </div>
+        {/* Header (always visible) */}
+        <button
+          onClick={() => {
+            if (expanded) {
+              setPinned(false);
+              setExpanded(false);
+              if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
+            } else {
+              setPinned(true);
+              expand(false);
+            }
+          }}
+          className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-white/5"
+          aria-label={expanded ? "Collapse chat" : "Expand chat"}
+        >
+          <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10">
+            <MessageCircle className="h-4 w-4" />
+            <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 anim-pulse-dot" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            </span>
+          </div>
 
-      {/* Composer */}
-      <div className="pointer-events-auto relative z-10 px-4 pb-5">
+          {/* Collapsed: show latest message preview */}
+          {!expanded && latest ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="shrink-0 text-xs font-semibold text-white/90">
+                {latest.author}
+              </span>
+              <span className="truncate text-xs text-white/70">{latest.text}</span>
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="text-xs font-semibold tracking-wide text-white/90">
+                LIVE CHAT
+              </span>
+              <span className="text-[11px] text-white/50">· 3 here</span>
+            </div>
+          )}
+
+          {expanded ? (
+            <Minus className="h-4 w-4 text-white/60" />
+          ) : (
+            unread > 0 && (
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold">
+                {unread}
+              </span>
+            )
+          )}
+        </button>
+
+        {/* Expanded body */}
         <div
           className={cn(
-            "flex items-center gap-2 rounded-2xl border border-white/15 bg-black/40 p-1.5 pl-4 backdrop-blur-xl",
-            "shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)]",
+            "flex flex-col px-3 transition-opacity duration-200",
+            expanded ? "opacity-100" : "pointer-events-none opacity-0",
           )}
+          style={{ height: 440 - 56 }}
         >
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="Say something…"
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none"
-          />
-          <button
-            onClick={() => setMicOn((v) => !v)}
-            className={cn(
-              "grid h-9 w-9 place-items-center rounded-xl text-white/80 transition-colors",
-              micOn ? "bg-white/10 hover:bg-white/20" : "bg-rose-500/80 hover:bg-rose-500",
-            )}
-            aria-label="Toggle mic"
-            title="Hold SPACE to dictate"
+          <div
+            ref={listRef}
+            className="chat-fade-mask flex-1 overflow-y-auto pb-2 pt-2"
           >
-            {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={send}
-            disabled={!input.trim()}
-            className={cn(
-              "grid h-9 w-9 place-items-center rounded-xl text-white transition-all",
-              "bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed",
-            )}
-            aria-label="Send"
-          >
-            <Send className="h-4 w-4" />
-          </button>
+            <div className="flex flex-col gap-2.5">
+              {messages.map((m) => (
+                <Message key={m.id} m={m} />
+              ))}
+            </div>
+          </div>
+
+          {/* Composer */}
+          <div className="pb-3 pt-1">
+            <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-1 pl-3">
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onFocus={() => {
+                  setPinned(true);
+                  if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
+                }}
+                onBlur={() => {
+                  setPinned(false);
+                  scheduleCollapse();
+                }}
+                onKeyDown={(e) => e.key === "Enter" && send()}
+                placeholder="Say something…"
+                className="flex-1 bg-transparent py-1.5 text-[13px] text-white placeholder:text-white/40 focus:outline-none"
+              />
+              <button
+                onClick={() => setMicOn((v) => !v)}
+                className={cn(
+                  "grid h-7 w-7 place-items-center rounded-lg text-white/80 transition-colors",
+                  micOn ? "hover:bg-white/10" : "bg-rose-500/80 hover:bg-rose-500",
+                )}
+                aria-label="Toggle mic"
+              >
+                {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={send}
+                disabled={!input.trim()}
+                className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Send"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
-        <p className="mt-2 px-1 text-[11px] text-white/50">
-          Hold <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-white/70">Space</kbd> to dictate · <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-white/70">Enter</kbd> to send
-        </p>
       </div>
     </div>
   );
@@ -176,25 +265,25 @@ export const ChatOverlay = () => {
 
 const Message = ({ m }: { m: ChatMessage }) => {
   return (
-    <div className={cn("flex gap-2.5 anim-rise", m.mine && "flex-row-reverse")}>
+    <div className={cn("flex gap-2 anim-rise", m.mine && "flex-row-reverse")}>
       <div
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white shadow-lg"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white shadow-md"
         style={{ backgroundColor: m.avatarColor }}
         aria-hidden
       >
         {m.author.slice(0, 1).toUpperCase()}
       </div>
-      <div className={cn("flex max-w-[85%] flex-col gap-1", m.mine && "items-end")}>
-        <div className="flex items-center gap-2 px-1 text-[11px] text-white/60">
-          <span className="font-medium text-white/85">{m.author}</span>
+      <div className={cn("flex max-w-[78%] flex-col gap-0.5", m.mine && "items-end")}>
+        <div className="flex items-center gap-1.5 px-1 text-[10px] text-white/55">
+          <span className="font-medium text-white/80">{m.author}</span>
           <span>{m.time}</span>
         </div>
         <div
           className={cn(
-            "rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed text-white shadow-lg backdrop-blur-md",
+            "rounded-xl px-3 py-1.5 text-[12.5px] leading-snug text-white shadow-md",
             m.mine
-              ? "bg-primary/85 rounded-tr-md"
-              : "bg-white/10 rounded-tl-md border border-white/10",
+              ? "bg-primary/85 rounded-tr-sm"
+              : "bg-white/10 rounded-tl-sm border border-white/10",
           )}
         >
           {m.text}
