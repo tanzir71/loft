@@ -149,6 +149,8 @@ export const Whiteboard = ({
   useEffect(() => {
     if (clearSignal === 0) return;
     setStrokes([]);
+    setItems([]);
+    setEditingId(null);
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -174,6 +176,13 @@ export const Whiteboard = ({
     a.click();
   }, [exportSignal]);
 
+  const cursorFor = (t: Tool) => {
+    if (t === "eraser") return "cell";
+    if (t === "text") return "text";
+    if (t === "sticky") return "copy";
+    return "crosshair";
+  };
+
   return (
     <div ref={wrapRef} className="absolute inset-0">
       <canvas
@@ -183,8 +192,75 @@ export const Whiteboard = ({
         onPointerUp={onUp}
         onPointerCancel={onUp}
         className="absolute inset-0 touch-none"
-        style={{ cursor: tool === "eraser" ? "cell" : "crosshair" }}
+        style={{ cursor: cursorFor(tool) }}
       />
+
+      {/* Text + sticky overlays */}
+      {items.map((it) => {
+        const isSticky = it.type === "sticky";
+        const editing = editingId === it.id;
+        const commonStyle: React.CSSProperties = {
+          left: it.x,
+          top: it.y,
+          transform: isSticky ? "translate(-8px, -8px)" : "translate(0, -8px)",
+        };
+        if (editing) {
+          return (
+            <textarea
+              key={it.id}
+              autoFocus
+              value={it.text}
+              onChange={(e) =>
+                setItems((prev) =>
+                  prev.map((p) =>
+                    p.id === it.id ? { ...p, text: e.target.value } : p,
+                  ),
+                )
+              }
+              onBlur={() => {
+                setEditingId(null);
+                setItems((prev) =>
+                  prev.filter((p) => p.id !== it.id || p.text.trim().length > 0),
+                );
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") (e.target as HTMLTextAreaElement).blur();
+              }}
+              placeholder={isSticky ? "Sticky note…" : "Type…"}
+              className="absolute resize-none rounded-lg p-2 text-sm leading-snug shadow-md outline-none focus:ring-2 focus:ring-primary"
+              style={{
+                ...commonStyle,
+                minWidth: isSticky ? 160 : 120,
+                minHeight: isSticky ? 160 : 32,
+                background: isSticky ? it.color : "transparent",
+                color: isSticky ? "#1a1d2e" : it.color,
+                border: isSticky ? "none" : "1px dashed hsl(var(--border))",
+                fontWeight: isSticky ? 500 : 400,
+              }}
+            />
+          );
+        }
+        return (
+          <div
+            key={it.id}
+            onDoubleClick={() => setEditingId(it.id)}
+            className="absolute cursor-text whitespace-pre-wrap rounded-lg p-2 text-sm leading-snug"
+            style={{
+              ...commonStyle,
+              minWidth: isSticky ? 160 : undefined,
+              minHeight: isSticky ? 160 : undefined,
+              background: isSticky ? it.color : "transparent",
+              color: isSticky ? "#1a1d2e" : it.color,
+              boxShadow: isSticky
+                ? "0 6px 18px -6px rgba(0,0,0,0.25)"
+                : undefined,
+              fontWeight: isSticky ? 500 : 400,
+            }}
+          >
+            {it.text}
+          </div>
+        );
+      })}
     </div>
   );
 };
