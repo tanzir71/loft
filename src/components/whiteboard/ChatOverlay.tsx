@@ -141,7 +141,7 @@ export const ChatOverlay = () => {
     >
       <div
         className={cn(
-          "overflow-hidden rounded-2xl border border-white/10 bg-black/55 text-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl",
+          "overflow-hidden rounded-2xl border border-black/5 bg-white/75 text-foreground shadow-[0_20px_60px_-15px_rgba(20,20,40,0.18)] backdrop-blur-2xl",
           "transition-all duration-300 ease-out",
         )}
         style={{
@@ -160,39 +160,39 @@ export const ChatOverlay = () => {
               expand(false);
             }
           }}
-          className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-white/5"
+          className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-black/[0.03]"
           aria-label={expanded ? "Collapse chat" : "Expand chat"}
         >
-          <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10">
-            <MessageCircle className="h-4 w-4" />
+          <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary">
+            <MessageCircle className="h-4 w-4 text-foreground/70" />
             <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 anim-pulse-dot" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 anim-pulse-dot" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
           </div>
 
           {/* Collapsed: show latest message preview */}
           {!expanded && latest ? (
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="shrink-0 text-xs font-semibold text-white/90">
+              <span className="shrink-0 text-xs font-semibold text-foreground">
                 {latest.author}
               </span>
-              <span className="truncate text-xs text-white/70">{latest.text}</span>
+              <span className="truncate text-xs text-surface-muted">{latest.text}</span>
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="text-xs font-semibold tracking-wide text-white/90">
+              <span className="text-xs font-semibold tracking-wide text-foreground">
                 LIVE CHAT
               </span>
-              <span className="text-[11px] text-white/50">· 3 here</span>
+              <span className="text-[11px] text-surface-muted">· 3 here</span>
             </div>
           )}
 
           {expanded ? (
-            <Minus className="h-4 w-4 text-white/60" />
+            <Minus className="h-4 w-4 text-surface-muted" />
           ) : (
             unread > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold">
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                 {unread}
               </span>
             )
@@ -220,7 +220,7 @@ export const ChatOverlay = () => {
 
           {/* Composer */}
           <div className="pb-3 pt-1">
-            <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-1 pl-3">
+            <div className="flex items-center gap-1.5 rounded-xl border border-black/5 bg-secondary/70 p-1 pl-3">
               <input
                 ref={inputRef}
                 value={input}
@@ -235,13 +235,15 @@ export const ChatOverlay = () => {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && send()}
                 placeholder="Say something…"
-                className="flex-1 bg-transparent py-1.5 text-[13px] text-white placeholder:text-white/40 focus:outline-none"
+                className="flex-1 bg-transparent py-1.5 text-[13px] text-foreground placeholder:text-surface-muted focus:outline-none"
               />
               <button
                 onClick={() => setMicOn((v) => !v)}
                 className={cn(
-                  "grid h-7 w-7 place-items-center rounded-lg text-white/80 transition-colors",
-                  micOn ? "hover:bg-white/10" : "bg-rose-500/80 hover:bg-rose-500",
+                  "grid h-7 w-7 place-items-center rounded-lg transition-colors",
+                  micOn
+                    ? "text-surface-muted hover:bg-black/5 hover:text-foreground"
+                    : "bg-rose-500 text-white hover:bg-rose-600",
                 )}
                 aria-label="Toggle mic"
               >
@@ -250,7 +252,7 @@ export const ChatOverlay = () => {
               <button
                 onClick={send}
                 disabled={!input.trim()}
-                className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send"
               >
                 <Send className="h-3.5 w-3.5" />
@@ -267,23 +269,23 @@ const Message = ({ m }: { m: ChatMessage }) => {
   return (
     <div className={cn("flex gap-2 anim-rise", m.mine && "flex-row-reverse")}>
       <div
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white shadow-md"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white shadow-sm ring-2 ring-white"
         style={{ backgroundColor: m.avatarColor }}
         aria-hidden
       >
         {m.author.slice(0, 1).toUpperCase()}
       </div>
       <div className={cn("flex max-w-[78%] flex-col gap-0.5", m.mine && "items-end")}>
-        <div className="flex items-center gap-1.5 px-1 text-[10px] text-white/55">
-          <span className="font-medium text-white/80">{m.author}</span>
+        <div className="flex items-center gap-1.5 px-1 text-[10px] text-surface-muted">
+          <span className="font-medium text-foreground/80">{m.author}</span>
           <span>{m.time}</span>
         </div>
         <div
           className={cn(
-            "rounded-xl px-3 py-1.5 text-[12.5px] leading-snug text-white shadow-md",
+            "rounded-xl px-3 py-1.5 text-[12.5px] leading-snug shadow-sm",
             m.mine
-              ? "bg-primary/85 rounded-tr-sm"
-              : "bg-white/10 rounded-tl-sm border border-white/10",
+              ? "rounded-tr-sm bg-primary text-primary-foreground"
+              : "rounded-tl-sm border border-black/5 bg-white text-foreground",
           )}
         >
           {m.text}
