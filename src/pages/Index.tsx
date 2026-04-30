@@ -14,7 +14,8 @@ const Index = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "p" || e.key === "P") setTool("pen");
       if (e.key === "e" || e.key === "E") setTool("eraser");
       if (e.key === "t" || e.key === "T") setTool("text");
