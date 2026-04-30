@@ -1,4 +1,4 @@
-import { Eraser, Pen, Trash2, Download, Undo2, Minus, Plus } from "lucide-react";
+import { Eraser, Pen, Trash2, Download, Minus, Plus, Type, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tool } from "./Whiteboard";
 
@@ -51,6 +51,22 @@ export const Toolbar = ({
           shortcut="E"
         >
           <Eraser className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn
+          active={tool === "text"}
+          onClick={() => setTool("text")}
+          label="Text"
+          shortcut="T"
+        >
+          <Type className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn
+          active={tool === "sticky"}
+          onClick={() => setTool("sticky")}
+          label="Sticky note"
+          shortcut="S"
+        >
+          <StickyNote className="h-4 w-4" />
         </ToolBtn>
       </div>
 
