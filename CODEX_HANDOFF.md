@@ -472,7 +472,7 @@ Rules:
 - [x] JSON backup export + invoices CSV + login rate limiting
 - [x] Full Playwright smoke suite (tutor/student/parent) green; `npm run build` clean
 - [x] Branding pass: "TutorLoft" wordmark, titles, invoice prefix, email subjects per §1
-- [ ] Final review: every §5 acceptance criterion re-verified; update README with setup + deploy guide
+- [x] Final review: every §5 acceptance criterion re-verified; update README with setup + deploy guide
 
 ---
 
@@ -547,3 +547,4 @@ Rules:
 2026-07-07 | P10 exports and login throttling | Added tutor-only JSON backup, invoices CSV export, visible export links, email-based login throttling, and unit/e2e coverage; verified `npm run check` and full Playwright e2e.
 2026-07-07 | P10 smoke and build gate | Verified `npm run check`, full Playwright e2e, and clean `npm run build`; installed allowed `@vercel/blob` package to remove optional upload warning and added local SQLite busy timeout coverage for stable e2e resets.
 2026-07-07 | P10 branding pass | Added shared TutorLoft wordmark component, wired branded landing/auth/invoice/report headers, added README branding/setup/deploy notes, and covered wordmark/README with unit tests; Browser iab unavailable so rendered QA used Playwright fallback screenshots; verified `npm run check`, full Playwright e2e, and clean `npm run build`.
+2026-07-07 | P10 final review | Re-read §5 acceptance criteria against the committed unit/e2e coverage, expanded README setup/environment/verification/deployment guidance, added Vercel cron config for `/api/cron`, and verified `npm run check`, full Playwright e2e, and clean `npm run build`.

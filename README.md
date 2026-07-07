@@ -36,6 +36,28 @@ npm run seed
 npm run dev
 ```
 
+The local app uses `file:./data/dev.db` by default. The `data/` directory is ignored by Git.
+
+## Environment
+
+Required for local development:
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | Use `file:./data/dev.db` locally. |
+| `AUTH_SECRET` | Long random string for Auth.js and encrypted AI settings. |
+| `TUTOR_EMAIL` | Tutor seed account email. |
+| `TUTOR_PASSWORD` | Tutor seed account password, minimum 8 characters. |
+
+Production-only or optional:
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_AUTH_TOKEN` | Turso/libSQL token for `libsql://` production databases. |
+| `CRON_SECRET` | Guards `/api/cron`; set this before enabling the Vercel cron. |
+| `RESEND_API_KEY` | Enables invite, invoice, reminder, and digest email. |
+| `BLOB_READ_WRITE_TOKEN` | Enables Vercel Blob file uploads. |
+
 ## Verification
 
 Use the same commands Codex uses before marking handoff work complete:
@@ -46,6 +68,27 @@ npm run e2e
 npm run build
 ```
 
+The Playwright suite covers tutor, student, and parent happy paths. Unit tests cover the domain rules called out in `CODEX_HANDOFF.md`, including authz, billing math, scheduling, content gating, quiz grading, classroom feedback, automations, AI adapters, exports, and branding.
+
 ## Deployment
 
-TutorLoft is designed for Vercel Hobby with Turso/libSQL. Set `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `AUTH_SECRET`, `TUTOR_EMAIL`, and `TUTOR_PASSWORD` in the Vercel project. Optional integrations are enabled by environment variables: `RESEND_API_KEY` for email and `BLOB_READ_WRITE_TOKEN` for Vercel Blob uploads.
+TutorLoft is designed for Vercel Hobby with Turso/libSQL.
+
+1. Create a Turso/libSQL database and copy its `libsql://` URL and auth token.
+2. Set Vercel environment variables: `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `AUTH_SECRET`, `TUTOR_EMAIL`, `TUTOR_PASSWORD`, and `CRON_SECRET`.
+3. Add optional `RESEND_API_KEY` and `BLOB_READ_WRITE_TOKEN` only when those integrations should be enabled.
+4. Run migrations against production:
+
+```bash
+DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." npm run db:migrate
+```
+
+5. Seed the tutor once:
+
+```bash
+DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." TUTOR_EMAIL="..." TUTOR_PASSWORD="..." npm run seed
+```
+
+6. Deploy to Vercel. `vercel.json` schedules `/api/cron` daily at 02:00 UTC; the route stays inert unless `CRON_SECRET` is set.
+
+After deploy, run a smoke check by signing in as the tutor, creating a student invite, and confirming the student can reach `/home`.
