@@ -452,7 +452,7 @@ Rules:
 - [x] P8 acceptance tests green
 
 **P9 AI (BYOK, optional)**
-- [ ] `lib/crypto.ts` AES-GCM + HKDF with round-trip tests; AI settings page with masked key + test button
+- [x] `lib/crypto.ts` AES-GCM + HKDF with round-trip tests; AI settings page with masked key + test button
 - [ ] `lib/ai/provider.ts` fetch adapters (openrouter/anthropic/openai/google, OpenRouter default) + JSON extraction/repair + mocked tests
 - [ ] Shared plumbing: `lib/ai/sources.ts` (paste/URL/materials/YouTube-or-paste) + prompt_history save/reuse + differentiation controls component
 - [ ] Course outline generator → editable module plan → materialize draft modules + stub materials (mocked e2e)
@@ -529,3 +529,4 @@ Rules:
 2026-07-07 | P8 read-time fallbacks | Added safe read-time automation on student/parent/course/quiz reads for sessions, scheduled publishing, and quiz close; kept invoice drafting cron/manual-only to avoid billing-number side effects.
 2026-07-07 | P8 daily digest | Added optional Resend daily digest to the tutor with today's sessions, ungraded assignments/manual quiz answers, overdue invoices, and once-per-day activity-log dedupe.
 2026-07-07 | P8 acceptance | Verified `npm run check` (typecheck, lint, 66 unit tests) and `npm run e2e` (18 Playwright tests) after cron, reminders, read-time fallbacks, and daily digest automation.
+2026-07-07 | P9 crypto/settings | Added AES-GCM + HKDF encrypted secret helpers, encrypted AI settings persistence with masked key hints, settings save/test UI, unit round-trip coverage, and Playwright smoke.

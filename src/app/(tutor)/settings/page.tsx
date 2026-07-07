@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { Button } from "@/components/ui/button";
+import { readAiSettings, saveAiSettings, testAiSettings } from "@/lib/ai-settings";
 import { requireTutor } from "@/lib/authz";
 import { regenerateIcsToken } from "@/lib/calendar-feed";
 import { hasEmail } from "@/lib/features";
@@ -28,6 +29,10 @@ function requestOrigin(requestHeaders: Headers) {
     (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
 
   return `${protocol}://${host}`;
+}
+
+function encryptionSecret() {
+  return process.env.AUTH_SECRET ?? "dev-only-change-me-for-production";
 }
 
 async function createInviteAction(formData: FormData) {
@@ -79,10 +84,40 @@ async function regenerateCalendarFeedAction() {
   redirect("/settings?calendar=regenerated");
 }
 
+async function saveAiSettingsAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await saveAiSettings(getDb(), {
+    apiKey: String(formData.get("apiKey") ?? ""),
+    encryptionSecret: encryptionSecret(),
+    model: String(formData.get("model") ?? ""),
+    provider: String(formData.get("provider") ?? "openrouter"),
+  });
+
+  redirect("/settings?ai=saved");
+}
+
+async function testAiSettingsAction() {
+  "use server";
+
+  await requireTutor();
+  const result = await testAiSettings(getDb(), {
+    encryptionSecret: encryptionSecret(),
+  });
+  const params = new URLSearchParams({
+    aiTest: result.ok ? "ok" : result.reason,
+  });
+
+  redirect(`/settings?${params.toString()}`);
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    ai?: "saved";
+    aiTest?: "ok" | "missing_key" | "invalid_key";
     created?: string;
     delivery?: "copy" | "email";
     inviteUrl?: string;
@@ -104,6 +139,7 @@ export default async function SettingsPage({
     database.select().from(users).where(eq(users.role, "student")),
     database.select({ icsToken: users.icsToken }).from(users).where(eq(users.id, tutor.id)),
   ]);
+  const aiSettings = await readAiSettings(database);
   const tutorIcsToken = tutorRows[0]?.icsToken ?? null;
   const calendarFeedUrl = tutorIcsToken
     ? new URL(`/api/ics/${tutorIcsToken}`, origin).toString()
@@ -191,6 +227,75 @@ export default async function SettingsPage({
               {calendarFeedUrl ? "Regenerate calendar feed" : "Generate calendar feed"}
             </Button>
           </form>
+
+          <section className="mt-8 border-t pt-6">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              AI settings
+            </p>
+            {params.ai === "saved" ? (
+              <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                AI settings saved.
+              </div>
+            ) : null}
+            {params.aiTest ? (
+              <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                {params.aiTest === "ok"
+                  ? "AI key decrypted successfully."
+                  : params.aiTest === "missing_key"
+                    ? "Save an AI key before testing."
+                    : "Saved AI key could not be decrypted."}
+              </div>
+            ) : null}
+            <form action={saveAiSettingsAction} className="mt-6 space-y-4">
+              <label className="block text-sm font-medium" htmlFor="provider">
+                Provider
+              </label>
+              <select
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="provider"
+                name="provider"
+                defaultValue={aiSettings.provider}
+              >
+                <option value="openrouter">OpenRouter</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="openai">OpenAI</option>
+                <option value="google">Google</option>
+              </select>
+              <label className="block text-sm font-medium" htmlFor="model">
+                Model
+              </label>
+              <input
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="model"
+                name="model"
+                placeholder="openai/gpt-4.1-mini"
+                defaultValue={aiSettings.model}
+              />
+              <label className="block text-sm font-medium" htmlFor="apiKey">
+                API key
+              </label>
+              <input
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="apiKey"
+                name="apiKey"
+                placeholder={aiSettings.hasKey ? "Leave blank to keep saved key" : "Paste API key"}
+                type="password"
+              />
+              <p className="text-xs text-muted-foreground">
+                {aiSettings.hasKey && aiSettings.maskedKey
+                  ? `Saved key: ${aiSettings.maskedKey}`
+                  : "No AI key saved."}
+              </p>
+              <Button type="submit" variant="gradient">
+                Save AI settings
+              </Button>
+            </form>
+            <form action={testAiSettingsAction} className="mt-3">
+              <Button type="submit" variant="outline">
+                Test AI key
+              </Button>
+            </form>
+          </section>
         </section>
 
         <section className="flex-1 rounded-2xl border bg-card p-6 shadow-soft">
