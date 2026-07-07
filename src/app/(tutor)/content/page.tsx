@@ -12,6 +12,10 @@ import {
   materializeCourseOutlinePlan,
 } from "@/lib/ai/course-outline";
 import {
+  generateDerivedResourcePlan,
+  materializeDerivedResourcePlan,
+} from "@/lib/ai/derived-resources";
+import {
   generateLessonPlanDraft,
   regenerateLessonPlanSection,
 } from "@/lib/ai/lesson-plan";
@@ -164,6 +168,60 @@ function lessonPlanMockFetch() {
   }) as typeof fetch;
 }
 
+function derivedResourcesMockFetch() {
+  if (process.env.PLAYWRIGHT !== "1") {
+    return undefined;
+  }
+
+  return (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                lecture: {
+                  bodyMd: "# Explain one-step equations\nUse balance language.",
+                  title: "AI lecture: one-step equations",
+                },
+                quiz: {
+                  instructionsMd: "Check equation fluency.",
+                  questions: [
+                    {
+                      correctOptionId: "a",
+                      options: [
+                        { id: "a", text: "5" },
+                        { id: "b", text: "11" },
+                      ],
+                      points: 1,
+                      promptMd: "Solve x + 3 = 8.",
+                      type: "mcq_single",
+                    },
+                  ],
+                  title: "AI quiz: one-step equations",
+                },
+                rubric: {
+                  bodyMd: "Show your equation steps.",
+                  points: 10,
+                  rubricMd: "- Accuracy: 5\n- Reasoning: 5",
+                  title: "AI equation practice",
+                },
+                study: {
+                  bodyMd: "Key idea: inverse operations undo each other.",
+                  title: "AI study notes: one-step equations",
+                },
+                worksheet: {
+                  bodyMd: "1. Solve x + 3 = 8\n2. Solve y - 4 = 9",
+                  title: "AI worksheet: one-step equations",
+                },
+              }),
+            },
+          },
+        ],
+      }),
+    )) as typeof fetch;
+}
+
 function standardIds(formData: FormData) {
   return formData
     .getAll("standardId")
@@ -176,6 +234,13 @@ function componentIds(formData: FormData) {
     .getAll("componentId")
     .map((value) => String(value))
     .filter(Boolean);
+}
+
+function resourceKinds(formData: FormData) {
+  return formData
+    .getAll("resourceKind")
+    .map((value) => String(value))
+    .filter(Boolean) as ("lecture" | "study" | "worksheet" | "quiz" | "rubric")[];
 }
 
 function lessonPlanFromForm(formData: FormData) {
@@ -552,11 +617,47 @@ async function regenerateLessonPlanSectionAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+async function generateDerivedResourcesAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const courseId = String(formData.get("courseId") ?? "");
+  const materialId = String(formData.get("materialId") ?? "");
+  let redirectTo = `/content?courseId=${courseId}&derivedResourcesError=ai`;
+
+  try {
+    const database = getDb();
+    const aiSettings = await readAiGenerationSettings(database, {
+      encryptionSecret: encryptionSecret(),
+    });
+    const result = await generateDerivedResourcePlan(database, {
+      apiKey: aiSettings.apiKey,
+      fetchFn: derivedResourcesMockFetch(),
+      materialId,
+      model: aiSettings.model,
+      pastedText: String(formData.get("pastedText") ?? ""),
+      provider: aiSettings.provider,
+      resourceKinds: resourceKinds(formData),
+    });
+    await materializeDerivedResourcePlan(database, {
+      materialId,
+      plan: result.plan,
+    });
+    redirectTo = `/content?courseId=${courseId}&derivedResourcesCreated=1`;
+  } catch {
+    redirectTo = `/content?courseId=${courseId}&derivedResourcesError=ai`;
+  }
+
+  redirect(redirectTo);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
   searchParams: Promise<{
     courseId?: string;
+    derivedResourcesCreated?: string;
+    derivedResourcesError?: "ai";
     lessonPlanCreated?: string;
     lessonPlanError?: "ai";
     lessonSectionRegenerated?: string;
@@ -700,6 +801,16 @@ export default async function ContentPage({
                 {params.lessonSectionRegenerated ? (
                   <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
                     Lesson plan section regenerated.
+                  </div>
+                ) : null}
+                {params.derivedResourcesError ? (
+                  <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    AI derived resources could not be generated.
+                  </div>
+                ) : null}
+                {params.derivedResourcesCreated ? (
+                  <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                    AI derived resources created.
                   </div>
                 ) : null}
                 <form action={generateLessonPlanAction} className="mt-5 space-y-4">
@@ -1218,6 +1329,44 @@ export default async function ContentPage({
                         </div>
                       ) : null}
                     </>
+                  ) : null}
+                  {aiSettings.hasKey ? (
+                    <form action={generateDerivedResourcesAction} className="mt-5 rounded-xl border bg-background p-4">
+                      <input name="courseId" type="hidden" value={selectedCourseId} />
+                      <input name="materialId" type="hidden" value={material.id} />
+                      <p className="text-sm font-semibold">Derived resources</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {[
+                          ["lecture", "Lecture"],
+                          ["study", "Study notes"],
+                          ["worksheet", "Worksheet"],
+                          ["quiz", "Quiz"],
+                          ["rubric", "Rubric assignment"],
+                        ].map(([value, label]) => (
+                          <label
+                            className="flex items-center gap-2 rounded-full border bg-card px-3 py-2 text-xs font-medium"
+                            key={value}
+                          >
+                            <input defaultChecked name="resourceKind" type="checkbox" value={value} />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                      <label
+                        className="mt-4 block text-sm font-medium"
+                        htmlFor={`derived-notes-${material.id}`}
+                      >
+                        Derived resource notes
+                      </label>
+                      <textarea
+                        className="mt-2 min-h-20 w-full rounded-xl border bg-card px-3 py-2 text-sm"
+                        id={`derived-notes-${material.id}`}
+                        name="pastedText"
+                      />
+                      <Button className="mt-3" size="sm" type="submit" variant="outline">
+                        Generate derived resources
+                      </Button>
+                    </form>
                   ) : null}
                   <div className="mt-4 grid gap-3">
                     {(content.linksByMaterial[material.id] ?? []).map((link) => {
