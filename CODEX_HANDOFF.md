@@ -416,7 +416,7 @@ Rules:
 - [x] Invoice generation engine + unit tests (per_session from attendance, monthly_flat, package credits, idempotent drafts, sequential numbering)
 - [x] Invoice lifecycle UI + payment recording + derived partial/paid status
 - [x] Print-friendly invoice page + student/parent billing views + balance
-- [ ] Billing dashboard tiles + optional email send
+- [x] Billing dashboard tiles + optional email send
 - [ ] P4 acceptance tests green
 
 **P5 Course Material Builder**
@@ -503,3 +503,4 @@ Rules:
 2026-07-07 | P4 invoice engine: monthly draft generation | Added monthly invoice generation for per-session, monthly-flat, and package-credit lines with draft regeneration rollback, sequential numbering, and non-draft protection tests.
 2026-07-07 | P4 invoice lifecycle: send, void, and payments | Added tutor invoice list actions, payment recording, paid/partial status derivation from payment totals, unit coverage, and e2e payment-to-paid flow.
 2026-07-07 | P4 invoice views: print detail and portal billing | Made `/billing` role-aware for tutor/student/parent, added scoped `/invoices/[id]` print-friendly detail pages, balance summaries, shared route guards, and e2e student invoice detail coverage.
+2026-07-07 | P4 dashboard and invoice delivery: tiles plus email fallback | Added dashboard billing metrics, optional Resend invoice notices with copy fallback, tutor UI for invoice delivery, unit delivery coverage, and e2e copy-link verification.

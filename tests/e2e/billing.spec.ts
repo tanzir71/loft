@@ -96,6 +96,17 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
   invoiceCard = page.getByRole("article", { name: "Invoice TL-202607-0001" });
   await expect(invoiceCard.getByText(/^Paid$/)).toBeVisible();
   await expect(invoiceCard.getByText("Balance 0")).toBeVisible();
+  await page.getByRole("button", { name: /^email TL-202607-0001$/i }).click();
+  await expect(page).toHaveURL(/invoiceDelivery=copy/);
+  await expect(page.getByText("Email is off. Copy this invoice link.")).toBeVisible();
+  await expect(page.locator("code", { hasText: "/invoices/" })).toBeVisible();
+
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: /^dashboard$/i })).toBeVisible();
+  await expect(page.getByText("Outstanding total")).toBeVisible();
+  await expect(page.getByText("Overdue invoices")).toBeVisible();
+  await expect(page.getByText("Collected this month")).toBeVisible();
+  await expect(page.getByText("300000")).toBeVisible();
 
   await page.goto("/courses");
   await page.getByLabel("Course title").fill("Algebra I");

@@ -24,6 +24,7 @@ import {
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
   generateMonthlyInvoice,
+  getBillingDashboardMetrics,
   getInvoiceDetail,
   listPackageCreditsForParent,
   listPackageCreditsForStudent,
@@ -692,5 +693,51 @@ describe("billing rate plans", () => {
       ],
     });
     expect(voided.status).toBe("void");
+  });
+
+  it("summarizes dashboard billing metrics from balances, overdue invoices, and monthly payments", async () => {
+    const { client, db } = await createMigratedDb();
+    const julyStart = Date.UTC(2026, 6, 1);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createRatePlan(db, {
+      amount: 300000,
+      makeId: () => "package_plan_id",
+      name: "Starter package",
+      sessionsCount: 2,
+      type: "package",
+    });
+    await sellPackage(db, {
+      dueDate: Date.UTC(2026, 6, 10),
+      makeId: (kind) => `${kind}_id`,
+      purchasedAt: julyStart,
+      ratePlanId: "package_plan_id",
+      studentId: "student_id",
+    });
+    await markInvoiceSent(db, {
+      id: "invoice_id",
+      now: () => julyStart,
+    });
+    await recordPayment(db, {
+      amount: 100000,
+      invoiceId: "invoice_id",
+      makeId: () => "payment_id",
+      method: "bank",
+      paidAt: Date.UTC(2026, 6, 11),
+    });
+
+    const metrics = await getBillingDashboardMetrics(db, {
+      now: Date.UTC(2026, 6, 20),
+    });
+    client.close();
+
+    expect(metrics).toEqual({
+      collectedThisMonth: 100000,
+      outstandingTotal: 200000,
+      overdueCount: 1,
+    });
   });
 });

@@ -109,6 +109,10 @@ type RecordPaymentInput = {
   reference?: string | null;
 };
 
+type BillingDashboardMetricsInput = {
+  now?: number;
+};
+
 type PackageCreditSummary = {
   id: string;
   invoiceId: string;
@@ -130,6 +134,7 @@ type TutorInvoiceSummary = typeof invoices.$inferSelect & {
   balance: number;
   displayStatus: InvoiceStatus;
   paidTotal: number;
+  studentEmail: string;
   studentName: string;
 };
 
@@ -378,6 +383,7 @@ function invoiceBalance(invoice: typeof invoices.$inferSelect, paidTotal: number
 async function toInvoiceSummary(
   database: AppDb,
   invoice: typeof invoices.$inferSelect,
+  studentEmail: string,
   studentName: string,
 ): Promise<TutorInvoiceSummary> {
   const paidTotal = await paidTotalForInvoice(database, invoice.id);
@@ -387,6 +393,7 @@ async function toInvoiceSummary(
     balance: invoiceBalance(invoice, paidTotal),
     displayStatus: deriveInvoiceStatus(invoice, paidTotal),
     paidTotal,
+    studentEmail,
     studentName,
   };
 }
@@ -1104,13 +1111,45 @@ export async function listTutorInvoices(database: AppDb): Promise<TutorInvoiceSu
   const rows = await database
     .select({
       invoice: invoices,
+      studentEmail: users.email,
       studentName: users.name,
     })
     .from(invoices)
     .innerJoin(users, eq(invoices.studentId, users.id))
     .orderBy(asc(invoices.number));
 
-  return Promise.all(rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentName)));
+  return Promise.all(
+    rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentEmail, row.studentName)),
+  );
+}
+
+export async function getBillingDashboardMetrics(
+  database: AppDb,
+  input: BillingDashboardMetricsInput = {},
+) {
+  const now = input.now ?? Date.now();
+  const [invoiceSummaries, paymentRows] = await Promise.all([
+    listTutorInvoices(database),
+    database
+      .select({ amount: payments.amount })
+      .from(payments)
+      .where(and(gte(payments.paidAt, utcMonthStart(now)), lt(payments.paidAt, utcNextMonthStart(now)))),
+  ]);
+
+  return {
+    collectedThisMonth: paymentRows.reduce((sum, payment) => sum + payment.amount, 0),
+    outstandingTotal: invoiceSummaries.reduce(
+      (sum, invoice) => sum + (invoice.displayStatus === "void" ? 0 : invoice.balance),
+      0,
+    ),
+    overdueCount: invoiceSummaries.filter(
+      (invoice) =>
+        invoice.displayStatus !== "void" &&
+        invoice.displayStatus !== "paid" &&
+        invoice.balance > 0 &&
+        invoice.dueDate < now,
+    ).length,
+  };
 }
 
 export async function listStudentInvoices(
@@ -1121,6 +1160,7 @@ export async function listStudentInvoices(
   const rows = await database
     .select({
       invoice: invoices,
+      studentEmail: users.email,
       studentName: users.name,
     })
     .from(invoices)
@@ -1128,7 +1168,9 @@ export async function listStudentInvoices(
     .where(eq(invoices.studentId, parsedStudentId))
     .orderBy(asc(invoices.number));
 
-  return Promise.all(rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentName)));
+  return Promise.all(
+    rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentEmail, row.studentName)),
+  );
 }
 
 export async function listParentInvoices(
@@ -1139,6 +1181,7 @@ export async function listParentInvoices(
   const rows = await database
     .select({
       invoice: invoices,
+      studentEmail: users.email,
       studentName: users.name,
     })
     .from(parentLinks)
@@ -1147,7 +1190,9 @@ export async function listParentInvoices(
     .where(eq(parentLinks.parentId, parsedParentId))
     .orderBy(asc(users.name), asc(invoices.number));
 
-  return Promise.all(rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentName)));
+  return Promise.all(
+    rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentEmail, row.studentName)),
+  );
 }
 
 export async function getInvoiceDetail(
@@ -1158,6 +1203,7 @@ export async function getInvoiceDetail(
   const [row] = await database
     .select({
       invoice: invoices,
+      studentEmail: users.email,
       studentName: users.name,
     })
     .from(invoices)
@@ -1169,7 +1215,7 @@ export async function getInvoiceDetail(
   }
 
   const [summary, items, paymentRows] = await Promise.all([
-    toInvoiceSummary(database, row.invoice, row.studentName),
+    toInvoiceSummary(database, row.invoice, row.studentEmail, row.studentName),
     database.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, parsedInvoiceId)),
     database
       .select()

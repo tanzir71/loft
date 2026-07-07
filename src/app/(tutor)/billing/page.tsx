@@ -1,5 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Archive, PackageCheck, Plus, RefreshCw, Save } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -11,6 +12,7 @@ import {
   archiveRatePlan,
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
+  getInvoiceDetail,
   listPackageCredits,
   listParentInvoices,
   listStudentInvoices,
@@ -21,6 +23,7 @@ import {
   updateRatePlan,
   voidInvoice,
 } from "@/lib/billing";
+import { deliverInvoice } from "@/lib/invoice-delivery";
 
 export const metadata: Metadata = {
   title: "Billing",
@@ -63,6 +66,20 @@ function creditLabel(remaining: number) {
 
 function statusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function requestOrigin(requestHeaders: Headers) {
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+
+  if (!host) {
+    return "http://localhost:3000";
+  }
+
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+
+  return `${protocol}://${host}`;
 }
 
 type InvoiceSummary = Awaited<ReturnType<typeof listTutorInvoices>>[number];
@@ -251,9 +268,50 @@ async function recordPaymentAction(formData: FormData) {
   redirect("/billing?paymentRecorded=1");
 }
 
-export default async function BillingPage() {
+async function emailInvoiceAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const invoiceId = String(formData.get("invoiceId") ?? "");
+  const recipientEmail = String(formData.get("recipientEmail") ?? "");
+  const detail = await getInvoiceDetail(getDb(), invoiceId);
+  const origin = requestOrigin(await headers());
+  const invoiceUrl = new URL(`/invoices/${invoiceId}`, origin).toString();
+  const delivery = await deliverInvoice({
+    invoiceNumber: detail.invoice.number,
+    invoiceUrl,
+    recipientEmail,
+    studentName: detail.invoice.studentName,
+  });
+  const params = new URLSearchParams({
+    invoiceDelivery: delivery.mode,
+    invoiceNumber: detail.invoice.number,
+    invoiceUrl,
+  });
+
+  if (delivery.mode === "copy") {
+    params.set("reason", delivery.reason);
+  } else {
+    params.set("recipient", delivery.recipientEmail);
+  }
+
+  redirect(`/billing?${params.toString()}`);
+}
+
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    invoiceDelivery?: "copy" | "email";
+    invoiceNumber?: string;
+    invoiceUrl?: string;
+    reason?: string;
+    recipient?: string;
+  }>;
+}) {
   const user = await requireUser();
   const database = getDb();
+  const params = await searchParams;
 
   if (user.role === "student") {
     const invoices = await listStudentInvoices(database, user.id);
@@ -279,6 +337,18 @@ export default async function BillingPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
+      {params.invoiceDelivery && params.invoiceUrl ? (
+        <div className="mb-6 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+          <p className="font-medium">
+            {params.invoiceDelivery === "email" && params.recipient
+              ? `Invoice ${params.invoiceNumber} emailed to ${params.recipient}.`
+              : params.reason === "email_failed"
+                ? "Email could not be sent. Copy this invoice link."
+                : "Email is off. Copy this invoice link."}
+          </p>
+          <code className="mt-2 block break-all font-mono">{params.invoiceUrl}</code>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="w-full max-w-md space-y-6">
           <section className="rounded-2xl border bg-card p-6 shadow-soft">
@@ -555,6 +625,38 @@ export default async function BillingPage() {
                           </Button>
                         </form>
                       </div>
+                    )}
+                    {invoice.displayStatus === "void" ? null : (
+                      <form
+                        action={emailInvoiceAction}
+                        className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]"
+                      >
+                        <input name="invoiceId" type="hidden" value={invoice.id} />
+                        <div>
+                          <label
+                            className="block text-xs font-medium"
+                            htmlFor={`recipient-${invoice.id}`}
+                          >
+                            Invoice recipient for {invoice.number}
+                          </label>
+                          <input
+                            className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                            defaultValue={invoice.studentEmail}
+                            id={`recipient-${invoice.id}`}
+                            name="recipientEmail"
+                            type="email"
+                          />
+                        </div>
+                        <Button
+                          aria-label={`Email ${invoice.number}`}
+                          className="self-end"
+                          size="sm"
+                          type="submit"
+                          variant="outline"
+                        >
+                          Email invoice
+                        </Button>
+                      </form>
                     )}
                     {invoice.displayStatus === "void" ? null : (
                       <form
