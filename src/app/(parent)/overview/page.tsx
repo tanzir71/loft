@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/authz";
-import { listPackageCreditsForParent } from "@/lib/billing";
+import { listPackageCreditsForParent, listParentInvoices } from "@/lib/billing";
 import {
   addAnnouncementComment,
   listAnnouncementComments,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/progress-reports";
 import { listParentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
+import { listParentLinkedStudents } from "@/lib/students";
 
 export const metadata: Metadata = {
   title: "Overview",
@@ -53,6 +54,13 @@ function creditLabel(remaining: number) {
   return `${remaining} ${remaining === 1 ? "credit" : "credits"} remaining`;
 }
 
+function outstandingBalance(invoices: Awaited<ReturnType<typeof listParentInvoices>>) {
+  return invoices.reduce(
+    (sum, invoice) => sum + (invoice.displayStatus === "void" ? 0 : invoice.balance),
+    0,
+  );
+}
+
 async function addFeedCommentAction(formData: FormData) {
   "use server";
 
@@ -80,11 +88,13 @@ export default async function ParentOverviewPage() {
   }
 
   await runReadTimeFallbacks(getDb());
-  const [sessions, packageCredits, announcements, progressReports] = await Promise.all([
+  const [sessions, packageCredits, announcements, progressReports, invoices, linkedStudents] = await Promise.all([
     listParentPortalSessions(getDb(), user.id),
     listPackageCreditsForParent(getDb(), user.id),
     listParentAnnouncements(getDb(), { parentId: user.id }),
     listProgressReportsForParent(getDb(), user.id),
+    listParentInvoices(getDb(), user.id),
+    listParentLinkedStudents(getDb(), user.id),
   ]);
   const commentEntries = await Promise.all(
     announcements.map(async (announcement) => [
@@ -97,6 +107,39 @@ export default async function ParentOverviewPage() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="font-display text-3xl italic">Overview</h1>
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold">Family summary</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <article className="rounded-2xl border bg-card p-4 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Linked students
+            </p>
+            <p className="mt-2 font-mono text-2xl">{linkedStudents.length}</p>
+            {linkedStudents.length > 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {linkedStudents.map((student) => student.name).join(", ")}
+              </p>
+            ) : null}
+          </article>
+          <article className="rounded-2xl border bg-card p-4 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Upcoming sessions
+            </p>
+            <p className="mt-2 font-mono text-2xl">
+              {sessions.filter((session) => session.status === "scheduled").length}
+            </p>
+          </article>
+          <article className="rounded-2xl border bg-card p-4 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Outstanding balance
+            </p>
+            <p className="mt-2 font-mono text-2xl">{outstandingBalance(invoices)}</p>
+            <Button asChild className="mt-3" size="sm" variant="outline">
+              <a href="/billing">View billing</a>
+            </Button>
+          </article>
+        </div>
+      </section>
       <section className="mt-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Classroom feed</h2>

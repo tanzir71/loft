@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -87,6 +87,11 @@ type QuizAttemptFlowInput = {
 type StudentQuizOverviewInput = {
   now?: number;
   quizId: string;
+  studentId: string;
+};
+
+type StudentQuizCardsInput = {
+  now?: number;
   studentId: string;
 };
 
@@ -185,6 +190,10 @@ const quizAttemptFlowSchema = z.object({
 const studentQuizOverviewSchema = z.object({
   now: z.number().int().optional(),
   quizId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
+const studentQuizCardsSchema = z.object({
+  now: z.number().int().optional(),
   studentId: z.string().trim().min(1),
 });
 const gradeQuizAttemptSchema = z.object({
@@ -605,6 +614,83 @@ export async function getStudentQuizOverview(database: AppDb, input: StudentQuiz
     quiz,
     unavailableReason,
   };
+}
+
+export async function listStudentQuizCards(database: AppDb, input: StudentQuizCardsInput) {
+  const parsed = studentQuizCardsSchema.parse(input);
+  const now = parsed.now ?? Date.now();
+  const enrolledCourses = await database
+    .select({ courseId: enrollments.courseId })
+    .from(enrollments)
+    .innerJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(enrollments.studentId, parsed.studentId),
+        eq(enrollments.status, "active"),
+        eq(courses.status, "active"),
+      ),
+    );
+  const courseIds = enrolledCourses.map((course) => course.courseId);
+
+  if (courseIds.length === 0) {
+    return [];
+  }
+
+  const quizRows = await database
+    .select({
+      closeAt: quizzes.closeAt,
+      courseTitle: courses.title,
+      id: quizzes.id,
+      maxAttempts: quizzes.maxAttempts,
+      openAt: quizzes.openAt,
+      timeLimitMin: quizzes.timeLimitMin,
+      title: quizzes.title,
+    })
+    .from(quizzes)
+    .innerJoin(courses, eq(quizzes.courseId, courses.id))
+    .where(
+      and(
+        inArray(quizzes.courseId, courseIds),
+        eq(quizzes.status, "published"),
+        or(isNull(quizzes.openAt), lte(quizzes.openAt, now)),
+        or(isNull(quizzes.closeAt), gte(quizzes.closeAt, now)),
+      ),
+    )
+    .orderBy(asc(quizzes.closeAt), asc(quizzes.title));
+  const quizIds = quizRows.map((quiz) => quiz.id);
+
+  if (quizIds.length === 0) {
+    return [];
+  }
+
+  const attemptRows = await database
+    .select({
+      id: quizAttempts.id,
+      quizId: quizAttempts.quizId,
+      status: quizAttempts.status,
+    })
+    .from(quizAttempts)
+    .where(
+      and(eq(quizAttempts.studentId, parsed.studentId), inArray(quizAttempts.quizId, quizIds)),
+    );
+  const attemptsByQuiz = new Map<string, typeof attemptRows>();
+
+  for (const attempt of attemptRows) {
+    attemptsByQuiz.set(attempt.quizId, [...(attemptsByQuiz.get(attempt.quizId) ?? []), attempt]);
+  }
+
+  return quizRows
+    .map((quiz) => {
+      const attempts = attemptsByQuiz.get(quiz.id) ?? [];
+      const inProgressAttempt = attempts.find((attempt) => attempt.status === "in_progress");
+
+      return {
+        ...quiz,
+        attemptsUsed: attempts.length,
+        inProgressAttemptId: inProgressAttempt?.id ?? null,
+      };
+    })
+    .filter((quiz) => quiz.inProgressAttemptId || quiz.attemptsUsed < quiz.maxAttempts);
 }
 
 async function requireAttemptContext(

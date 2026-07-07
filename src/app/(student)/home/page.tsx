@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
 import { requireUser } from "@/lib/authz";
-import { listPackageCreditsForStudent } from "@/lib/billing";
+import { listPackageCreditsForStudent, listStudentInvoices } from "@/lib/billing";
 import {
   addAnnouncementComment,
   listAnnouncementComments,
   listStudentAnnouncements,
+  listStudentAssignmentCards,
 } from "@/lib/classroom";
 import { listStudentCourses } from "@/lib/courses";
 import { runReadTimeFallbacks } from "@/lib/cron";
@@ -17,6 +18,7 @@ import {
   listProgressReportsForStudent,
   progressReportPeriodLabel,
 } from "@/lib/progress-reports";
+import { listStudentQuizCards } from "@/lib/quizzes";
 import { listStudentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,27 @@ function creditLabel(remaining: number) {
   return `${remaining} ${remaining === 1 ? "credit" : "credits"} remaining`;
 }
 
+function formatDueDate(timestamp: number | null) {
+  if (timestamp === null) {
+    return "No due date";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(timestamp));
+}
+
+function outstandingBalance(
+  invoices: Awaited<ReturnType<typeof listStudentInvoices>>,
+) {
+  return invoices.reduce(
+    (sum, invoice) => sum + (invoice.displayStatus === "void" ? 0 : invoice.balance),
+    0,
+  );
+}
+
 async function addFeedCommentAction(formData: FormData) {
   "use server";
 
@@ -81,13 +104,31 @@ export default async function StudentHomePage() {
   }
 
   await runReadTimeFallbacks(getDb());
-  const [courses, sessions, packageCredits, announcements, progressReports] = await Promise.all([
+  const [
+    courses,
+    sessions,
+    packageCredits,
+    announcements,
+    progressReports,
+    assignments,
+    quizzes,
+    invoices,
+  ] = await Promise.all([
     listStudentCourses(getDb(), user.id),
     listStudentPortalSessions(getDb(), user.id),
     listPackageCreditsForStudent(getDb(), user.id),
     listStudentAnnouncements(getDb(), { studentId: user.id }),
     listProgressReportsForStudent(getDb(), user.id),
+    listStudentAssignmentCards(getDb(), { studentId: user.id }),
+    listStudentQuizCards(getDb(), { studentId: user.id }),
+    listStudentInvoices(getDb(), user.id),
   ]);
+  const openAssignments = assignments.filter(
+    (assignment) => !assignment.submission || assignment.submission.grade === null,
+  );
+  const nextSession =
+    sessions.find((session) => session.status === "scheduled") ?? sessions[0] ?? null;
+  const balance = outstandingBalance(invoices);
   const commentEntries = await Promise.all(
     announcements.map(async (announcement) => [
       announcement.id,
@@ -99,6 +140,36 @@ export default async function StudentHomePage() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="font-display text-3xl italic">Home</h1>
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold">Action summary</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <article className="rounded-2xl border bg-card p-4 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Next session
+            </p>
+            <p className="mt-2 text-sm font-semibold">
+              {nextSession ? nextSession.courseTitle : "No sessions"}
+            </p>
+            {nextSession ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatSessionTime(nextSession.startsAt)}
+              </p>
+            ) : null}
+          </article>
+          <article className="rounded-2xl border bg-card p-4 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Due assignments
+            </p>
+            <p className="mt-2 font-mono text-2xl">{openAssignments.length}</p>
+          </article>
+          <article className="rounded-2xl border bg-card p-4 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Outstanding balance
+            </p>
+            <p className="mt-2 font-mono text-2xl">{balance}</p>
+          </article>
+        </div>
+      </section>
       <section className="mt-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">My courses</h2>
@@ -123,6 +194,66 @@ export default async function StudentHomePage() {
                     {course.description}
                   </p>
                 ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Due assignments</h2>
+          <Button asChild size="sm" variant="outline">
+            <a href="/assignments">View all</a>
+          </Button>
+        </div>
+        {openAssignments.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No due assignments.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {openAssignments.slice(0, 3).map((assignment) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={assignment.id}>
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {formatDueDate(assignment.dueAt)}
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">{assignment.title}</h3>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Open quizzes</h2>
+          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+            {quizzes.length} open
+          </span>
+        </div>
+        {quizzes.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No open quizzes.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {quizzes.slice(0, 3).map((quiz) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={quiz.id}>
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {quiz.courseTitle}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold">{quiz.title}</h3>
+                  <Button asChild size="sm" variant="outline">
+                    <a href={`/quiz/${quiz.id}`}>
+                      {quiz.inProgressAttemptId ? "Resume quiz" : "Start quiz"}
+                    </a>
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Attempts {quiz.attemptsUsed} of {quiz.maxAttempts}
+                </p>
               </article>
             ))}
           </div>

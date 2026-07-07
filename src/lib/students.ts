@@ -197,3 +197,19 @@ export async function listStudentsWithParents(database: AppDb): Promise<StudentW
     parents: parentsByStudent.get(student.id) ?? [],
   }));
 }
+
+export async function listParentLinkedStudents(database: AppDb, parentId: string) {
+  const parsedParentId = z.string().trim().min(1).parse(parentId);
+
+  return database
+    .select({
+      email: users.email,
+      id: users.id,
+      name: users.name,
+      status: users.status,
+    })
+    .from(parentLinks)
+    .innerJoin(users, eq(parentLinks.studentId, users.id))
+    .where(and(eq(parentLinks.parentId, parsedParentId), eq(users.role, "student")))
+    .orderBy(asc(users.name));
+}

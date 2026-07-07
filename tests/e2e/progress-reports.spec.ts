@@ -90,7 +90,7 @@ test("tutor generates, edits, prints, and shares a progress report", async ({ pa
   await page.getByRole("button", { name: /^log in$/i }).click();
   await expect(page.getByRole("heading", { name: /^overview$/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Progress reports$/i })).toBeVisible();
-  await expect(page.getByText("Student One")).toBeVisible();
+  await expect(page.getByText("Student One").first()).toBeVisible();
   await expect(page.getByText("Edited parent-ready note.")).toBeVisible();
   await page.goto(reportUrl);
   await expect(page.getByText("Edited parent-ready note.")).toBeVisible();
