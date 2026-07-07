@@ -7,6 +7,7 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { requireTutor } from "@/lib/authz";
+import { regenerateIcsToken } from "@/lib/calendar-feed";
 import { hasEmail } from "@/lib/features";
 import { deliverInvite } from "@/lib/invite-delivery";
 import { createInvite, listInvites } from "@/lib/invites";
@@ -69,6 +70,15 @@ async function createInviteAction(formData: FormData) {
   redirect(`/settings?${params.toString()}`);
 }
 
+async function regenerateCalendarFeedAction() {
+  "use server";
+
+  const tutor = await requireTutor();
+  await regenerateIcsToken(getDb(), tutor.id);
+
+  redirect("/settings?calendar=regenerated");
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -80,7 +90,7 @@ export default async function SettingsPage({
     recipient?: string;
   }>;
 }) {
-  await requireTutor();
+  const tutor = await requireTutor();
 
   const params = await searchParams;
   const database = getDb();
@@ -89,10 +99,15 @@ export default async function SettingsPage({
   const createdInviteUrl = params.inviteUrl ?? (
     params.created ? new URL(`/join/${params.created}`, origin).toString() : null
   );
-  const [inviteRows, students] = await Promise.all([
+  const [inviteRows, students, tutorRows] = await Promise.all([
     listInvites(database),
     database.select().from(users).where(eq(users.role, "student")),
+    database.select({ icsToken: users.icsToken }).from(users).where(eq(users.id, tutor.id)),
   ]);
+  const tutorIcsToken = tutorRows[0]?.icsToken ?? null;
+  const calendarFeedUrl = tutorIcsToken
+    ? new URL(`/api/ics/${tutorIcsToken}`, origin).toString()
+    : null;
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -160,6 +175,20 @@ export default async function SettingsPage({
             </p>
             <Button type="submit" variant="gradient">
               Create invite
+            </Button>
+          </form>
+
+          <form action={regenerateCalendarFeedAction} className="mt-8 border-t pt-6">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Calendar feed
+            </p>
+            {calendarFeedUrl ? (
+              <code className="mt-3 block break-all rounded-xl border bg-background px-3 py-2 font-mono text-xs">
+                {calendarFeedUrl}
+              </code>
+            ) : null}
+            <Button className="mt-4" type="submit" variant="outline">
+              {calendarFeedUrl ? "Regenerate calendar feed" : "Generate calendar feed"}
             </Button>
           </form>
         </section>

@@ -406,7 +406,7 @@ Rules:
 - [x] Weekly slots CRUD + idempotent session generation (unit-tested)
 - [x] Sessions week view + status changes + attendance marking UI
 - [x] Session notes: private vs shared visibility (authz-tested)
-- [ ] ICS calendar feed per user with regenerable token (unit-tested output)
+- [x] ICS calendar feed per user with regenerable token (unit-tested output)
 - [ ] Student/parent schedule + attendance history views
 - [ ] P3 acceptance tests green
 
@@ -495,3 +495,4 @@ Rules:
 2026-07-07 | P3 schedule slots: weekly templates and idempotent generation | Added schedule slot create/update/deactivate helpers, UTC-based idempotent session generation, tutor `/schedule` UI, and unit/e2e coverage for duplicate-safe generation.
 2026-07-07 | P3 sessions: week view, status, attendance marking | Added current-week sessions on `/schedule`, session status updates, default-present attendance for done sessions, attendance upsert helpers, and e2e coverage for present-to-late changes.
 2026-07-07 | P3 session notes: tutor-private and shared visibility | Added note update/retrieval helpers, authz tests proving students/parents only receive shared notes, and tutor `/schedule` note editing in the session week view.
+2026-07-07 | P3 ICS feed: regenerable calendar URL | Added hand-rolled ICS builder with escaping/UTC tests, per-user token regeneration in Settings, `/api/ics/[token]`, and e2e smoke for text/calendar output.
