@@ -8,10 +8,14 @@ import { parentLinks, schema, users } from "@/db/schema";
 import { createCourse, enrollStudent } from "@/lib/courses";
 import {
   addAnnouncementComment,
+  createAssignment,
   createAnnouncement,
   listAnnouncementComments,
   listParentAnnouncements,
   listStudentAnnouncements,
+  listStudentAssignments,
+  submitAssignment,
+  updateAssignment,
 } from "@/lib/classroom";
 import { seedTutor } from "@/lib/seed";
 import { createStudent } from "@/lib/students";
@@ -143,5 +147,91 @@ describe("classroom announcements", () => {
         body: "I have a question.",
       },
     ]);
+  });
+
+  it("manages assignments, shows rubrics to students, and supports late resubmission until graded", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    const assignment = await createAssignment(db, {
+      allowFile: true,
+      allowLink: true,
+      allowText: true,
+      bodyMd: "Solve the worksheet.",
+      courseId: "course_id",
+      dueAt: now - 60_000,
+      makeId: () => "assignment_id",
+      points: 10,
+      rubricMd: "Show each step.",
+      status: "published",
+      title: "Linear practice",
+    });
+    await updateAssignment(db, {
+      ...assignment,
+      bodyMd: "Solve all worksheet questions.",
+      rubricMd: "Show each algebra step.",
+      status: "published",
+    });
+
+    const visible = await listStudentAssignments(db, {
+      now,
+      studentId: "student_id",
+    });
+    const firstSubmission = await submitAssignment(db, {
+      assignmentId: "assignment_id",
+      bodyText: "My first answer",
+      file: {
+        blobUrl: "https://example.com/work.pdf",
+        filename: "work.pdf",
+        size: 1200,
+      },
+      linkUrl: "https://example.com/work",
+      makeAttachmentId: () => "attachment_id",
+      makeId: () => "submission_id",
+      now: () => now,
+      studentId: "student_id",
+    });
+    const resubmission = await submitAssignment(db, {
+      assignmentId: "assignment_id",
+      bodyText: "My revised answer",
+      linkUrl: "https://example.com/revised",
+      now: () => now + 30_000,
+      studentId: "student_id",
+    });
+    client.close();
+
+    expect(visible).toMatchObject([
+      {
+        bodyMd: "Solve all worksheet questions.",
+        rubricMd: "Show each algebra step.",
+        title: "Linear practice",
+      },
+    ]);
+    expect(firstSubmission).toMatchObject({
+      bodyText: "My first answer",
+      late: true,
+      linkUrl: "https://example.com/work",
+    });
+    expect(resubmission).toMatchObject({
+      bodyText: "My revised answer",
+      id: "submission_id",
+      late: true,
+      linkUrl: "https://example.com/revised",
+    });
   });
 });

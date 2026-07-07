@@ -6,7 +6,7 @@ import { roleHomePath } from "@/lib/session-routing";
 import type { UserRole } from "@/lib/user-types";
 
 const roleRoutes: Record<UserRole, string[]> = {
-  tutor: ["/dashboard", "/students", "/courses", "/schedule", "/content", "/quizzes", "/announcements", "/settings"],
+  tutor: ["/dashboard", "/students", "/courses", "/schedule", "/content", "/quizzes", "/announcements", "/assignment-builder", "/settings"],
   student: ["/home", "/course", "/quiz", "/assignments"],
   parent: ["/overview"],
 };
