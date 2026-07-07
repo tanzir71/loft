@@ -385,7 +385,7 @@ Rules:
 **P0 Scaffold**
 - [x] Scaffold Next.js + TS strict + Tailwind + shadcn/ui; landing page; scripts wired
 - [x] Drizzle + libSQL setup; full §4 schema; initial migration generated & applied
-- [ ] Vitest + Playwright configured with one passing sample test each
+- [x] Vitest + Playwright configured with one passing sample test each
 - [ ] Seed script creates tutor from env; `.env.example` complete
 
 **P1 Landing, Auth & Invites**
@@ -481,3 +481,4 @@ Rules:
 <!-- Codex appends one line per completed task: YYYY-MM-DD | task | decisions/deviations -->
 2026-07-07 | P0 scaffold: Next.js + TS strict + Tailwind + shadcn/ui landing page | Added scripts and static TutorLoft landing page; pinned Turbopack root due parent lockfile; disabled dev indicator for clean local preview.
 2026-07-07 | P0 database: Drizzle + libSQL full schema and initial migration | Added all §4 tables, local/Turso-aware Drizzle config, generated 0000 migration, and applied it to ignored local data/dev.db.
+2026-07-07 | P0 tests: Vitest and Playwright smoke coverage | Added Playwright config scoped to tests/e2e with Next dev webServer and a landing-page e2e smoke; Vitest remains wired through npm run check.
