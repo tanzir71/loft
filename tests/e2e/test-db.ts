@@ -72,19 +72,43 @@ async function hasSchema(client: Client) {
   return result.rows.length > 0;
 }
 
+function isBusyError(error: unknown) {
+  return error instanceof Error && error.message.includes("SQLITE_BUSY");
+}
+
+async function wait(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function executeWithBusyRetry(client: Client, sql: string) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      return await client.execute(sql);
+    } catch (error) {
+      if (!isBusyError(error) || attempt === 7) {
+        throw error;
+      }
+
+      await wait(75 * (attempt + 1));
+    }
+  }
+
+  throw new Error("Unreachable SQLite retry state.");
+}
+
 async function clearExistingData(client: Client) {
   const result = await client.execute("select name from sqlite_master where type = 'table'");
   const existingTables = new Set(result.rows.map((row) => String(row.name)));
 
-  await client.execute("PRAGMA foreign_keys = OFF");
+  await executeWithBusyRetry(client, "PRAGMA foreign_keys = OFF");
 
   for (const table of tables) {
     if (existingTables.has(table)) {
-      await client.execute(`delete from "${table}"`);
+      await executeWithBusyRetry(client, `delete from "${table}"`);
     }
   }
 
-  await client.execute("PRAGMA foreign_keys = ON");
+  await executeWithBusyRetry(client, "PRAGMA foreign_keys = ON");
 }
 
 export async function resetE2eDb() {
