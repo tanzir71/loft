@@ -420,7 +420,7 @@ Rules:
 - [x] P4 acceptance tests green
 
 **P5 Course Material Builder**
-- [ ] Modules CRUD + ordering; materials CRUD with markdown editor + live preview + sanitization (XSS test)
+- [x] Modules CRUD + ordering; materials CRUD with markdown editor + live preview + sanitization (XSS test)
 - [ ] Tutor curriculum view (outline, status chips, completion counts) + duplicate material/module across courses
 - [ ] Embeds: youtube-nocookie (URL parsing unit-tested) + inline PDF + link cards; blob image upload when enabled
 - [ ] Publish/draft/scheduled visibility incl. module-level toggle (read-time enforcement)
@@ -505,3 +505,4 @@ Rules:
 2026-07-07 | P4 invoice views: print detail and portal billing | Made `/billing` role-aware for tutor/student/parent, added scoped `/invoices/[id]` print-friendly detail pages, balance summaries, shared route guards, and e2e student invoice detail coverage.
 2026-07-07 | P4 dashboard and invoice delivery: tiles plus email fallback | Added dashboard billing metrics, optional Resend invoice notices with copy fallback, tutor UI for invoice delivery, unit delivery coverage, and e2e copy-link verification.
 2026-07-07 | P4 acceptance: billing suite green | Added tutor controls for course default plans and monthly invoice generation/generate-all, expanded e2e through generated invoice payment and student invoice detail, then re-ran `npm run check` and full Playwright.
+2026-07-07 | P5 content builder: modules, materials, markdown preview | Added tutor `/content` workspace, module/material helpers with ordering, client markdown preview, escaped markdown renderer with XSS test, and e2e content creation smoke.
