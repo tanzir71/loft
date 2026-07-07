@@ -81,6 +81,15 @@ type ConsumePackageCreditsInput = {
   studentId: string;
 };
 
+type GenerateMonthlyInvoiceInput = {
+  dueDate?: number;
+  makeId?: (kind: BillingIdKind) => string;
+  now?: () => number;
+  periodEnd: number;
+  periodStart: number;
+  studentId: string;
+};
+
 type PackageCreditSummary = {
   id: string;
   invoiceId: string;
@@ -94,6 +103,23 @@ type PackageCreditSummary = {
   status: "active" | "exhausted" | "expired";
   studentId: string;
   studentName?: string;
+};
+
+type InvoiceItemDraft = {
+  amount: number;
+  courseId: string | null;
+  description: string;
+  quantity: number;
+  sessionId: string | null;
+  unitAmount: number;
+};
+
+type SessionCandidate = {
+  courseId: string;
+  courseTitle: string;
+  sessionId: string;
+  startsAt: number;
+  unitAmount: number;
 };
 
 const ratePlanFieldsSchema = z.object({
@@ -133,6 +159,13 @@ const consumePackageCreditsSchema = z
   .refine((input) => input.periodEnd > input.periodStart, {
     message: "Period end must be after period start.",
   });
+
+const generateMonthlyInvoiceSchema = consumePackageCreditsSchema.extend({
+  dueDate: z.number().int().optional(),
+});
+
+const monthlyInvoiceNotes = "Generated monthly invoice";
+const packageCreditPattern = /^Package credit \(([^)]+)\): /;
 
 function createId() {
   return randomBytes(12).toString("base64url");
@@ -219,8 +252,28 @@ async function nextInvoiceNumber(database: AppDb, timestamp: number) {
   return `${stem}${String(currentMax + 1).padStart(4, "0")}`;
 }
 
-function makeBillingId(input: SellPackageInput, kind: BillingIdKind) {
+function makeBillingId(input: { makeId?: (kind: BillingIdKind) => string }, kind: BillingIdKind) {
   return input.makeId?.(kind) ?? createId();
+}
+
+function packageCreditDescription(input: { courseTitle: string; packagePurchaseId: string }) {
+  return `Package credit (${input.packagePurchaseId}): ${input.courseTitle}`;
+}
+
+function packagePurchaseIdFromDescription(description: string) {
+  return packageCreditPattern.exec(description)?.[1] ?? null;
+}
+
+function formatUtcDate(timestamp: number) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function sessionUnitAmount(plan: typeof ratePlans.$inferSelect) {
+  if (plan.type === "package") {
+    return Math.round(plan.amount / (plan.sessionsCount ?? 1));
+  }
+
+  return plan.amount;
 }
 
 function toPackageCreditSummary(row: {
@@ -529,6 +582,331 @@ export async function consumePackageCreditsForAttendedSessions(
   }
 
   return { billableSessionIds, covered };
+}
+
+async function listInvoiceItems(database: AppDb, invoiceId: string) {
+  return database.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
+}
+
+async function findMonthlyInvoice(
+  database: AppDb,
+  input: { periodEnd: number; periodStart: number; studentId: string },
+) {
+  const rows = await database
+    .select()
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.studentId, input.studentId),
+        eq(invoices.periodStart, input.periodStart),
+        eq(invoices.periodEnd, input.periodEnd),
+        eq(invoices.notes, monthlyInvoiceNotes),
+      ),
+    )
+    .orderBy(asc(invoices.createdAt));
+  const draft = rows.find((invoice) => invoice.status === "draft");
+
+  return {
+    draft,
+    locked: draft ? undefined : rows[0],
+  };
+}
+
+async function restorePackageCreditsForDraftInvoice(
+  database: AppDb,
+  input: { invoiceId: string; now: number },
+) {
+  const items = await database
+    .select({ description: invoiceItems.description })
+    .from(invoiceItems)
+    .where(and(eq(invoiceItems.invoiceId, input.invoiceId), eq(invoiceItems.amount, 0)));
+  const counts = new Map<string, number>();
+
+  for (const item of items) {
+    const purchaseId = packagePurchaseIdFromDescription(item.description);
+
+    if (purchaseId) {
+      counts.set(purchaseId, (counts.get(purchaseId) ?? 0) + 1);
+    }
+  }
+
+  for (const [purchaseId, count] of counts) {
+    const [purchase] = await database
+      .select()
+      .from(packagePurchases)
+      .where(eq(packagePurchases.id, purchaseId));
+
+    if (!purchase) {
+      continue;
+    }
+
+    const sessionsUsed = Math.max(0, purchase.sessionsUsed - count);
+    await database
+      .update(packagePurchases)
+      .set({
+        sessionsUsed,
+        status: sessionsUsed >= purchase.sessionsTotal ? "exhausted" : "active",
+        updatedAt: input.now,
+      })
+      .where(eq(packagePurchases.id, purchaseId));
+  }
+}
+
+async function activePackagePurchases(database: AppDb, studentId: string) {
+  const purchases = await database
+    .select()
+    .from(packagePurchases)
+    .where(
+      and(
+        eq(packagePurchases.studentId, studentId),
+        eq(packagePurchases.status, "active"),
+        sql`${packagePurchases.sessionsUsed} < ${packagePurchases.sessionsTotal}`,
+      ),
+    )
+    .orderBy(asc(packagePurchases.purchasedAt), asc(packagePurchases.createdAt));
+
+  return purchases.map((purchase) => ({
+    ...purchase,
+    nextSessionsUsed: purchase.sessionsUsed,
+  }));
+}
+
+async function buildMonthlyInvoiceItemDrafts(
+  database: AppDb,
+  input: { periodEnd: number; periodStart: number; studentId: string },
+) {
+  const enrollmentRows = await database
+    .select({
+      courseId: courses.id,
+      courseTitle: courses.title,
+    })
+    .from(enrollments)
+    .innerJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(enrollments.studentId, input.studentId),
+        eq(enrollments.status, "active"),
+        eq(courses.status, "active"),
+      ),
+    )
+    .orderBy(asc(courses.title));
+  const planByCourse = new Map<
+    string,
+    { courseTitle: string; plan: typeof ratePlans.$inferSelect }
+  >();
+  const items: InvoiceItemDraft[] = [];
+
+  for (const enrollment of enrollmentRows) {
+    const plan = await resolveEnrollmentRatePlan(database, {
+      courseId: enrollment.courseId,
+      studentId: input.studentId,
+    });
+
+    if (!plan) {
+      continue;
+    }
+
+    planByCourse.set(enrollment.courseId, {
+      courseTitle: enrollment.courseTitle,
+      plan,
+    });
+
+    if (plan.type === "monthly_flat") {
+      items.push({
+        amount: plan.amount,
+        courseId: enrollment.courseId,
+        description: `${enrollment.courseTitle} monthly tuition`,
+        quantity: 1,
+        sessionId: null,
+        unitAmount: plan.amount,
+      });
+    }
+  }
+
+  const attendedSessions = await database
+    .select({
+      courseId: classSessions.courseId,
+      courseTitle: courses.title,
+      sessionId: classSessions.id,
+      startsAt: classSessions.startsAt,
+    })
+    .from(attendance)
+    .innerJoin(classSessions, eq(attendance.sessionId, classSessions.id))
+    .innerJoin(courses, eq(classSessions.courseId, courses.id))
+    .where(
+      and(
+        eq(attendance.studentId, input.studentId),
+        inArray(attendance.status, ["present", "late"]),
+        gte(classSessions.startsAt, input.periodStart),
+        lt(classSessions.startsAt, input.periodEnd),
+      ),
+    )
+    .orderBy(asc(classSessions.startsAt));
+  const candidates: SessionCandidate[] = [];
+
+  for (const session of attendedSessions) {
+    const resolved = planByCourse.get(session.courseId);
+
+    if (!resolved || resolved.plan.type === "monthly_flat") {
+      continue;
+    }
+
+    candidates.push({
+      courseId: session.courseId,
+      courseTitle: session.courseTitle,
+      sessionId: session.sessionId,
+      startsAt: session.startsAt,
+      unitAmount: sessionUnitAmount(resolved.plan),
+    });
+  }
+
+  const purchases = await activePackagePurchases(database, input.studentId);
+  const coveredSessionIds: string[] = [];
+  const billableSessionIds: string[] = [];
+  let purchaseIndex = 0;
+
+  for (const session of candidates) {
+    while (
+      purchaseIndex < purchases.length &&
+      purchases[purchaseIndex].nextSessionsUsed >= purchases[purchaseIndex].sessionsTotal
+    ) {
+      purchaseIndex += 1;
+    }
+
+    const purchase = purchases[purchaseIndex];
+
+    if (purchase) {
+      purchase.nextSessionsUsed += 1;
+      coveredSessionIds.push(session.sessionId);
+      items.push({
+        amount: 0,
+        courseId: session.courseId,
+        description: packageCreditDescription({
+          courseTitle: session.courseTitle,
+          packagePurchaseId: purchase.id,
+        }),
+        quantity: 1,
+        sessionId: session.sessionId,
+        unitAmount: 0,
+      });
+      continue;
+    }
+
+    billableSessionIds.push(session.sessionId);
+    items.push({
+      amount: session.unitAmount,
+      courseId: session.courseId,
+      description: `${session.courseTitle} session - ${formatUtcDate(session.startsAt)}`,
+      quantity: 1,
+      sessionId: session.sessionId,
+      unitAmount: session.unitAmount,
+    });
+  }
+
+  return { billableSessionIds, coveredSessionIds, items, purchases };
+}
+
+export async function generateMonthlyInvoice(
+  database: AppDb,
+  input: GenerateMonthlyInvoiceInput,
+) {
+  const parsed = generateMonthlyInvoiceSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  await requireActiveStudent(database, parsed.studentId);
+  const existing = await findMonthlyInvoice(database, parsed);
+
+  if (existing.locked) {
+    return {
+      billableSessionIds: [],
+      coveredSessionIds: [],
+      invoice: existing.locked,
+      items: await listInvoiceItems(database, existing.locked.id),
+      skipped: true,
+    };
+  }
+
+  let invoice = existing.draft;
+
+  if (invoice) {
+    await restorePackageCreditsForDraftInvoice(database, { invoiceId: invoice.id, now });
+    await database.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoice.id));
+  } else {
+    const invoiceNumber = await nextInvoiceNumber(database, parsed.periodStart);
+    const [createdInvoice] = await database
+      .insert(invoices)
+      .values({
+        id: makeBillingId(input, "invoice"),
+        studentId: parsed.studentId,
+        periodStart: parsed.periodStart,
+        periodEnd: parsed.periodEnd,
+        status: "draft",
+        total: 0,
+        number: invoiceNumber,
+        notes: monthlyInvoiceNotes,
+        dueDate: parsed.dueDate ?? parsed.periodEnd,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    invoice = createdInvoice;
+  }
+
+  const built = await buildMonthlyInvoiceItemDrafts(database, parsed);
+  const insertedItems = [];
+
+  for (const item of built.items) {
+    const [inserted] = await database
+      .insert(invoiceItems)
+      .values({
+        id: makeBillingId(input, "invoiceItem"),
+        invoiceId: invoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitAmount: item.unitAmount,
+        amount: item.amount,
+        sessionId: item.sessionId,
+        courseId: item.courseId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    insertedItems.push(inserted);
+  }
+
+  for (const purchase of built.purchases) {
+    if (purchase.nextSessionsUsed === purchase.sessionsUsed) {
+      continue;
+    }
+
+    await database
+      .update(packagePurchases)
+      .set({
+        sessionsUsed: purchase.nextSessionsUsed,
+        status: purchase.nextSessionsUsed >= purchase.sessionsTotal ? "exhausted" : "active",
+        updatedAt: now,
+      })
+      .where(eq(packagePurchases.id, purchase.id));
+  }
+
+  const total = built.items.reduce((sum, item) => sum + item.amount, 0);
+  const [updatedInvoice] = await database
+    .update(invoices)
+    .set({
+      dueDate: parsed.dueDate ?? invoice.dueDate,
+      status: "draft",
+      total,
+      updatedAt: now,
+    })
+    .where(eq(invoices.id, invoice.id))
+    .returning();
+
+  return {
+    billableSessionIds: built.billableSessionIds,
+    coveredSessionIds: built.coveredSessionIds,
+    invoice: updatedInvoice,
+    items: insertedItems,
+    skipped: false,
+  };
 }
 
 export async function listPackageCreditsForStudent(database: AppDb, studentId: string) {

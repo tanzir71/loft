@@ -22,6 +22,7 @@ import {
   archiveRatePlan,
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
+  generateMonthlyInvoice,
   listPackageCreditsForParent,
   listPackageCreditsForStudent,
   resolveEnrollmentRatePlan,
@@ -350,5 +351,214 @@ describe("billing rate plans", () => {
       { id: "packagePurchase_new", sessionsUsed: 2, status: "exhausted" },
     ]);
     expect(credits.map((credit) => credit.remaining)).toEqual([0, 0]);
+  });
+
+  it("generates monthly draft invoices with line math, package credits, and idempotent regeneration", async () => {
+    const { client, db } = await createMigratedDb();
+    const julyStart = Date.UTC(2026, 6, 1);
+    const julyEnd = Date.UTC(2026, 7, 1);
+    let idCounter = 0;
+    const makeBillingId = (kind: "invoice" | "invoiceItem" | "packagePurchase") =>
+      `${kind}_${idCounter++}`;
+
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "algebra_course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "geometry_course_id",
+      subject: "Math",
+      title: "Geometry",
+    });
+    await enrollStudent(db, {
+      courseId: "algebra_course_id",
+      makeId: () => "algebra_enrollment_id",
+      studentId: "student_id",
+    });
+    await enrollStudent(db, {
+      courseId: "geometry_course_id",
+      makeId: () => "geometry_enrollment_id",
+      studentId: "student_id",
+    });
+    await createRatePlan(db, {
+      amount: 100000,
+      makeId: () => "per_session_plan_id",
+      name: "Per session",
+      type: "per_session",
+    });
+    await createRatePlan(db, {
+      amount: 400000,
+      makeId: () => "monthly_plan_id",
+      name: "Monthly",
+      type: "monthly_flat",
+    });
+    await createRatePlan(db, {
+      amount: 200000,
+      makeId: () => "package_plan_id",
+      name: "Two-pack",
+      sessionsCount: 2,
+      type: "package",
+    });
+    await setCourseDefaultRatePlan(db, {
+      courseId: "algebra_course_id",
+      ratePlanId: "per_session_plan_id",
+    });
+    await setCourseDefaultRatePlan(db, {
+      courseId: "geometry_course_id",
+      ratePlanId: "monthly_plan_id",
+    });
+    await sellPackage(db, {
+      makeId: makeBillingId,
+      purchasedAt: julyStart,
+      ratePlanId: "package_plan_id",
+      studentId: "student_id",
+    });
+
+    for (let index = 1; index <= 3; index += 1) {
+      await db.insert(classSessions).values({
+        id: `algebra_session_${index}`,
+        courseId: "algebra_course_id",
+        startsAt: julyStart + index * 24 * 60 * 60 * 1000,
+        durationMin: 60,
+        status: "done",
+        topic: null,
+        notesPrivate: null,
+        notesShared: null,
+        generatedFromSlot: null,
+        createdAt: julyStart,
+        updatedAt: julyStart,
+      });
+      await db.insert(attendance).values({
+        id: `algebra_attendance_${index}`,
+        sessionId: `algebra_session_${index}`,
+        studentId: "student_id",
+        status: index === 2 ? "late" : "present",
+        createdAt: julyStart,
+        updatedAt: julyStart,
+      });
+    }
+
+    await db.insert(classSessions).values({
+      id: "geometry_session",
+      courseId: "geometry_course_id",
+      startsAt: julyStart + 4 * 24 * 60 * 60 * 1000,
+      durationMin: 60,
+      status: "done",
+      topic: null,
+      notesPrivate: null,
+      notesShared: null,
+      generatedFromSlot: null,
+      createdAt: julyStart,
+      updatedAt: julyStart,
+    });
+    await db.insert(attendance).values({
+      id: "geometry_attendance",
+      sessionId: "geometry_session",
+      studentId: "student_id",
+      status: "present",
+      createdAt: julyStart,
+      updatedAt: julyStart,
+    });
+
+    const generated = await generateMonthlyInvoice(db, {
+      dueDate: Date.UTC(2026, 7, 10),
+      makeId: makeBillingId,
+      now: () => julyEnd,
+      periodEnd: julyEnd,
+      periodStart: julyStart,
+      studentId: "student_id",
+    });
+    const regenerated = await generateMonthlyInvoice(db, {
+      makeId: makeBillingId,
+      now: () => julyEnd + 1000,
+      periodEnd: julyEnd,
+      periodStart: julyStart,
+      studentId: "student_id",
+    });
+    const [packagePurchase] = await db
+      .select()
+      .from(packagePurchases)
+      .where(eq(packagePurchases.id, "packagePurchase_2"));
+    const invoiceRows = await db.select().from(invoices).orderBy(invoices.number);
+    const monthlyItems = await db
+      .select()
+      .from(invoiceItems)
+      .where(eq(invoiceItems.invoiceId, generated.invoice.id));
+
+    await db
+      .update(invoices)
+      .set({ status: "sent", updatedAt: julyEnd + 2000 })
+      .where(eq(invoices.id, generated.invoice.id));
+    const locked = await generateMonthlyInvoice(db, {
+      makeId: makeBillingId,
+      now: () => julyEnd + 3000,
+      periodEnd: julyEnd,
+      periodStart: julyStart,
+      studentId: "student_id",
+    });
+    const lockedItems = await db
+      .select()
+      .from(invoiceItems)
+      .where(eq(invoiceItems.invoiceId, generated.invoice.id));
+    client.close();
+
+    expect(generated.invoice).toMatchObject({
+      number: "TL-202607-0002",
+      status: "draft",
+      total: 500000,
+    });
+    expect(regenerated.invoice.id).toBe(generated.invoice.id);
+    expect(regenerated.invoice.number).toBe("TL-202607-0002");
+    expect(regenerated.invoice.total).toBe(500000);
+    expect(packagePurchase).toMatchObject({
+      sessionsUsed: 2,
+      status: "exhausted",
+    });
+    expect(invoiceRows.map((invoice) => invoice.number)).toEqual([
+      "TL-202607-0001",
+      "TL-202607-0002",
+    ]);
+    expect(monthlyItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          amount: 400000,
+          courseId: "geometry_course_id",
+          description: "Geometry monthly tuition",
+          quantity: 1,
+          unitAmount: 400000,
+        }),
+        expect.objectContaining({
+          amount: 0,
+          courseId: "algebra_course_id",
+          description: "Package credit (packagePurchase_2): Algebra I",
+          sessionId: "algebra_session_1",
+        }),
+        expect.objectContaining({
+          amount: 0,
+          courseId: "algebra_course_id",
+          description: "Package credit (packagePurchase_2): Algebra I",
+          sessionId: "algebra_session_2",
+        }),
+        expect.objectContaining({
+          amount: 100000,
+          courseId: "algebra_course_id",
+          description: "Algebra I session - 2026-07-04",
+          sessionId: "algebra_session_3",
+          unitAmount: 100000,
+        }),
+      ]),
+    );
+    expect(locked.skipped).toBe(true);
+    expect(lockedItems.map((item) => item.id).sort()).toEqual(
+      monthlyItems.map((item) => item.id).sort(),
+    );
   });
 });
