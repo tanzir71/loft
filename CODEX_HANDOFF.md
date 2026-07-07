@@ -400,7 +400,7 @@ Rules:
 - [x] Students CRUD (archive, not delete) + list with parent links
 - [x] Courses CRUD + enrollment management
 - [x] Student `/home` with enrolled courses; parent `/overview` skeleton
-- [ ] P2 acceptance tests green
+- [x] P2 acceptance tests green
 
 **P3 Schedule & Attendance**
 - [ ] Weekly slots CRUD + idempotent session generation (unit-tested)
@@ -491,3 +491,4 @@ Rules:
 2026-07-07 | P2 students: CRUD roster with parent links | Added student create/update/archive helpers and tutor `/students` page with parent-link display, balance placeholder, unit coverage, and e2e create/edit/archive flow; serialized e2e workers for shared SQLite stability.
 2026-07-07 | P2 courses: CRUD and enrollment management | Added course create/update/archive helpers, active enrollment/unenrollment helpers, tutor `/courses` management UI, and unit/e2e coverage for editing, archiving, enrolling, and unenrolling.
 2026-07-07 | P2 student home: enrolled courses and parent skeleton | Added active enrolled-course query, rendered student `/home` course cards with empty state, added server role checks to parent overview, and covered invite-to-enrollment-to-student-home in e2e.
+2026-07-07 | P2 acceptance: students, courses, enrollment smoke green | Re-ran `npm run check` and full Playwright suite; acceptance path covers tutor-created course, enrolled student, and student-visible course on `/home`.
