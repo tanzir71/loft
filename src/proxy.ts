@@ -6,7 +6,7 @@ import { roleHomePath } from "@/lib/session-routing";
 import type { UserRole } from "@/lib/user-types";
 
 const roleRoutes: Record<UserRole, string[]> = {
-  tutor: ["/dashboard", "/students", "/courses", "/schedule", "/content", "/quizzes", "/announcements", "/assignment-builder", "/grading", "/settings"],
+  tutor: ["/dashboard", "/students", "/courses", "/schedule", "/content", "/quizzes", "/announcements", "/assignment-builder", "/grading", "/gradebook", "/settings"],
   student: ["/home", "/course", "/quiz", "/assignments"],
   parent: ["/overview"],
 };
@@ -61,5 +61,5 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/students/:path*", "/courses/:path*", "/schedule/:path*", "/billing/:path*", "/invoices/:path*", "/content/:path*", "/quizzes/:path*", "/announcements/:path*", "/assignment-builder/:path*", "/grading/:path*", "/settings/:path*", "/home/:path*", "/course/:path*", "/quiz/:path*", "/assignments/:path*", "/overview/:path*"],
+  matcher: ["/", "/dashboard/:path*", "/students/:path*", "/courses/:path*", "/schedule/:path*", "/billing/:path*", "/invoices/:path*", "/content/:path*", "/quizzes/:path*", "/announcements/:path*", "/assignment-builder/:path*", "/grading/:path*", "/gradebook/:path*", "/settings/:path*", "/home/:path*", "/course/:path*", "/quiz/:path*", "/assignments/:path*", "/overview/:path*"],
 };

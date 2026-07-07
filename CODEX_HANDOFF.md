@@ -441,7 +441,7 @@ Rules:
 - [x] Announcements (global/per-course, scheduled) + student/parent feed + optional class comment threads
 - [x] Assignments CRUD (incl. rubric_md shown to students) + student submission (text/link/file-when-enabled) + resubmit-until-graded + late flag
 - [x] Grading UI + return with feedback + comment bank + private submission comment threads (authz-tested)
-- [ ] Gradebook per course (students × assignments/quizzes, averages, missing highlighted) + CSV export
+- [x] Gradebook per course (students × assignments/quizzes, averages, missing highlighted) + CSV export
 - [ ] P7 acceptance tests green
 
 **P8 Automations**
@@ -522,3 +522,4 @@ Rules:
 2026-07-07 | P7 announcements and feed | Added tutor announcements workspace, global/course scheduled feed visibility for students and parents, comment threads with cache revalidation, unit coverage, and Playwright smoke.
 2026-07-07 | P7 assignments and submissions | Added tutor assignment builder, student assignment submission/resubmission with rubric display, late detection, optional file attachment support, unit coverage, and Playwright smoke.
 2026-07-07 | P7 grading and private feedback | Added tutor grading queue, returned feedback with reusable comment bank snippets, student-visible returned scores, private tutor/student submission threads with authz coverage, and Playwright smoke.
+2026-07-07 | P7 gradebook and CSV | Added per-course gradebook rows across assignments and quizzes, missing/pending states, row averages, protected CSV export, unit coverage, and Playwright smoke.
