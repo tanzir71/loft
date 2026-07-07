@@ -397,7 +397,7 @@ Rules:
 - [x] P1 e2e acceptance suite green
 
 **P2 Students, Courses, Enrollment**
-- [ ] Students CRUD (archive, not delete) + list with parent links
+- [x] Students CRUD (archive, not delete) + list with parent links
 - [ ] Courses CRUD + enrollment management
 - [ ] Student `/home` with enrolled courses; parent `/overview` skeleton
 - [ ] P2 acceptance tests green
@@ -488,3 +488,4 @@ Rules:
 2026-07-07 | P1 invites: tutor invite create/list and join registration | Added student/parent invite helpers and UI, case-insensitive invite codes, parent-student link validation, post-join sign-in, and Playwright coverage on an isolated e2e DB.
 2026-07-07 | P1 invite delivery: email-or-copyable runtime path | Added lib/features runtime flags, Resend fetch delivery with copy fallback, full invite URLs in Settings, and tests for no-email/email/failure paths.
 2026-07-07 | P1 e2e acceptance: login, invite registration, route guard | Expanded Playwright coverage for wrong-password rejection, student invite registration to `/home`, and student redirect away from `/dashboard`; changed e2e DB reset to clear rows in-place on Windows.
+2026-07-07 | P2 students: CRUD roster with parent links | Added student create/update/archive helpers and tutor `/students` page with parent-link display, balance placeholder, unit coverage, and e2e create/edit/archive flow; serialized e2e workers for shared SQLite stability.
