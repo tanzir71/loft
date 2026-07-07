@@ -465,7 +465,7 @@ Rules:
 - [x] P9 acceptance tests green
 
 **P10 Polish**
-- [ ] Tutor dashboard + activity log wiring
+- [x] Tutor dashboard + activity log wiring
 - [ ] Progress reports: generate/edit/print/share per student + monthly batch (numbers-only without AI key)
 - [ ] Student home + parent overview completion
 - [ ] Empty/loading/error states pass + mobile responsive pass + a11y ≥ 90
@@ -540,3 +540,4 @@ Rules:
 2026-07-07 | P9 progress report narrative | Added AI progress-report generation from structured student facts, persisted progress_reports rows, surfaced latest reports on the roster, and covered with unit and mocked Playwright tests.
 2026-07-07 | P9 zero-key verification | Added Playwright zero-key smoke proving AI controls are hidden without a key while manual lesson-plan editing works; re-verified `npm run check` and full e2e.
 2026-07-07 | P9 acceptance | Verified `npm run check` (typecheck, lint, 85 unit tests) and full Playwright e2e (26 tests) after all BYOK AI work.
+2026-07-07 | P10 dashboard activity log | Added reusable activity logging, dashboard recent activity feed, student/course create logs, and unit/e2e coverage; verified `npm run check` and full Playwright e2e.

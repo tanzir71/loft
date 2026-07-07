@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
 import { Button } from "@/components/ui/button";
+import { logActivity } from "@/lib/activity";
 import { requireTutor } from "@/lib/authz";
 import {
   archiveCourse,
@@ -22,11 +23,19 @@ export const metadata: Metadata = {
 async function createCourseAction(formData: FormData) {
   "use server";
 
-  await requireTutor();
-  await createCourse(getDb(), {
+  const user = await requireTutor();
+  const database = getDb();
+  const course = await createCourse(database, {
     title: String(formData.get("title") ?? ""),
     subject: String(formData.get("subject") ?? ""),
     description: String(formData.get("description") ?? ""),
+  });
+  await logActivity(database, {
+    action: "course_created",
+    actorId: user.id,
+    entityId: course.id,
+    entityType: "course",
+    meta: { label: course.title },
   });
 
   redirect("/courses?created=1");

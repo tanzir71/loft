@@ -7,6 +7,7 @@ import { getDb } from "@/db";
 import { progressReports } from "@/db/schema";
 import { generateProgressReportNarrative } from "@/lib/ai/progress-report";
 import { readAiGenerationSettings, readAiSettings } from "@/lib/ai-settings";
+import { logActivity } from "@/lib/activity";
 import { Button } from "@/components/ui/button";
 import { requireTutor } from "@/lib/authz";
 import { renderMarkdown } from "@/lib/markdown";
@@ -74,10 +75,18 @@ function progressReportMockFetch() {
 async function createStudentAction(formData: FormData) {
   "use server";
 
-  await requireTutor();
-  await createStudent(getDb(), {
+  const user = await requireTutor();
+  const database = getDb();
+  const student = await createStudent(database, {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
+  });
+  await logActivity(database, {
+    action: "student_created",
+    actorId: user.id,
+    entityId: student.id,
+    entityType: "student",
+    meta: { label: student.name },
   });
 
   redirect("/students?created=1");
