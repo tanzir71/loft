@@ -106,6 +106,15 @@ type ManualGradingQueueInput = {
   courseId?: string;
 };
 
+type StudentQuizResultInput = {
+  attemptId: string;
+  studentId: string;
+};
+
+type TutorQuizResultsInput = {
+  courseId?: string;
+};
+
 const quizStatusSchema = z.enum(["draft", "published", "closed"]);
 const questionTypeSchema = z.enum(["mcq_single", "mcq_multi", "true_false", "short_answer"]);
 const quizFieldsSchema = z.object({
@@ -187,6 +196,13 @@ const gradeShortAnswerSchema = z.object({
   pointsAwarded: z.number().int().min(0),
 });
 const manualGradingQueueSchema = z.object({
+  courseId: z.string().trim().min(1).optional(),
+});
+const studentQuizResultSchema = z.object({
+  attemptId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
+const tutorQuizResultsSchema = z.object({
   courseId: z.string().trim().min(1).optional(),
 });
 function createId() {
@@ -888,4 +904,95 @@ export async function gradeShortAnswer(database: AppDb, input: GradeShortAnswerI
     .where(eq(quizAnswers.id, parsed.answerId));
 
   return recalculateAttemptScore(database, answer.attemptId, now);
+}
+
+export async function getStudentQuizResult(database: AppDb, input: StudentQuizResultInput) {
+  const parsed = studentQuizResultSchema.parse(input);
+  const [attempt] = await database
+    .select()
+    .from(quizAttempts)
+    .where(and(eq(quizAttempts.id, parsed.attemptId), eq(quizAttempts.studentId, parsed.studentId)));
+
+  if (!attempt) {
+    throw new Error("Quiz attempt not found.");
+  }
+
+  if (attempt.status === "in_progress") {
+    throw new Error("Quiz attempt is not submitted.");
+  }
+
+  const quiz = await requireStudentQuiz(database, {
+    quizId: attempt.quizId,
+    studentId: parsed.studentId,
+  });
+  const answers = await database
+    .select({
+      answerJson: quizAnswers.answerJson,
+      answerId: quizAnswers.id,
+      isCorrect: quizAnswers.isCorrect,
+      points: quizQuestions.points,
+      pointsAwarded: quizAnswers.pointsAwarded,
+      promptMd: quizQuestions.promptMd,
+      questionId: quizQuestions.id,
+      sortOrder: quizQuestions.sortOrder,
+      type: quizQuestions.type,
+    })
+    .from(quizAnswers)
+    .innerJoin(quizQuestions, eq(quizAnswers.questionId, quizQuestions.id))
+    .where(eq(quizAnswers.attemptId, attempt.id))
+    .orderBy(asc(quizQuestions.sortOrder), asc(quizQuestions.promptMd));
+
+  return { answers, attempt, quiz };
+}
+
+export async function listTutorQuizResults(database: AppDb, input: TutorQuizResultsInput = {}) {
+  const parsed = tutorQuizResultsSchema.parse(input);
+  const query = database
+    .select({
+      attemptId: quizAttempts.id,
+      autoScore: quizAttempts.autoScore,
+      courseId: quizzes.courseId,
+      finalScore: quizAttempts.finalScore,
+      quizId: quizzes.id,
+      quizTitle: quizzes.title,
+      status: quizAttempts.status,
+      studentId: users.id,
+      studentName: users.name,
+      submittedAt: quizAttempts.submittedAt,
+    })
+    .from(quizAttempts)
+    .innerJoin(quizzes, eq(quizAttempts.quizId, quizzes.id))
+    .innerJoin(users, eq(quizAttempts.studentId, users.id))
+    .where(parsed.courseId ? eq(quizzes.courseId, parsed.courseId) : undefined)
+    .orderBy(asc(quizzes.title), asc(users.name));
+
+  return query;
+}
+
+function csvCell(value: string | number | null) {
+  const text = value === null ? "" : String(value);
+
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+export async function quizResultsCsv(database: AppDb, input: TutorQuizResultsInput = {}) {
+  const rows = await listTutorQuizResults(database, input);
+  const lines = ["Quiz,Student,Status,Auto score,Final score,Submitted at"];
+
+  for (const row of rows) {
+    lines.push(
+      [
+        row.quizTitle,
+        row.studentName,
+        row.status,
+        row.autoScore,
+        row.finalScore,
+        row.submittedAt ? new Date(row.submittedAt).toISOString() : "",
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
 }

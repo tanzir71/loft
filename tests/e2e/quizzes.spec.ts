@@ -97,4 +97,20 @@ test("student starts, autosaves, and submits a quiz attempt", async ({ page }) =
   await expect(page.getByText("Saved")).toBeVisible();
   await page.getByRole("button", { name: /^submit quiz$/i }).click();
   await expect(page.getByText("Submitted")).toBeVisible();
+  await expect(page.getByText("Score")).toBeVisible();
+
+  await page.context().clearCookies();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("tutor@example.com");
+  await page.getByLabel("Password").fill("correct horse battery staple");
+  await page.getByRole("button", { name: /^log in$/i }).click();
+  await expect(page.getByRole("heading", { name: /^dashboard$/i })).toBeVisible();
+  await page.goto("/quizzes");
+  await expect(page.getByRole("cell", { name: "Equations quiz" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Student One" })).toBeVisible();
+  const csvHref = await page.getByRole("link", { name: /^export csv$/i }).getAttribute("href");
+  expect(csvHref).toBeTruthy();
+  const csvResponse = await page.request.get(csvHref ?? "/quizzes/results.csv");
+  expect(csvResponse.ok()).toBeTruthy();
+  expect(await csvResponse.text()).toContain("Equations quiz,Student One,graded,1,1,");
 });

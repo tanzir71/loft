@@ -5,7 +5,14 @@ import { getDb } from "@/db";
 import { Button } from "@/components/ui/button";
 import { QuizAttempt } from "@/components/quiz-attempt";
 import { requireUser } from "@/lib/authz";
-import { parseQuestionOptions, getQuizAttemptFlow, getStudentQuizOverview, startQuizAttempt, submitQuizAttempt } from "@/lib/quizzes";
+import {
+  getQuizAttemptFlow,
+  getStudentQuizOverview,
+  getStudentQuizResult,
+  parseQuestionOptions,
+  startQuizAttempt,
+  submitQuizAttempt,
+} from "@/lib/quizzes";
 import { renderMarkdown } from "@/lib/markdown";
 import { roleHomePath } from "@/lib/session-routing";
 
@@ -46,7 +53,7 @@ async function submitAttemptAction(formData: FormData) {
     studentId: user.id,
   });
 
-  redirect(`/quiz/${quizId}?submitted=1`);
+  redirect(`/quiz/${quizId}?submitted=1&resultAttemptId=${formData.get("attemptId") ?? ""}`);
 }
 
 export default async function StudentQuizPage({
@@ -54,7 +61,7 @@ export default async function StudentQuizPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ attemptId?: string; submitted?: string }>;
+  searchParams: Promise<{ attemptId?: string; resultAttemptId?: string; submitted?: string }>;
 }) {
   const user = await requireUser();
 
@@ -64,6 +71,42 @@ export default async function StudentQuizPage({
 
   const { id } = await params;
   const query = await searchParams;
+
+  if (query.resultAttemptId) {
+    let result;
+
+    try {
+      result = await getStudentQuizResult(getDb(), {
+        attemptId: query.resultAttemptId,
+        studentId: user.id,
+      });
+    } catch {
+      notFound();
+    }
+
+    return (
+      <main className="mx-auto max-w-4xl p-6">
+        <p className="font-mono text-[10px] uppercase text-muted-foreground">Submitted</p>
+        <h1 className="mt-2 font-display text-3xl italic">{result.quiz.title}</h1>
+        <div className="mt-5 rounded-2xl border bg-card p-5 shadow-soft">
+          <p className="text-sm text-muted-foreground">Score</p>
+          <p className="mt-2 font-mono text-3xl">
+            {result.attempt.finalScore ?? result.attempt.autoScore ?? 0}
+          </p>
+        </div>
+        <div className="mt-5 grid gap-3">
+          {result.answers.map((answer) => (
+            <article className="rounded-2xl border bg-card p-5 shadow-soft" key={answer.answerId}>
+              <div dangerouslySetInnerHTML={{ __html: renderMarkdown(answer.promptMd) }} />
+              <p className="mt-3 text-sm text-muted-foreground">
+                {answer.pointsAwarded ?? 0} of {answer.points} points
+              </p>
+            </article>
+          ))}
+        </div>
+      </main>
+    );
+  }
 
   if (query.attemptId) {
     let flow;

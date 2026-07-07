@@ -12,6 +12,7 @@ import {
   createQuiz,
   createQuizQuestion,
   gradeShortAnswer,
+  listTutorQuizResults,
   listManualGradingQueue,
   listQuizBuilder,
   parseQuestionOptions,
@@ -287,6 +288,9 @@ export default async function QuizzesPage({
   const manualQueue = selectedCourseId
     ? await listManualGradingQueue(getDb(), { courseId: selectedCourseId })
     : [];
+  const resultRows = selectedCourseId
+    ? await listTutorQuizResults(getDb(), { courseId: selectedCourseId })
+    : [];
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -379,6 +383,40 @@ export default async function QuizzesPage({
                       </div>
                     </form>
                   ))}
+                </div>
+              )}
+            </section>
+            <section className="rounded-2xl border bg-card p-5 shadow-soft">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold">Results</h3>
+                <Button asChild size="sm" variant="outline">
+                  <a href={`/quizzes/results.csv?courseId=${selectedCourseId}`}>Export CSV</a>
+                </Button>
+              </div>
+              {resultRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No submitted attempts.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse text-left text-sm">
+                    <thead className="text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="border-b py-2 pr-3">Quiz</th>
+                        <th className="border-b py-2 pr-3">Student</th>
+                        <th className="border-b py-2 pr-3">Status</th>
+                        <th className="border-b py-2">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resultRows.map((row) => (
+                        <tr key={row.attemptId}>
+                          <td className="border-b py-3 pr-3">{row.quizTitle}</td>
+                          <td className="border-b py-3 pr-3">{row.studentName}</td>
+                          <td className="border-b py-3 pr-3">{row.status}</td>
+                          <td className="border-b py-3">{row.finalScore ?? row.autoScore ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </section>

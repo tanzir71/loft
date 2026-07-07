@@ -13,12 +13,15 @@ import {
   gradeQuizAttempt,
   gradeShortAnswer,
   getQuizAttemptFlow,
+  getStudentQuizResult,
   listManualGradingQueue,
   listQuizBuilder,
+  listTutorQuizResults,
   parseQuestionAnswer,
   saveQuizAnswer,
   startQuizAttempt,
   submitQuizAttempt,
+  quizResultsCsv,
   updateQuiz,
   updateQuizQuestion,
 } from "@/lib/quizzes";
@@ -399,6 +402,12 @@ describe("quiz builder", () => {
       isCorrect: true,
       pointsAwarded: 5,
     });
+    const studentResult = await getStudentQuizResult(db, {
+      attemptId: attempt.id,
+      studentId: "student_id",
+    });
+    const tutorResults = await listTutorQuizResults(db, { courseId: "course_id" });
+    const csv = await quizResultsCsv(db, { courseId: "course_id" });
     client.close();
 
     expect(graded).toMatchObject({
@@ -417,5 +426,17 @@ describe("quiz builder", () => {
       finalScore: 14,
       status: "graded",
     });
+    expect(studentResult.answers).toHaveLength(5);
+    expect(studentResult.attempt).toMatchObject({ finalScore: 14, status: "graded" });
+    expect(tutorResults).toMatchObject([
+      {
+        finalScore: 14,
+        quizTitle: "Graded quiz",
+        status: "graded",
+        studentName: "Student One",
+      },
+    ]);
+    expect(csv).toContain("Quiz,Student,Status,Auto score,Final score,Submitted at");
+    expect(csv).toContain("Graded quiz,Student One,graded,14,14,");
   });
 });
