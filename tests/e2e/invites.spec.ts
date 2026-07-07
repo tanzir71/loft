@@ -21,6 +21,9 @@ test("tutor creates a student invite and the student lands on home after joining
 
   const inviteCode = new URL(page.url()).searchParams.get("created");
   expect(inviteCode).toBeTruthy();
+  const inviteUrl = `http://127.0.0.1:3100/join/${inviteCode}`;
+  await expect(page.getByText("Email is off. Copy this invite link.")).toBeVisible();
+  await expect(page.locator("code", { hasText: inviteUrl })).toBeVisible();
 
   await page.context().clearCookies();
   await page.goto(`/join/${inviteCode}`);
