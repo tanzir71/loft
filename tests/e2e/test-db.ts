@@ -4,6 +4,7 @@ import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { schema } from "@/db/schema";
+import { databaseClientConfig } from "@/db";
 import { seedTutor } from "@/lib/seed";
 
 const e2eDbPath = path.join(process.cwd(), "data", "e2e.db");
@@ -114,7 +115,7 @@ async function clearExistingData(client: Client) {
 export async function resetE2eDb() {
   mkdirSync(path.dirname(e2eDbPath), { recursive: true });
 
-  const client = createClient({ url: "file:./data/e2e.db" });
+  const client = createClient(databaseClientConfig({ DATABASE_URL: "file:./data/e2e.db" }));
   const db = drizzle(client, { schema });
 
   if (await hasSchema(client)) {
