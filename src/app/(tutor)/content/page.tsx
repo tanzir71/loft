@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { requireTutor } from "@/lib/authz";
 import {
+  addMaterialLink,
   createMaterial,
   createModule,
   duplicateMaterial,
@@ -16,6 +17,8 @@ import {
   updateMaterial,
   updateModule,
 } from "@/lib/content";
+import { youtubeEmbedUrl, safeEmbedUrl } from "@/lib/embeds";
+import { hasBlob } from "@/lib/features";
 import { renderMarkdown } from "@/lib/markdown";
 
 export const metadata: Metadata = {
@@ -38,6 +41,11 @@ function materialType(value: FormDataEntryValue | null) {
 
 function visibility(value: FormDataEntryValue | null) {
   return String(value ?? "") === "tutor_only" ? "tutor_only" : "students";
+}
+
+function linkKind(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "");
+  return raw === "youtube" || raw === "pdf" ? raw : "link";
 }
 
 async function createModuleAction(formData: FormData) {
@@ -130,6 +138,20 @@ async function duplicateMaterialAction(formData: FormData) {
   redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
 }
 
+async function addMaterialLinkAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await addMaterialLink(getDb(), {
+    kind: linkKind(formData.get("kind")),
+    label: String(formData.get("label") ?? ""),
+    materialId: String(formData.get("materialId") ?? ""),
+    url: String(formData.get("url") ?? ""),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
@@ -145,7 +167,8 @@ export default async function ContentPage({
   const selectedCourseId = params.courseId ?? courseRows[0]?.id ?? "";
   const content = selectedCourseId
     ? await listCourseContent(getDb(), selectedCourseId)
-    : { completionCounts: {}, materials: [], modules: [] };
+    : { completionCounts: {}, linksByMaterial: {}, materials: [], modules: [] };
+  const blobEnabled = hasBlob();
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -236,6 +259,11 @@ export default async function ContentPage({
                 <input name="status" type="hidden" value="draft" />
                 <input name="sortOrder" type="hidden" value={content.materials.length} />
                 <MarkdownEditor id="materialBody" label="Material body" name="bodyMd" />
+                <p className="text-xs text-muted-foreground">
+                  {blobEnabled
+                    ? "Blob image upload is enabled when @vercel/blob is available; use material links for images until the upload package is installed."
+                    : "Set BLOB_READ_WRITE_TOKEN to enable image upload. Until then, add image URLs as material links."}
+                </p>
                 <Button type="submit" variant="gradient">
                   Add material
                 </Button>
@@ -306,6 +334,79 @@ export default async function ContentPage({
                     className="mt-4 rounded-xl border bg-background p-4"
                     dangerouslySetInnerHTML={{ __html: renderMarkdown(material.bodyMd) }}
                   />
+                  <div className="mt-4 grid gap-3">
+                    {(content.linksByMaterial[material.id] ?? []).map((link) => {
+                      const youtubeUrl = link.kind === "youtube" ? youtubeEmbedUrl(link.url) : null;
+                      const safeUrl = safeEmbedUrl(link.url);
+
+                      if (youtubeUrl) {
+                        return (
+                          <iframe
+                            allowFullScreen
+                            className="aspect-video w-full rounded-xl border"
+                            key={link.id}
+                            src={youtubeUrl}
+                            title={link.label}
+                          />
+                        );
+                      }
+
+                      if (link.kind === "pdf" && safeUrl) {
+                        return (
+                          <iframe
+                            className="h-72 w-full rounded-xl border"
+                            key={link.id}
+                            src={safeUrl}
+                            title={link.label}
+                          />
+                        );
+                      }
+
+                      return safeUrl ? (
+                        <a
+                          className="rounded-xl border bg-background px-4 py-3 text-sm font-medium text-primary underline"
+                          href={safeUrl}
+                          key={link.id}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {link.label}
+                        </a>
+                      ) : null;
+                    })}
+                  </div>
+                  <form action={addMaterialLinkAction} className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_120px_auto]">
+                    <input name="courseId" type="hidden" value={selectedCourseId} />
+                    <input name="materialId" type="hidden" value={material.id} />
+                    <input
+                      aria-label={`Link label for ${material.title}`}
+                      className="h-10 rounded-xl border bg-background px-3 text-sm"
+                      name="label"
+                      placeholder="Link label"
+                      required
+                    />
+                    <input
+                      aria-label={`Link URL for ${material.title}`}
+                      className="h-10 rounded-xl border bg-background px-3 text-sm"
+                      name="url"
+                      placeholder="https://..."
+                      required
+                      type="url"
+                    />
+                    <select
+                      aria-label={`Link kind for ${material.title}`}
+                      className="h-10 rounded-xl border bg-background px-3 text-sm"
+                      name="kind"
+                      defaultValue="link"
+                    >
+                      <option value="link">Link</option>
+                      <option value="youtube">YouTube</option>
+                      <option value="pdf">PDF</option>
+                    </select>
+                    <Button size="sm" type="submit" variant="outline">
+                      Add link
+                    </Button>
+                  </form>
                   <form action={updateMaterialAction} className="mt-5 space-y-4">
                     <input name="courseId" type="hidden" value={selectedCourseId} />
                     <input name="id" type="hidden" value={material.id} />

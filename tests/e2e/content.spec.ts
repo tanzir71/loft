@@ -37,6 +37,15 @@ test("tutor builds a module and material with live markdown preview", async ({ p
   await expect(page.getByText("Lesson notes")).toBeVisible();
   await page.getByText("Lesson notes").click();
   await expect(page.getByText("0 completed")).toBeVisible();
+  await page.getByLabel("Link label for Lesson notes").fill("Demo video");
+  await page.getByLabel("Link URL for Lesson notes").fill("https://youtu.be/abcDEF123_4");
+  await page.getByLabel("Link kind for Lesson notes").selectOption("youtube");
+  await page.getByRole("button", { name: /^add link$/i }).click();
+  await expect(page.locator('iframe[title="Demo video"]')).toHaveAttribute(
+    "src",
+    /youtube-nocookie/,
+  );
+  await page.getByText("Lesson notes").click();
   await page.getByRole("button", { name: /^duplicate material Lesson notes$/i }).click();
   await expect(page.getByText("Lesson notes copy")).toBeVisible();
 });

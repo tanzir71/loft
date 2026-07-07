@@ -3,7 +3,7 @@ import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
-import { courses, materialProgress, materials, modules, schema } from "@/db/schema";
+import { courses, materialLinks, materialProgress, materials, modules, schema } from "@/db/schema";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 type MaterialType = "lecture" | "study" | "lesson_plan" | "worksheet";
@@ -63,6 +63,17 @@ type DuplicateModuleInput = {
   targetCourseId: string;
 };
 
+type MaterialLinkKind = "link" | "youtube" | "pdf";
+
+type AddMaterialLinkInput = {
+  kind: MaterialLinkKind;
+  label: string;
+  makeId?: () => string;
+  materialId: string;
+  now?: () => number;
+  url: string;
+};
+
 const publishStatusSchema = z.enum(["draft", "published"]);
 const materialTypeSchema = z.enum(["lecture", "study", "lesson_plan", "worksheet"]);
 const visibilitySchema = z.enum(["students", "tutor_only"]);
@@ -107,6 +118,13 @@ const duplicateMaterialSchema = z.object({
 const duplicateModuleSchema = z.object({
   id: z.string().trim().min(1),
   targetCourseId: z.string().trim().min(1),
+});
+
+const addMaterialLinkSchema = z.object({
+  kind: z.enum(["link", "youtube", "pdf"]),
+  label: z.string().trim().min(1),
+  materialId: z.string().trim().min(1),
+  url: z.string().trim().url(),
 });
 
 function createId() {
@@ -322,6 +340,34 @@ export async function duplicateModule(database: AppDb, input: DuplicateModuleInp
   return moduleCopy;
 }
 
+export async function addMaterialLink(database: AppDb, input: AddMaterialLinkInput) {
+  const parsed = addMaterialLinkSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [material] = await database
+    .select({ id: materials.id })
+    .from(materials)
+    .where(eq(materials.id, parsed.materialId));
+
+  if (!material) {
+    throw new Error("Material not found.");
+  }
+
+  const [link] = await database
+    .insert(materialLinks)
+    .values({
+      id: input.makeId?.() ?? createId(),
+      materialId: parsed.materialId,
+      url: parsed.url,
+      label: parsed.label,
+      kind: parsed.kind,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+
+  return link;
+}
+
 export async function listCourseContent(database: AppDb, courseId: string) {
   const parsedCourseId = z.string().trim().min(1).parse(courseId);
   const [moduleRows, materialRows] = await Promise.all([
@@ -338,17 +384,31 @@ export async function listCourseContent(database: AppDb, courseId: string) {
   ]);
   const materialIds = materialRows.map((material) => material.id);
   const completionCounts: Record<string, number> = {};
+  const linksByMaterial: Record<string, (typeof materialLinks.$inferSelect)[]> = {};
 
   if (materialIds.length > 0) {
-    const completionRows = await database
-      .select({ materialId: materialProgress.materialId })
-      .from(materialProgress)
-      .where(inArray(materialProgress.materialId, materialIds));
+    const [completionRows, linkRows] = await Promise.all([
+      database
+        .select({ materialId: materialProgress.materialId })
+        .from(materialProgress)
+        .where(inArray(materialProgress.materialId, materialIds)),
+      database
+        .select()
+        .from(materialLinks)
+        .where(inArray(materialLinks.materialId, materialIds))
+        .orderBy(asc(materialLinks.label)),
+    ]);
 
     for (const row of completionRows) {
       completionCounts[row.materialId] = (completionCounts[row.materialId] ?? 0) + 1;
     }
+
+    for (const row of linkRows) {
+      const links = linksByMaterial[row.materialId] ?? [];
+      links.push(row);
+      linksByMaterial[row.materialId] = links;
+    }
   }
 
-  return { completionCounts, materials: materialRows, modules: moduleRows };
+  return { completionCounts, linksByMaterial, materials: materialRows, modules: moduleRows };
 }

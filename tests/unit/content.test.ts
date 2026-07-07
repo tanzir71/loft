@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { schema } from "@/db/schema";
 import { createCourse } from "@/lib/courses";
 import {
+  addMaterialLink,
   createMaterial,
   createModule,
   duplicateMaterial,
@@ -100,6 +101,13 @@ describe("course content", () => {
       type: "lecture",
       visibility: "students",
     });
+    await addMaterialLink(db, {
+      kind: "youtube",
+      label: "Demo video",
+      makeId: () => "link_1",
+      materialId: "material_1",
+      url: "https://youtu.be/abcDEF123_4",
+    });
     await duplicateMaterial(db, {
       id: "material_1",
       makeId: () => "material_copy",
@@ -130,6 +138,13 @@ describe("course content", () => {
       },
     ]);
     expect(content.completionCounts).toEqual({});
+    expect(content.linksByMaterial.material_1).toMatchObject([
+      {
+        id: "link_1",
+        kind: "youtube",
+        label: "Demo video",
+      },
+    ]);
     expect(copiedContent.modules).toMatchObject([
       { id: "module_copy_0", title: "Foundations copy" },
     ]);
