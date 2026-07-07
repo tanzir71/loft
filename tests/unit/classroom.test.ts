@@ -8,12 +8,19 @@ import { parentLinks, schema, users } from "@/db/schema";
 import { createCourse, enrollStudent } from "@/lib/courses";
 import {
   addAnnouncementComment,
+  addSubmissionComment,
+  createCommentBankItem,
   createAssignment,
   createAnnouncement,
+  gradeSubmission,
   listAnnouncementComments,
+  listCommentBank,
+  listGradingSubmissions,
   listParentAnnouncements,
   listStudentAnnouncements,
+  listStudentAssignmentCards,
   listStudentAssignments,
+  listSubmissionComments,
   submitAssignment,
   updateAssignment,
 } from "@/lib/classroom";
@@ -46,6 +53,7 @@ async function createMigratedDb() {
   const db = drizzle(client, { schema });
   await seedTutor(db, {
     email: "tutor@example.com",
+    makeId: () => "tutor_id",
     password: "correct horse battery staple",
   });
 
@@ -233,5 +241,143 @@ describe("classroom announcements", () => {
       late: true,
       linkUrl: "https://example.com/revised",
     });
+  });
+
+  it("returns graded submissions with banked feedback and private submission comments", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createStudent(db, {
+      email: "other@example.com",
+      makeId: () => "other_student_id",
+      name: "Other Student",
+    });
+    await db.insert(users).values({
+      id: "parent_id",
+      name: "Parent One",
+      email: "parent@example.com",
+      passwordHash: "hash",
+      role: "parent",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await createAssignment(db, {
+      bodyMd: "Solve the worksheet.",
+      courseId: "course_id",
+      dueAt: now + 60_000,
+      makeId: () => "assignment_id",
+      points: 10,
+      rubricMd: "Show each step.",
+      status: "published",
+      title: "Linear practice",
+    });
+    await submitAssignment(db, {
+      assignmentId: "assignment_id",
+      bodyText: "My solution",
+      makeId: () => "submission_id",
+      now: () => now,
+      studentId: "student_id",
+    });
+    await createCommentBankItem(db, {
+      makeId: () => "bank_id",
+      sortOrder: 1,
+      text: "Strong setup; add one more justification.",
+    });
+    const bank = await listCommentBank(db);
+    const queue = await listGradingSubmissions(db);
+    const returned = await gradeSubmission(db, {
+      actor: { id: "tutor_id", role: "tutor" },
+      feedbackMd: `${bank[0].text}\n\nReturned with next steps.`,
+      grade: 8,
+      now: () => now + 1,
+      submissionId: "submission_id",
+    });
+    await addSubmissionComment(db, {
+      actor: { id: "student_id", role: "student" },
+      body: "Can you check my second line?",
+      makeId: () => "student_comment_id",
+      now: () => now + 2,
+      submissionId: "submission_id",
+    });
+    await addSubmissionComment(db, {
+      actor: { id: "tutor_id", role: "tutor" },
+      body: "Yes, use the distributive property there.",
+      makeId: () => "tutor_comment_id",
+      now: () => now + 3,
+      submissionId: "submission_id",
+    });
+    const studentCards = await listStudentAssignmentCards(db, {
+      studentId: "student_id",
+    });
+    const studentThread = await listSubmissionComments(db, {
+      actor: { id: "student_id", role: "student" },
+      submissionId: "submission_id",
+    });
+
+    await expect(
+      listSubmissionComments(db, {
+        actor: { id: "other_student_id", role: "student" },
+        submissionId: "submission_id",
+      }),
+    ).rejects.toThrow("Submission unavailable.");
+    await expect(
+      addSubmissionComment(db, {
+        actor: { id: "parent_id", role: "parent" },
+        body: "Can I see this?",
+        submissionId: "submission_id",
+      }),
+    ).rejects.toThrow("Submission unavailable.");
+    await expect(
+      submitAssignment(db, {
+        assignmentId: "assignment_id",
+        bodyText: "Late revision after return",
+        studentId: "student_id",
+      }),
+    ).rejects.toThrow("Submission has already been graded.");
+    client.close();
+
+    expect(bank).toMatchObject([{ text: "Strong setup; add one more justification." }]);
+    expect(queue).toMatchObject([
+      {
+        assignmentTitle: "Linear practice",
+        bodyText: "My solution",
+        studentName: "Student One",
+      },
+    ]);
+    expect(returned).toMatchObject({
+      feedbackMd: "Strong setup; add one more justification.\n\nReturned with next steps.",
+      grade: 8,
+      status: "returned",
+    });
+    expect(studentCards).toMatchObject([
+      {
+        submission: {
+          feedbackMd: "Strong setup; add one more justification.\n\nReturned with next steps.",
+          grade: 8,
+          status: "returned",
+        },
+        title: "Linear practice",
+      },
+    ]);
+    expect(studentThread.map((comment) => comment.body)).toEqual([
+      "Can you check my second line?",
+      "Yes, use the distributive property there.",
+    ]);
   });
 });
