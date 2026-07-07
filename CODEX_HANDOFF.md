@@ -435,7 +435,7 @@ Rules:
 - [x] Attempt flow: start/window/attempt-limit enforcement, autosave, timer, submit
 - [x] Autograder + unit tests all types; manual grading queue for short answers
 - [x] Results views (student + tutor table + CSV export)
-- [ ] P6 acceptance tests green
+- [x] P6 acceptance tests green
 
 **P7 Classroom Feed**
 - [ ] Announcements (global/per-course, scheduled) + student/parent feed + optional class comment threads
@@ -518,3 +518,4 @@ Rules:
 2026-07-07 | P6 quiz attempts | Added student `/quiz/[id]` start/resume flow, published-window and attempt-limit enforcement, debounced autosave API, countdown timer, submit locking, and Playwright coverage.
 2026-07-07 | P6 autograder and manual queue | Added autograding for single-select, multi-select, true/false, and exact short answers, pending manual queue for unmatched short answers, tutor grading controls, and unit coverage.
 2026-07-07 | P6 quiz results | Added student result detail view, tutor results table, protected CSV export, result helper coverage, and Playwright assertions for table/export output.
+2026-07-07 | P6 acceptance | Verified `npm run check` (typecheck, lint, 56 unit tests) and `npm run e2e` (14 Playwright tests) after the quiz builder/taking/results phase.
