@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { courses } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { requireTutor } from "@/lib/authz";
+import { runReadTimeFallbacks } from "@/lib/cron";
 import { renderMarkdown } from "@/lib/markdown";
 import {
   answerSummary,
@@ -278,18 +279,20 @@ export default async function QuizzesPage({
 }) {
   await requireTutor();
   const params = await searchParams;
-  const courseRows = await getDb()
+  const database = getDb();
+  await runReadTimeFallbacks(database, { skipSessions: true });
+  const courseRows = await database
     .select({ id: courses.id, title: courses.title })
     .from(courses)
     .where(eq(courses.status, "active"))
     .orderBy(asc(courses.title));
   const selectedCourseId = params.courseId ?? courseRows[0]?.id ?? "";
-  const quizBuilder = selectedCourseId ? await listQuizBuilder(getDb(), selectedCourseId) : [];
+  const quizBuilder = selectedCourseId ? await listQuizBuilder(database, selectedCourseId) : [];
   const manualQueue = selectedCourseId
-    ? await listManualGradingQueue(getDb(), { courseId: selectedCourseId })
+    ? await listManualGradingQueue(database, { courseId: selectedCourseId })
     : [];
   const resultRows = selectedCourseId
-    ? await listTutorQuizResults(getDb(), { courseId: selectedCourseId })
+    ? await listTutorQuizResults(database, { courseId: selectedCourseId })
     : [];
 
   return (

@@ -11,6 +11,7 @@ import {
   listStudentAnnouncements,
 } from "@/lib/classroom";
 import { listStudentCourses } from "@/lib/courses";
+import { runReadTimeFallbacks } from "@/lib/cron";
 import { renderMarkdown } from "@/lib/markdown";
 import { listStudentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
@@ -75,6 +76,7 @@ export default async function StudentHomePage() {
     redirect(roleHomePath(user.role));
   }
 
+  await runReadTimeFallbacks(getDb());
   const [courses, sessions, packageCredits, announcements] = await Promise.all([
     listStudentCourses(getDb(), user.id),
     listStudentPortalSessions(getDb(), user.id),

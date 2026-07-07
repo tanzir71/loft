@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/authz";
 import { listStudentCurriculum, markMaterialComplete } from "@/lib/content";
+import { runReadTimeFallbacks } from "@/lib/cron";
 import { renderMarkdown } from "@/lib/markdown";
 import { roleHomePath } from "@/lib/session-routing";
 
@@ -42,6 +43,7 @@ export default async function StudentCoursePage({
 
   const { id } = await params;
   let curriculum;
+  await runReadTimeFallbacks(getDb(), { skipSessions: true });
 
   try {
     curriculum = await listStudentCurriculum(getDb(), {

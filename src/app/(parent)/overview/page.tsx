@@ -11,6 +11,7 @@ import {
   listAnnouncementComments,
   listParentAnnouncements,
 } from "@/lib/classroom";
+import { runReadTimeFallbacks } from "@/lib/cron";
 import { renderMarkdown } from "@/lib/markdown";
 import { listParentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
@@ -74,6 +75,7 @@ export default async function ParentOverviewPage() {
     redirect(roleHomePath(user.role));
   }
 
+  await runReadTimeFallbacks(getDb());
   const [sessions, packageCredits, announcements] = await Promise.all([
     listParentPortalSessions(getDb(), user.id),
     listPackageCreditsForParent(getDb(), user.id),

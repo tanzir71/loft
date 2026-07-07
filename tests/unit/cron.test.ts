@@ -9,7 +9,7 @@ import { announcements, classSessions, invoices, materials, quizzes, schema } fr
 import { createAnnouncement } from "@/lib/classroom";
 import { createMaterial } from "@/lib/content";
 import { createCourse, enrollStudent } from "@/lib/courses";
-import { isCronRequestAuthorized, runCronTasks } from "@/lib/cron";
+import { isCronRequestAuthorized, runCronTasks, runReadTimeFallbacks } from "@/lib/cron";
 import { createQuiz } from "@/lib/quizzes";
 import { createRatePlan, setCourseDefaultRatePlan } from "@/lib/billing";
 import { createScheduleSlot } from "@/lib/schedule";
@@ -167,5 +167,73 @@ describe("cron tasks", () => {
     expect(quizRows[0].status).toBe("closed");
     expect(announcementRows[0].status).toBe("published");
     expect(materialRows[0].status).toBe("published");
+  });
+
+  it("runs non-email read-time fallbacks without relying on cron delivery", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    const plan = await createRatePlan(db, {
+      amount: 5000,
+      makeId: () => "plan_id",
+      name: "Monthly",
+      type: "monthly_flat",
+    });
+    await setCourseDefaultRatePlan(db, {
+      courseId: "course_id",
+      ratePlanId: plan.id,
+    });
+    await createScheduleSlot(db, {
+      courseId: "course_id",
+      durationMin: 60,
+      makeId: () => "slot_id",
+      startMin: 10 * 60,
+      weekday: 2,
+    });
+    await createQuiz(db, {
+      closeAt: now - 60_000,
+      courseId: "course_id",
+      makeId: () => "quiz_id",
+      status: "published",
+      title: "Closing quiz",
+    });
+
+    const first = await runReadTimeFallbacks(db, { now, sessionWeeks: 2 });
+    const second = await runReadTimeFallbacks(db, { now, sessionWeeks: 2 });
+    const [sessionRows, invoiceRows, quizRows] = await Promise.all([
+      db.select().from(classSessions),
+      db.select().from(invoices),
+      db.select().from(quizzes).where(eq(quizzes.id, "quiz_id")),
+    ]);
+    client.close();
+
+    expect(first).toMatchObject({
+      invoicesCreated: 0,
+      quizzesClosed: 1,
+      sessions: { created: 2, skipped: 0 },
+    });
+    expect(second).toMatchObject({
+      invoicesCreated: 0,
+      quizzesClosed: 0,
+      sessions: { created: 0, skipped: 2 },
+    });
+    expect(sessionRows).toHaveLength(2);
+    expect(invoiceRows).toHaveLength(0);
+    expect(quizRows[0].status).toBe("closed");
   });
 });

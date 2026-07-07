@@ -17,10 +17,17 @@ type RunCronTasksInput = {
   sessionWeeks?: number;
 };
 
+type RunAutomationTasksInput = RunCronTasksInput & {
+  skipInvoices?: boolean;
+  skipSessions?: boolean;
+};
+
 const monthlyInvoiceNotes = "Generated monthly invoice";
-const runCronTasksSchema = z.object({
+const runAutomationTasksSchema = z.object({
   now: z.number().int().optional(),
   sessionWeeks: z.number().int().min(1).max(52).optional(),
+  skipInvoices: z.boolean().optional(),
+  skipSessions: z.boolean().optional(),
 });
 
 function utcMonthStart(timestamp: number) {
@@ -68,16 +75,18 @@ async function monthlyDraftInvoiceExists(
   return Boolean(invoice);
 }
 
-export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {}) {
-  const parsed = runCronTasksSchema.parse(input);
+async function runCoreAutomationTasks(database: AppDb, input: RunAutomationTasksInput = {}) {
+  const parsed = runAutomationTasksSchema.parse(input);
   const now = parsed.now ?? Date.now();
   const periodStart = utcMonthStart(now);
   const periodEnd = utcNextMonthStart(now);
-  const sessions = await generateSessions(database, {
-    from: now,
-    now: () => now,
-    weeks: parsed.sessionWeeks ?? 4,
-  });
+  const sessions = parsed.skipSessions
+    ? { created: 0, skipped: 0 }
+    : await generateSessions(database, {
+        from: now,
+        now: () => now,
+        weeks: parsed.sessionWeeks ?? 4,
+      });
   const closedQuizzes = await database
     .update(quizzes)
     .set({ status: "closed", updatedAt: now })
@@ -93,42 +102,39 @@ export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {
     .set({ status: "published", updatedAt: now })
     .where(and(eq(materials.status, "draft"), lte(materials.publishAt, now)))
     .returning({ id: materials.id });
-  const studentRows = await database
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.role, "student"), eq(users.status, "active")));
   let invoicesCreated = 0;
   let invoicesRefreshed = 0;
   let invoicesSkipped = 0;
 
-  for (const student of studentRows) {
-    const existed = await monthlyDraftInvoiceExists(database, {
-      periodEnd,
-      periodStart,
-      studentId: student.id,
-    });
-    const result = await generateMonthlyInvoice(database, {
-      dueDate: periodEnd,
-      now: () => now,
-      periodEnd,
-      periodStart,
-      studentId: student.id,
-    });
+  if (!parsed.skipInvoices) {
+    const studentRows = await database
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, "student"), eq(users.status, "active")));
 
-    if (result.skipped) {
-      invoicesSkipped += 1;
-    } else if (existed) {
-      invoicesRefreshed += 1;
-    } else {
-      invoicesCreated += 1;
+    for (const student of studentRows) {
+      const existed = await monthlyDraftInvoiceExists(database, {
+        periodEnd,
+        periodStart,
+        studentId: student.id,
+      });
+      const result = await generateMonthlyInvoice(database, {
+        dueDate: periodEnd,
+        now: () => now,
+        periodEnd,
+        periodStart,
+        studentId: student.id,
+      });
+
+      if (result.skipped) {
+        invoicesSkipped += 1;
+      } else if (existed) {
+        invoicesRefreshed += 1;
+      } else {
+        invoicesCreated += 1;
+      }
     }
   }
-  const paymentReminders = await sendPaymentReminders(database, {
-    env: input.env,
-    fetchFn: input.fetchFn,
-    now,
-    origin: input.origin ?? "http://localhost:3000",
-  });
 
   return {
     announcementsPublished: publishedAnnouncements.length,
@@ -136,8 +142,26 @@ export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {
     invoicesRefreshed,
     invoicesSkipped,
     materialsPublished: publishedMaterials.length,
-    paymentReminders,
     quizzesClosed: closedQuizzes.length,
     sessions,
+  };
+}
+
+export async function runReadTimeFallbacks(database: AppDb, input: RunAutomationTasksInput = {}) {
+  return runCoreAutomationTasks(database, { skipInvoices: true, ...input });
+}
+
+export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {}) {
+  const core = await runCoreAutomationTasks(database, input);
+  const paymentReminders = await sendPaymentReminders(database, {
+    env: input.env,
+    fetchFn: input.fetchFn,
+    now: input.now,
+    origin: input.origin ?? "http://localhost:3000",
+  });
+
+  return {
+    ...core,
+    paymentReminders,
   };
 }
