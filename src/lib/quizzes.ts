@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import {
   quizQuestions,
   quizzes,
   schema,
+  users,
 } from "@/db/schema";
 
 type AppDb = LibSQLDatabase<typeof schema>;
@@ -89,6 +90,22 @@ type StudentQuizOverviewInput = {
   studentId: string;
 };
 
+type GradeQuizAttemptInput = {
+  attemptId: string;
+  now?: () => number;
+};
+
+type GradeShortAnswerInput = {
+  answerId: string;
+  isCorrect: boolean;
+  now?: () => number;
+  pointsAwarded: number;
+};
+
+type ManualGradingQueueInput = {
+  courseId?: string;
+};
+
 const quizStatusSchema = z.enum(["draft", "published", "closed"]);
 const questionTypeSchema = z.enum(["mcq_single", "mcq_multi", "true_false", "short_answer"]);
 const quizFieldsSchema = z.object({
@@ -160,6 +177,17 @@ const studentQuizOverviewSchema = z.object({
   now: z.number().int().optional(),
   quizId: z.string().trim().min(1),
   studentId: z.string().trim().min(1),
+});
+const gradeQuizAttemptSchema = z.object({
+  attemptId: z.string().trim().min(1),
+});
+const gradeShortAnswerSchema = z.object({
+  answerId: z.string().trim().min(1),
+  isCorrect: z.boolean(),
+  pointsAwarded: z.number().int().min(0),
+});
+const manualGradingQueueSchema = z.object({
+  courseId: z.string().trim().min(1).optional(),
 });
 function createId() {
   return randomBytes(12).toString("base64url");
@@ -646,7 +674,7 @@ export async function submitQuizAttempt(database: AppDb, input: SubmitQuizAttemp
     .where(eq(quizAttempts.id, parsed.attemptId))
     .returning();
 
-  return submitted;
+  return gradeQuizAttempt(database, { attemptId: submitted.id, now: () => now });
 }
 
 export async function getQuizAttemptFlow(database: AppDb, input: QuizAttemptFlowInput) {
@@ -679,4 +707,185 @@ export async function getQuizAttemptFlow(database: AppDb, input: QuizAttemptFlow
     quiz,
     remainingSeconds: remainingSeconds(quiz, attempt, now),
   };
+}
+
+function normalizeAnswer(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function sameSet(left: string[], right: string[]) {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+
+  return leftSet.size === rightSet.size && [...leftSet].every((value) => rightSet.has(value));
+}
+
+function scoreSavedAnswer(
+  question: typeof quizQuestions.$inferSelect,
+  answer: typeof quizAnswers.$inferSelect,
+) {
+  if (question.type === "mcq_single") {
+    const key = singleAnswerSchema.parse(question.answerJson);
+    const saved = singleStudentAnswerSchema.parse(answer.answerJson);
+    const isCorrect = saved.selectedOptionId === key.correctOptionId;
+
+    return { isCorrect, pointsAwarded: isCorrect ? question.points : 0 };
+  }
+
+  if (question.type === "mcq_multi") {
+    const key = multiAnswerSchema.parse(question.answerJson);
+    const saved = multiStudentAnswerSchema.parse(answer.answerJson);
+    const isCorrect = sameSet(saved.selectedOptionIds, key.correctOptionIds);
+
+    return { isCorrect, pointsAwarded: isCorrect ? question.points : 0 };
+  }
+
+  if (question.type === "true_false") {
+    const key = trueFalseAnswerSchema.parse(question.answerJson);
+    const saved = trueFalseStudentAnswerSchema.parse(answer.answerJson);
+    const isCorrect = saved.value === key.value;
+
+    return { isCorrect, pointsAwarded: isCorrect ? question.points : 0 };
+  }
+
+  const key = shortAnswerSchema.parse(question.answerJson);
+  const saved = shortStudentAnswerSchema.parse(answer.answerJson);
+  const accepted = new Set(key.acceptedAnswers.map(normalizeAnswer));
+  const isAutoCorrect = accepted.has(normalizeAnswer(saved.response));
+
+  return isAutoCorrect
+    ? { isCorrect: true, pointsAwarded: question.points }
+    : { isCorrect: null, pointsAwarded: null };
+}
+
+async function recalculateAttemptScore(database: AppDb, attemptId: string, now: number) {
+  const answerRows = await database.select().from(quizAnswers).where(eq(quizAnswers.attemptId, attemptId));
+  const pendingManual = answerRows.some((answer) => answer.pointsAwarded === null);
+  const score = answerRows.reduce((sum, answer) => sum + (answer.pointsAwarded ?? 0), 0);
+  const [attempt] = await database
+    .update(quizAttempts)
+    .set({
+      autoScore: score,
+      finalScore: pendingManual ? null : score,
+      status: pendingManual ? "submitted" : "graded",
+      updatedAt: now,
+    })
+    .where(eq(quizAttempts.id, attemptId))
+    .returning();
+
+  return attempt;
+}
+
+export async function gradeQuizAttempt(database: AppDb, input: GradeQuizAttemptInput) {
+  const parsed = gradeQuizAttemptSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [attempt] = await database.select().from(quizAttempts).where(eq(quizAttempts.id, parsed.attemptId));
+
+  if (!attempt) {
+    throw new Error("Quiz attempt not found.");
+  }
+
+  if (attempt.status === "in_progress") {
+    throw new Error("Quiz attempt must be submitted before grading.");
+  }
+
+  const [questionRows, answerRows] = await Promise.all([
+    database.select().from(quizQuestions).where(eq(quizQuestions.quizId, attempt.quizId)),
+    database.select().from(quizAnswers).where(eq(quizAnswers.attemptId, attempt.id)),
+  ]);
+  const questionsById = new Map(questionRows.map((question) => [question.id, question]));
+
+  for (const answer of answerRows) {
+    const question = questionsById.get(answer.questionId);
+
+    if (!question) {
+      continue;
+    }
+
+    const score = scoreSavedAnswer(question, answer);
+    await database
+      .update(quizAnswers)
+      .set({
+        isCorrect: score.isCorrect,
+        pointsAwarded: score.pointsAwarded,
+        updatedAt: now,
+      })
+      .where(eq(quizAnswers.id, answer.id));
+  }
+
+  return recalculateAttemptScore(database, attempt.id, now);
+}
+
+export async function listManualGradingQueue(database: AppDb, input: ManualGradingQueueInput = {}) {
+  const parsed = manualGradingQueueSchema.parse(input);
+  const whereClause = parsed.courseId
+    ? and(
+        eq(quizQuestions.type, "short_answer"),
+        isNull(quizAnswers.pointsAwarded),
+        eq(quizAttempts.status, "submitted"),
+        eq(quizzes.courseId, parsed.courseId),
+      )
+    : and(
+        eq(quizQuestions.type, "short_answer"),
+        isNull(quizAnswers.pointsAwarded),
+        eq(quizAttempts.status, "submitted"),
+      );
+
+  return database
+    .select({
+      answerId: quizAnswers.id,
+      answerJson: quizAnswers.answerJson,
+      attemptId: quizAttempts.id,
+      points: quizQuestions.points,
+      promptMd: quizQuestions.promptMd,
+      questionId: quizQuestions.id,
+      quizId: quizzes.id,
+      quizTitle: quizzes.title,
+      studentId: users.id,
+      studentName: users.name,
+    })
+    .from(quizAnswers)
+    .innerJoin(quizQuestions, eq(quizAnswers.questionId, quizQuestions.id))
+    .innerJoin(quizAttempts, eq(quizAnswers.attemptId, quizAttempts.id))
+    .innerJoin(quizzes, eq(quizAttempts.quizId, quizzes.id))
+    .innerJoin(users, eq(quizAttempts.studentId, users.id))
+    .where(whereClause)
+    .orderBy(asc(quizzes.title), asc(users.name), asc(quizQuestions.sortOrder));
+}
+
+export async function gradeShortAnswer(database: AppDb, input: GradeShortAnswerInput) {
+  const parsed = gradeShortAnswerSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [answer] = await database
+    .select({
+      attemptId: quizAnswers.attemptId,
+      points: quizQuestions.points,
+      questionType: quizQuestions.type,
+    })
+    .from(quizAnswers)
+    .innerJoin(quizQuestions, eq(quizAnswers.questionId, quizQuestions.id))
+    .where(eq(quizAnswers.id, parsed.answerId));
+
+  if (!answer) {
+    throw new Error("Answer not found.");
+  }
+
+  if (answer.questionType !== "short_answer") {
+    throw new Error("Only short answers can be manually graded.");
+  }
+
+  if (parsed.pointsAwarded > answer.points) {
+    throw new Error("Points awarded exceeds question points.");
+  }
+
+  await database
+    .update(quizAnswers)
+    .set({
+      isCorrect: parsed.isCorrect,
+      pointsAwarded: parsed.pointsAwarded,
+      updatedAt: now,
+    })
+    .where(eq(quizAnswers.id, parsed.answerId));
+
+  return recalculateAttemptScore(database, answer.attemptId, now);
 }

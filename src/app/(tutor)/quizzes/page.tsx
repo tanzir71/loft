@@ -11,6 +11,8 @@ import {
   answerSummary,
   createQuiz,
   createQuizQuestion,
+  gradeShortAnswer,
+  listManualGradingQueue,
   listQuizBuilder,
   parseQuestionOptions,
   updateQuiz,
@@ -148,6 +150,12 @@ function shortAnswerValue(type: QuestionType, answerJson: unknown) {
     : "";
 }
 
+function responseText(answerJson: unknown) {
+  return typeof answerJson === "object" && answerJson && "response" in answerJson
+    ? String(answerJson.response)
+    : "";
+}
+
 async function createQuizAction(formData: FormData) {
   "use server";
 
@@ -216,6 +224,19 @@ async function updateQuestionAction(formData: FormData) {
   redirect(`/quizzes?courseId=${formData.get("courseId") ?? ""}`);
 }
 
+async function gradeShortAnswerAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await gradeShortAnswer(getDb(), {
+    answerId: String(formData.get("answerId") ?? ""),
+    isCorrect: String(formData.get("isCorrect") ?? "") === "true",
+    pointsAwarded: numberValue(formData.get("pointsAwarded"), 0),
+  });
+
+  redirect(`/quizzes?courseId=${formData.get("courseId") ?? ""}`);
+}
+
 function QuestionPreview({
   answerJson,
   optionsJson,
@@ -263,6 +284,9 @@ export default async function QuizzesPage({
     .orderBy(asc(courses.title));
   const selectedCourseId = params.courseId ?? courseRows[0]?.id ?? "";
   const quizBuilder = selectedCourseId ? await listQuizBuilder(getDb(), selectedCourseId) : [];
+  const manualQueue = selectedCourseId
+    ? await listManualGradingQueue(getDb(), { courseId: selectedCourseId })
+    : [];
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -320,6 +344,44 @@ export default async function QuizzesPage({
 
           <section className="space-y-4">
             <h2 className="text-lg font-semibold">Quiz builder</h2>
+            <section className="rounded-2xl border bg-card p-5 shadow-soft">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-base font-semibold">Manual grading</h3>
+                <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {manualQueue.length} pending
+                </span>
+              </div>
+              {manualQueue.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No short answers pending.</p>
+              ) : (
+                <div className="grid gap-3">
+                  {manualQueue.map((item) => (
+                    <form action={gradeShortAnswerAction} className="grid gap-3 rounded-xl border bg-background p-4" key={item.answerId}>
+                      <input name="courseId" type="hidden" value={selectedCourseId} />
+                      <input name="answerId" type="hidden" value={item.answerId} />
+                      <div>
+                        <p className="text-sm font-semibold">{item.studentName}</p>
+                        <p className="text-xs text-muted-foreground">{item.quizTitle}</p>
+                      </div>
+                      <p className="text-sm">{item.promptMd}</p>
+                      <p className="rounded-lg border bg-card px-3 py-2 text-sm">
+                        {responseText(item.answerJson)}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto]">
+                        <select className="h-10 rounded-xl border bg-card px-3 text-sm" name="isCorrect" defaultValue="true">
+                          <option value="true">Correct</option>
+                          <option value="false">Incorrect</option>
+                        </select>
+                        <input className="h-10 rounded-xl border bg-card px-3 text-sm" min={0} max={item.points} name="pointsAwarded" defaultValue={item.points} type="number" />
+                        <Button size="sm" type="submit">
+                          Save grade
+                        </Button>
+                      </div>
+                    </form>
+                  ))}
+                </div>
+              )}
+            </section>
             {quizBuilder.length === 0 ? (
               <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
                 <p className="font-display text-2xl italic">No quizzes yet.</p>

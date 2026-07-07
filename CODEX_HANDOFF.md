@@ -433,7 +433,7 @@ Rules:
 **P6 Quizzes**
 - [x] Quiz + question builder (4 types) with zod answer schemas + preview
 - [x] Attempt flow: start/window/attempt-limit enforcement, autosave, timer, submit
-- [ ] Autograder + unit tests all types; manual grading queue for short answers
+- [x] Autograder + unit tests all types; manual grading queue for short answers
 - [ ] Results views (student + tutor table + CSV export)
 - [ ] P6 acceptance tests green
 
@@ -516,3 +516,4 @@ Rules:
 2026-07-07 | P5 acceptance | Verified `npm run check` (typecheck, lint, 53 unit tests) and `npm run e2e` (12 Playwright tests) after all P5 material-builder work.
 2026-07-07 | P6 quiz builder | Added tutor `/quizzes` builder, four typed question schemas with zod validation, ordered question CRUD, server-rendered previews, unit coverage, and a Playwright quiz smoke.
 2026-07-07 | P6 quiz attempts | Added student `/quiz/[id]` start/resume flow, published-window and attempt-limit enforcement, debounced autosave API, countdown timer, submit locking, and Playwright coverage.
+2026-07-07 | P6 autograder and manual queue | Added autograding for single-select, multi-select, true/false, and exact short answers, pending manual queue for unmatched short answers, tutor grading controls, and unit coverage.

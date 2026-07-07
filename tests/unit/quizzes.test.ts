@@ -10,7 +10,10 @@ import {
   answerSummary,
   createQuiz,
   createQuizQuestion,
+  gradeQuizAttempt,
+  gradeShortAnswer,
   getQuizAttemptFlow,
+  listManualGradingQueue,
   listQuizBuilder,
   parseQuestionAnswer,
   saveQuizAnswer,
@@ -251,6 +254,168 @@ describe("quiz builder", () => {
     expect(flow.remainingSeconds).toBe(19 * 60);
     expect(flow.answersByQuestion.question_id).toMatchObject({
       answerJson: { selectedOptionId: "b" },
+    });
+  });
+
+  it("autogrades objective answers and queues unmatched short answers for manual grading", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await createQuiz(db, {
+      courseId: "course_id",
+      makeId: () => "quiz_id",
+      maxAttempts: 1,
+      now: () => now,
+      status: "published",
+      title: "Graded quiz",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { correctOptionId: "b" },
+      makeId: () => "single_id",
+      optionsJson: {
+        options: [
+          { id: "a", text: "x = 2" },
+          { id: "b", text: "x = 5" },
+        ],
+      },
+      points: 2,
+      promptMd: "Solve.",
+      quizId: "quiz_id",
+      sortOrder: 0,
+      type: "mcq_single",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { correctOptionIds: ["a", "c"] },
+      makeId: () => "multi_id",
+      optionsJson: {
+        options: [
+          { id: "a", text: "2x" },
+          { id: "b", text: "x + 1" },
+          { id: "c", text: "x + x" },
+        ],
+      },
+      points: 3,
+      promptMd: "Equivalent.",
+      quizId: "quiz_id",
+      sortOrder: 1,
+      type: "mcq_multi",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { value: true },
+      makeId: () => "tf_id",
+      optionsJson: null,
+      points: 1,
+      promptMd: "True?",
+      quizId: "quiz_id",
+      sortOrder: 2,
+      type: "true_false",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { acceptedAnswers: ["combine like terms"] },
+      makeId: () => "short_auto_id",
+      optionsJson: null,
+      points: 4,
+      promptMd: "First step?",
+      quizId: "quiz_id",
+      sortOrder: 3,
+      type: "short_answer",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { acceptedAnswers: ["divide both sides"] },
+      makeId: () => "short_manual_id",
+      optionsJson: null,
+      points: 5,
+      promptMd: "Final step?",
+      quizId: "quiz_id",
+      sortOrder: 4,
+      type: "short_answer",
+    });
+    const attempt = await startQuizAttempt(db, {
+      makeId: () => "attempt_id",
+      now: () => now,
+      quizId: "quiz_id",
+      studentId: "student_id",
+    });
+    await saveQuizAnswer(db, {
+      answerJson: { selectedOptionId: "b" },
+      attemptId: attempt.id,
+      makeId: () => "answer_single",
+      questionId: "single_id",
+      studentId: "student_id",
+    });
+    await saveQuizAnswer(db, {
+      answerJson: { selectedOptionIds: ["c", "a"] },
+      attemptId: attempt.id,
+      makeId: () => "answer_multi",
+      questionId: "multi_id",
+      studentId: "student_id",
+    });
+    await saveQuizAnswer(db, {
+      answerJson: { value: false },
+      attemptId: attempt.id,
+      makeId: () => "answer_tf",
+      questionId: "tf_id",
+      studentId: "student_id",
+    });
+    await saveQuizAnswer(db, {
+      answerJson: { response: "Combine like terms" },
+      attemptId: attempt.id,
+      makeId: () => "answer_short_auto",
+      questionId: "short_auto_id",
+      studentId: "student_id",
+    });
+    await saveQuizAnswer(db, {
+      answerJson: { response: "move numbers" },
+      attemptId: attempt.id,
+      makeId: () => "answer_short_manual",
+      questionId: "short_manual_id",
+      studentId: "student_id",
+    });
+    await submitQuizAttempt(db, {
+      attemptId: attempt.id,
+      now: () => now + 60_000,
+      studentId: "student_id",
+    });
+
+    const graded = await gradeQuizAttempt(db, { attemptId: attempt.id });
+    const queue = await listManualGradingQueue(db, { courseId: "course_id" });
+    const finalized = await gradeShortAnswer(db, {
+      answerId: "answer_short_manual",
+      isCorrect: true,
+      pointsAwarded: 5,
+    });
+    client.close();
+
+    expect(graded).toMatchObject({
+      autoScore: 9,
+      finalScore: null,
+      status: "submitted",
+    });
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toMatchObject({
+      answerId: "answer_short_manual",
+      promptMd: "Final step?",
+      quizTitle: "Graded quiz",
+      studentName: "Student One",
+    });
+    expect(finalized).toMatchObject({
+      finalScore: 14,
+      status: "graded",
     });
   });
 });
