@@ -468,7 +468,7 @@ Rules:
 - [x] Tutor dashboard + activity log wiring
 - [x] Progress reports: generate/edit/print/share per student + monthly batch (numbers-only without AI key)
 - [x] Student home + parent overview completion
-- [ ] Empty/loading/error states pass + mobile responsive pass + a11y ≥ 90
+- [x] Empty/loading/error states pass + mobile responsive pass + a11y ≥ 90
 - [ ] JSON backup export + invoices CSV + login rate limiting
 - [ ] Full Playwright smoke suite (tutor/student/parent) green; `npm run build` clean
 - [ ] Branding pass: "TutorLoft" wordmark, titles, invoice prefix, email subjects per §1
@@ -543,3 +543,4 @@ Rules:
 2026-07-07 | P10 dashboard activity log | Added reusable activity logging, dashboard recent activity feed, student/course create logs, and unit/e2e coverage; verified `npm run check` and full Playwright e2e.
 2026-07-07 | P10 progress reports | Added no-key numbers-only report generation, monthly batch generation, editable roster reports, printable/shareable report pages, student/parent visibility, and unit/e2e coverage; verified `npm run check` and full Playwright e2e.
 2026-07-07 | P10 portal completion | Added student home action summary with due assignments, open quizzes, next session, balance; added parent family summary with linked students, sessions, balance; covered open quiz helper and tutor/student/parent portal e2e; verified `npm run check` and full Playwright e2e.
+2026-07-07 | P10 empty/error/mobile/a11y polish | Added app-wide skip link, loading/error/not-found states, mobile overflow and empty dashboard smoke coverage; Browser iab unavailable so used Playwright fallback; Lighthouse accessibility on `/login` scored 100; verified `npm run check` and full Playwright e2e.
