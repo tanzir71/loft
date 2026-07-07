@@ -3,7 +3,15 @@ import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
-import { classSessions, courses, scheduleSlots, schema } from "@/db/schema";
+import {
+  attendance,
+  classSessions,
+  courses,
+  enrollments,
+  scheduleSlots,
+  schema,
+  users,
+} from "@/db/schema";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 
@@ -36,9 +44,31 @@ type GenerateSessionsInput = {
   weeks: number;
 };
 
+type UpdateSessionStatusInput = {
+  id: string;
+  now?: () => number;
+  status: "scheduled" | "done" | "cancelled";
+};
+
+type DefaultAttendanceInput = {
+  makeId?: (index: number) => string;
+  now?: () => number;
+  sessionId: string;
+};
+
+type MarkAttendanceInput = {
+  makeId?: () => string;
+  now?: () => number;
+  sessionId: string;
+  status: "present" | "absent" | "late" | "excused";
+  studentId: string;
+};
+
 const minuteMs = 60 * 1000;
 const dayMs = 24 * 60 * minuteMs;
 const weekMs = 7 * dayMs;
+const sessionStatusSchema = z.enum(["scheduled", "done", "cancelled"]);
+const attendanceStatusSchema = z.enum(["present", "absent", "late", "excused"]);
 
 const slotFieldsSchema = z.object({
   durationMin: z.number().int().min(1).max(24 * 60),
@@ -209,4 +239,115 @@ export async function generateSessions(database: AppDb, input: GenerateSessionsI
   }
 
   return { created, skipped };
+}
+
+export async function updateSessionStatus(database: AppDb, input: UpdateSessionStatusInput) {
+  const parsed = z
+    .object({
+      id: z.string().trim().min(1),
+      status: sessionStatusSchema,
+    })
+    .parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [session] = await database
+    .update(classSessions)
+    .set({ status: parsed.status, updatedAt: now })
+    .where(eq(classSessions.id, parsed.id))
+    .returning();
+
+  if (!session) {
+    throw new Error("Session not found.");
+  }
+
+  return session;
+}
+
+export async function defaultAttendanceForSession(
+  database: AppDb,
+  input: DefaultAttendanceInput,
+) {
+  const sessionId = z.string().trim().min(1).parse(input.sessionId);
+  const [session] = await database
+    .select({ id: classSessions.id, courseId: classSessions.courseId })
+    .from(classSessions)
+    .where(eq(classSessions.id, sessionId));
+
+  if (!session) {
+    throw new Error("Session not found.");
+  }
+
+  const enrolledStudents = await database
+    .select({ studentId: enrollments.studentId })
+    .from(enrollments)
+    .innerJoin(users, eq(enrollments.studentId, users.id))
+    .where(
+      and(
+        eq(enrollments.courseId, session.courseId),
+        eq(enrollments.status, "active"),
+        eq(users.status, "active"),
+      ),
+    );
+  const now = input.now?.() ?? Date.now();
+  let created = 0;
+  let skipped = 0;
+
+  for (const enrolled of enrolledStudents) {
+    const [existing] = await database
+      .select({ id: attendance.id })
+      .from(attendance)
+      .where(
+        and(
+          eq(attendance.sessionId, session.id),
+          eq(attendance.studentId, enrolled.studentId),
+        ),
+      );
+
+    if (existing) {
+      skipped += 1;
+      continue;
+    }
+
+    await database.insert(attendance).values({
+      id: input.makeId?.(created) ?? createId(),
+      sessionId: session.id,
+      studentId: enrolled.studentId,
+      status: "present",
+      createdAt: now,
+      updatedAt: now,
+    });
+    created += 1;
+  }
+
+  return { created, skipped };
+}
+
+export async function markAttendance(database: AppDb, input: MarkAttendanceInput) {
+  const parsed = z
+    .object({
+      sessionId: z.string().trim().min(1),
+      studentId: z.string().trim().min(1),
+      status: attendanceStatusSchema,
+    })
+    .parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [row] = await database
+    .insert(attendance)
+    .values({
+      id: input.makeId?.() ?? createId(),
+      sessionId: parsed.sessionId,
+      studentId: parsed.studentId,
+      status: parsed.status,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [attendance.sessionId, attendance.studentId],
+      set: {
+        status: parsed.status,
+        updatedAt: now,
+      },
+    })
+    .returning();
+
+  return row;
 }

@@ -13,12 +13,25 @@ test("tutor manages weekly slots and generates sessions idempotently", async ({ 
   await page.getByRole("button", { name: /^log in$/i }).click();
   await expect(page.getByRole("heading", { name: /^dashboard$/i })).toBeVisible();
 
+  await page.goto("/students");
+  await page.getByLabel("Student name").fill("Student One");
+  await page.getByLabel("Student email").fill("student@example.com");
+  await page.getByRole("button", { name: /^add student$/i }).click();
+  await expect(page.getByLabel("Name for student@example.com")).toHaveValue("Student One");
+
   await page.goto("/courses");
   await page.getByLabel("Course title").fill("Algebra I");
   await page.getByLabel("Subject").fill("Math");
   await page.getByLabel("Description").fill("Algebra foundations");
   await page.getByRole("button", { name: /^add course$/i }).click();
   await expect(page.getByLabel("Title for Algebra I")).toHaveValue("Algebra I");
+  await page
+    .getByLabel("Enroll student in Algebra I")
+    .selectOption({ label: "Student One (student@example.com)" });
+  await page.getByRole("button", { name: /^enroll selected student in Algebra I$/i }).click();
+  await expect(
+    page.getByRole("listitem").getByText("Student One (student@example.com)"),
+  ).toBeVisible();
 
   await page.goto("/schedule");
   await page.getByLabel("Course").selectOption({ label: "Algebra I" });
@@ -42,6 +55,13 @@ test("tutor manages weekly slots and generates sessions idempotently", async ({ 
   await page.getByLabel("Weeks to generate").fill("2");
   await page.getByRole("button", { name: /^generate sessions$/i }).click();
   await expect(page.getByText("Created 2 sessions. Skipped 0 existing sessions.")).toBeVisible();
+  await page.getByLabel("Session status for Algebra I").selectOption("done");
+  await page.getByRole("button", { name: /^save status for Algebra I$/i }).click();
+  await expect(page.locator("span", { hasText: "Done" })).toBeVisible();
+  await expect(page.getByLabel("Attendance for Student One")).toHaveValue("present");
+  await page.getByLabel("Attendance for Student One").selectOption("late");
+  await page.getByRole("button", { name: /^save attendance record for Student One$/i }).click();
+  await expect(page.getByLabel("Attendance for Student One")).toHaveValue("late");
 
   await page.getByLabel("Weeks to generate").fill("2");
   await page.getByRole("button", { name: /^generate sessions$/i }).click();

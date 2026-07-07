@@ -6,14 +6,18 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { classSessions, schema, scheduleSlots } from "@/db/schema";
-import { createCourse } from "@/lib/courses";
+import { createCourse, enrollStudent } from "@/lib/courses";
 import { seedTutor } from "@/lib/seed";
 import {
   createScheduleSlot,
   deactivateScheduleSlot,
+  defaultAttendanceForSession,
   generateSessions,
+  markAttendance,
+  updateSessionStatus,
   updateScheduleSlot,
 } from "@/lib/schedule";
+import { createStudent } from "@/lib/students";
 
 async function applyInitialMigration(client: Client) {
   const migrationDir = path.join(process.cwd(), "drizzle");
@@ -133,5 +137,86 @@ describe("schedule", () => {
       Date.UTC(2026, 0, 5, 9),
       Date.UTC(2026, 0, 12, 9),
     ]);
+  });
+
+  it("updates session status and defaults enrolled students to present", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await db.insert(classSessions).values({
+      id: "session_id",
+      courseId: "course_id",
+      startsAt: Date.UTC(2026, 0, 5, 9),
+      durationMin: 60,
+      status: "scheduled",
+      createdAt: 2000,
+      updatedAt: 2000,
+    });
+
+    const session = await updateSessionStatus(db, {
+      id: "session_id",
+      now: () => 3000,
+      status: "done",
+    });
+    const first = await defaultAttendanceForSession(db, {
+      sessionId: "session_id",
+      now: () => 4000,
+      makeId: () => "attendance_id",
+    });
+    const second = await defaultAttendanceForSession(db, {
+      sessionId: "session_id",
+      now: () => 5000,
+      makeId: () => "attendance_again",
+    });
+    client.close();
+
+    expect(session).toMatchObject({ id: "session_id", status: "done", updatedAt: 3000 });
+    expect(first).toEqual({ created: 1, skipped: 0 });
+    expect(second).toEqual({ created: 0, skipped: 1 });
+  });
+
+  it("upserts attendance for a session and student", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await db.insert(classSessions).values({
+      id: "session_id",
+      courseId: "course_id",
+      startsAt: Date.UTC(2026, 0, 5, 9),
+      durationMin: 60,
+      status: "scheduled",
+      createdAt: 2000,
+      updatedAt: 2000,
+    });
+
+    const present = await markAttendance(db, {
+      makeId: () => "attendance_id",
+      now: () => 3000,
+      sessionId: "session_id",
+      status: "present",
+      studentId: "student_id",
+    });
+    const late = await markAttendance(db, {
+      makeId: () => "attendance_ignored",
+      now: () => 4000,
+      sessionId: "session_id",
+      status: "late",
+      studentId: "student_id",
+    });
+    client.close();
+
+    expect(present).toMatchObject({ id: "attendance_id", status: "present" });
+    expect(late).toMatchObject({ id: "attendance_id", status: "late", updatedAt: 4000 });
   });
 });
