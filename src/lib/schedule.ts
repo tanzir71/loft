@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -77,6 +77,17 @@ type UpdateSessionNotesInput = {
 type GetSessionNotesInput = {
   sessionId: string;
   user: AuthenticatedUser;
+};
+
+export type PortalSessionSummary = {
+  attendanceStatus: "present" | "absent" | "late" | "excused" | null;
+  courseTitle: string;
+  durationMin: number;
+  id: string;
+  notesShared: string | null;
+  startsAt: number;
+  status: "scheduled" | "done" | "cancelled";
+  studentName?: string;
 };
 
 const minuteMs = 60 * 1000;
@@ -464,4 +475,65 @@ export async function getSessionNotesForUser(database: AppDb, input: GetSessionN
   return {
     notesShared: session.notesShared,
   };
+}
+
+export async function listStudentPortalSessions(
+  database: AppDb,
+  studentId: string,
+): Promise<PortalSessionSummary[]> {
+  const parsedStudentId = z.string().trim().min(1).parse(studentId);
+  return database
+    .select({
+      id: classSessions.id,
+      courseTitle: courses.title,
+      startsAt: classSessions.startsAt,
+      durationMin: classSessions.durationMin,
+      status: classSessions.status,
+      notesShared: classSessions.notesShared,
+      attendanceStatus: attendance.status,
+    })
+    .from(enrollments)
+    .innerJoin(classSessions, eq(enrollments.courseId, classSessions.courseId))
+    .innerJoin(courses, eq(classSessions.courseId, courses.id))
+    .leftJoin(
+      attendance,
+      and(
+        eq(attendance.sessionId, classSessions.id),
+        eq(attendance.studentId, enrollments.studentId),
+      ),
+    )
+    .where(and(eq(enrollments.studentId, parsedStudentId), eq(enrollments.status, "active")))
+    .orderBy(asc(classSessions.startsAt));
+}
+
+export async function listParentPortalSessions(
+  database: AppDb,
+  parentId: string,
+): Promise<PortalSessionSummary[]> {
+  const parsedParentId = z.string().trim().min(1).parse(parentId);
+  return database
+    .select({
+      id: classSessions.id,
+      courseTitle: courses.title,
+      startsAt: classSessions.startsAt,
+      durationMin: classSessions.durationMin,
+      status: classSessions.status,
+      notesShared: classSessions.notesShared,
+      attendanceStatus: attendance.status,
+      studentName: users.name,
+    })
+    .from(parentLinks)
+    .innerJoin(users, eq(parentLinks.studentId, users.id))
+    .innerJoin(enrollments, eq(parentLinks.studentId, enrollments.studentId))
+    .innerJoin(classSessions, eq(enrollments.courseId, classSessions.courseId))
+    .innerJoin(courses, eq(classSessions.courseId, courses.id))
+    .leftJoin(
+      attendance,
+      and(
+        eq(attendance.sessionId, classSessions.id),
+        eq(attendance.studentId, parentLinks.studentId),
+      ),
+    )
+    .where(and(eq(parentLinks.parentId, parsedParentId), eq(enrollments.status, "active")))
+    .orderBy(asc(classSessions.startsAt));
 }
