@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
 import { requireUser } from "@/lib/authz";
+import { listPackageCreditsForStudent } from "@/lib/billing";
 import { listStudentCourses } from "@/lib/courses";
 import { listStudentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
@@ -36,6 +37,10 @@ function attendanceLabel(status: string | null) {
   }
 }
 
+function creditLabel(remaining: number) {
+  return `${remaining} ${remaining === 1 ? "credit" : "credits"} remaining`;
+}
+
 export default async function StudentHomePage() {
   const user = await requireUser();
 
@@ -43,9 +48,10 @@ export default async function StudentHomePage() {
     redirect(roleHomePath(user.role));
   }
 
-  const [courses, sessions] = await Promise.all([
+  const [courses, sessions, packageCredits] = await Promise.all([
     listStudentCourses(getDb(), user.id),
     listStudentPortalSessions(getDb(), user.id),
+    listPackageCreditsForStudent(getDb(), user.id),
   ]);
 
   return (
@@ -75,6 +81,44 @@ export default async function StudentHomePage() {
                     {course.description}
                   </p>
                 ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Package credits</h2>
+          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+            {packageCredits.length} purchases
+          </span>
+        </div>
+        {packageCredits.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No package credits yet.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {packageCredits.map((credit) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={credit.id}>
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  Prepaid package
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">{credit.planName}</h3>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    {creditLabel(credit.remaining)}
+                  </span>
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    {credit.sessionsUsed}/{credit.sessionsTotal} used
+                  </span>
+                  {credit.lowCredit ? (
+                    <span className="rounded-full bg-destructive/10 px-3 py-1 text-destructive">
+                      Low credit
+                    </span>
+                  ) : null}
+                </div>
               </article>
             ))}
           </div>

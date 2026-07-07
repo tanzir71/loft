@@ -412,7 +412,7 @@ Rules:
 
 **P4 Billing**
 - [x] Rate plans CRUD + plan resolution (enrollment → course default)
-- [ ] Prepaid packages: sell → invoice + purchase row; credit consumption in invoice engine (unit-tested); remaining-credit displays + low-credit warning
+- [x] Prepaid packages: sell → invoice + purchase row; credit consumption in invoice engine (unit-tested); remaining-credit displays + low-credit warning
 - [ ] Invoice generation engine + unit tests (per_session from attendance, monthly_flat, package credits, idempotent drafts, sequential numbering)
 - [ ] Invoice lifecycle UI + payment recording + derived partial/paid status
 - [ ] Print-friendly invoice page + student/parent billing views + balance
@@ -499,3 +499,4 @@ Rules:
 2026-07-07 | P3 portal schedule: student/parent attendance views | Added shared schedule/attendance sections to student home and parent overview, including shared notes only, plus invite-to-parent/student e2e coverage for late attendance visibility.
 2026-07-07 | P3 acceptance: schedule, attendance, notes, ICS green | Re-ran `npm run check` and full Playwright suite; smoke coverage includes slot generation, attendance marking, shared-note portal visibility, and ICS response.
 2026-07-07 | P4 rate plans: CRUD and enrollment resolution | Added rate plan helpers, enrollment-over-course-default resolution, tutor `/billing` rate plan UI, and unit/e2e coverage for create/edit/archive.
+2026-07-07 | P4 prepaid packages: sale invoices and credit consumption | Added package sale invoices/purchases, oldest-first attended-session credit consumption, tutor package workflows, student/parent remaining-credit views, and low-credit warnings.
