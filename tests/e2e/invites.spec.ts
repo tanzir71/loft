@@ -6,6 +6,16 @@ test.beforeEach(async () => {
   await resetE2eDb();
 });
 
+test("wrong tutor password is rejected", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("tutor@example.com");
+  await page.getByLabel("Password").fill("wrong password");
+  await page.getByRole("button", { name: /^log in$/i }).click();
+
+  await expect(page).toHaveURL(/\/login\?error=CredentialsSignin$/);
+  await expect(page.getByText("The email or password was not accepted.")).toBeVisible();
+});
+
 test("tutor creates a student invite and the student lands on home after joining", async ({
   page,
 }) => {
@@ -35,4 +45,8 @@ test("tutor creates a student invite and the student lands on home after joining
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   await expect(page.getByText("Student home is ready for enrollment work.")).toBeVisible();
+
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
 });

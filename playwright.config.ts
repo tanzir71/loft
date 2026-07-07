@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const e2eEnv = {
   AUTH_SECRET: "playwright-secret-change-me",
   DATABASE_URL: "file:./data/e2e.db",
+  PLAYWRIGHT: "1",
   TUTOR_EMAIL: "tutor@example.com",
   TUTOR_PASSWORD: "correct horse battery staple",
 };

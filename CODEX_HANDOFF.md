@@ -394,7 +394,7 @@ Rules:
 - [x] `lib/authz.ts` helpers + negative authz unit tests
 - [x] Invite create/list (tutor) + `/join/[code]` registration + parent↔student linking
 - [x] Email-or-copyable-link invite delivery via `lib/features.ts` detection
-- [ ] P1 e2e acceptance suite green
+- [x] P1 e2e acceptance suite green
 
 **P2 Students, Courses, Enrollment**
 - [ ] Students CRUD (archive, not delete) + list with parent links
@@ -487,3 +487,4 @@ Rules:
 2026-07-07 | P1 authz: centralized role and student-scope helpers | Added requireUser, requireTutor, scopeToStudent, AuthzError, and negative unit tests for unauthenticated/non-tutor/cross-student access.
 2026-07-07 | P1 invites: tutor invite create/list and join registration | Added student/parent invite helpers and UI, case-insensitive invite codes, parent-student link validation, post-join sign-in, and Playwright coverage on an isolated e2e DB.
 2026-07-07 | P1 invite delivery: email-or-copyable runtime path | Added lib/features runtime flags, Resend fetch delivery with copy fallback, full invite URLs in Settings, and tests for no-email/email/failure paths.
+2026-07-07 | P1 e2e acceptance: login, invite registration, route guard | Expanded Playwright coverage for wrong-password rejection, student invite registration to `/home`, and student redirect away from `/dashboard`; changed e2e DB reset to clear rows in-place on Windows.

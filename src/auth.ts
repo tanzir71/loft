@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
@@ -17,6 +17,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/login",
+  },
+  logger: {
+    error(error) {
+      if (process.env.PLAYWRIGHT === "1" && error instanceof CredentialsSignin) {
+        return;
+      }
+
+      console.error(error);
+    },
   },
   providers: [
     Credentials({
