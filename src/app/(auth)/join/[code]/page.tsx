@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signIn } from "@/auth";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { getDb } from "@/db";
 import { Button } from "@/components/ui/button";
 import { getInviteByCode, inviteUnavailable, registerWithInvite } from "@/lib/invites";
@@ -59,9 +60,9 @@ export default async function JoinPage({
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md flex-col justify-center">
         <Link
           href="/"
-          className="mb-8 font-display text-3xl italic tracking-normal text-foreground"
+          className="mb-8"
         >
-          Tutor<span className="text-primary">Loft</span>
+          <BrandWordmark className="text-3xl" />
         </Link>
         <section className="rounded-2xl border bg-card p-6 shadow-soft">
           <p className="font-mono text-[10px] uppercase text-muted-foreground">

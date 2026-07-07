@@ -471,7 +471,7 @@ Rules:
 - [x] Empty/loading/error states pass + mobile responsive pass + a11y ≥ 90
 - [x] JSON backup export + invoices CSV + login rate limiting
 - [x] Full Playwright smoke suite (tutor/student/parent) green; `npm run build` clean
-- [ ] Branding pass: "TutorLoft" wordmark, titles, invoice prefix, email subjects per §1
+- [x] Branding pass: "TutorLoft" wordmark, titles, invoice prefix, email subjects per §1
 - [ ] Final review: every §5 acceptance criterion re-verified; update README with setup + deploy guide
 
 ---
@@ -546,3 +546,4 @@ Rules:
 2026-07-07 | P10 empty/error/mobile/a11y polish | Added app-wide skip link, loading/error/not-found states, mobile overflow and empty dashboard smoke coverage; Browser iab unavailable so used Playwright fallback; Lighthouse accessibility on `/login` scored 100; verified `npm run check` and full Playwright e2e.
 2026-07-07 | P10 exports and login throttling | Added tutor-only JSON backup, invoices CSV export, visible export links, email-based login throttling, and unit/e2e coverage; verified `npm run check` and full Playwright e2e.
 2026-07-07 | P10 smoke and build gate | Verified `npm run check`, full Playwright e2e, and clean `npm run build`; installed allowed `@vercel/blob` package to remove optional upload warning and added local SQLite busy timeout coverage for stable e2e resets.
+2026-07-07 | P10 branding pass | Added shared TutorLoft wordmark component, wired branded landing/auth/invoice/report headers, added README branding/setup/deploy notes, and covered wordmark/README with unit tests; Browser iab unavailable so rendered QA used Playwright fallback screenshots; verified `npm run check`, full Playwright e2e, and clean `npm run build`.

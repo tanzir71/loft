@@ -9,6 +9,7 @@ import {
   Mail,
 } from "lucide-react";
 
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { Button } from "@/components/ui/button";
 import { landingContent, type LandingFeature } from "@/lib/landing-content";
 
@@ -34,10 +35,9 @@ export default function LandingPage() {
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/"
-            className="font-display text-2xl italic tracking-normal text-foreground"
             aria-label="TutorLoft home"
           >
-            Tutor<span className="text-primary">Loft</span>
+            <BrandWordmark className="text-2xl" />
           </Link>
           <Button asChild size="sm" variant="outline">
             <Link href={landingContent.hero.primaryCta.href}>
@@ -126,9 +126,7 @@ export default function LandingPage() {
 
       <footer className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p>
-          <span className="font-display text-xl italic text-foreground">
-            Tutor<span className="text-primary">Loft</span>
-          </span>{" "}
+          <BrandWordmark className="text-xl" />{" "}
           keeps tutoring practice quiet and organized.
         </p>
         <a className="hover:text-primary" href={`mailto:${landingContent.contactEmail}`}>

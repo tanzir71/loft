@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { CopyTextButton } from "@/components/copy-text-button";
 import { PrintButton } from "@/components/print-button";
 import { Button } from "@/components/ui/button";
@@ -78,9 +79,7 @@ export default async function ProgressReportPage({
       </div>
       <article className="rounded-2xl border bg-card p-8 shadow-soft">
         <header className="border-b pb-6">
-          <p className="font-display text-3xl italic">
-            Tutor<span className="text-primary">Loft</span>
-          </p>
+          <BrandWordmark className="text-3xl" />
           <p className="mt-5 font-mono text-[10px] uppercase text-muted-foreground">
             {progressReportPeriodLabel(report)}
           </p>

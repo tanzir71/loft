@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { Button } from "@/components/ui/button";
 import { loginRateLimitStatus, recordFailedLogin } from "@/lib/login-rate-limit";
 import { roleHomePath } from "@/lib/session-routing";
@@ -58,9 +59,9 @@ export default async function LoginPage({
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md flex-col justify-center">
         <Link
           href="/"
-          className="mb-8 font-display text-3xl italic tracking-normal text-foreground"
+          className="mb-8"
         >
-          Tutor<span className="text-primary">Loft</span>
+          <BrandWordmark className="text-3xl" />
         </Link>
         <section className="rounded-2xl border bg-card p-6 shadow-soft">
           <p className="font-mono text-[10px] uppercase text-muted-foreground">

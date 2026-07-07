@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { CopyTextButton } from "@/components/copy-text-button";
 import { getDb } from "@/db";
 import { parentLinks } from "@/db/schema";
@@ -100,9 +101,7 @@ export default async function InvoiceDetailPage({
       <article className="rounded-2xl border bg-card p-8 shadow-soft">
         <header className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="font-display text-3xl italic">
-              Tutor<span className="text-primary">Loft</span>
-            </p>
+            <BrandWordmark className="text-3xl" />
             <p className="mt-2 text-sm text-muted-foreground">Invoice tracking</p>
           </div>
           <div className="text-left sm:text-right">
