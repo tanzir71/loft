@@ -417,7 +417,7 @@ Rules:
 - [x] Invoice lifecycle UI + payment recording + derived partial/paid status
 - [x] Print-friendly invoice page + student/parent billing views + balance
 - [x] Billing dashboard tiles + optional email send
-- [ ] P4 acceptance tests green
+- [x] P4 acceptance tests green
 
 **P5 Course Material Builder**
 - [ ] Modules CRUD + ordering; materials CRUD with markdown editor + live preview + sanitization (XSS test)
@@ -504,3 +504,4 @@ Rules:
 2026-07-07 | P4 invoice lifecycle: send, void, and payments | Added tutor invoice list actions, payment recording, paid/partial status derivation from payment totals, unit coverage, and e2e payment-to-paid flow.
 2026-07-07 | P4 invoice views: print detail and portal billing | Made `/billing` role-aware for tutor/student/parent, added scoped `/invoices/[id]` print-friendly detail pages, balance summaries, shared route guards, and e2e student invoice detail coverage.
 2026-07-07 | P4 dashboard and invoice delivery: tiles plus email fallback | Added dashboard billing metrics, optional Resend invoice notices with copy fallback, tutor UI for invoice delivery, unit delivery coverage, and e2e copy-link verification.
+2026-07-07 | P4 acceptance: billing suite green | Added tutor controls for course default plans and monthly invoice generation/generate-all, expanded e2e through generated invoice payment and student invoice detail, then re-ran `npm run check` and full Playwright.

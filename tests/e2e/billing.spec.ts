@@ -68,13 +68,18 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
   await page.getByLabel("Sessions count").fill("2");
   await page.getByRole("button", { name: /^add rate plan$/i }).click();
   await expect(page.getByLabel("Name for Starter package")).toHaveValue("Starter package");
+  await page.getByLabel("Rate plan name").fill("Session rate");
+  await page.getByLabel("Plan type").selectOption("monthly_flat");
+  await page.getByLabel("Amount minor units").fill("100000");
+  await page.getByRole("button", { name: /^add rate plan$/i }).click();
+  await expect(page.getByLabel("Name for Session rate")).toHaveValue("Session rate");
 
   await page.getByLabel("Package student").selectOption({
     label: "Student One (student@example.com)",
   });
   await page.getByLabel("Package plan").selectOption({ label: "Starter package (2 sessions)" });
   await page.getByLabel("Purchase date").fill("2026-07-01");
-  await page.getByLabel("Invoice due date").fill("2026-07-10");
+  await page.getByLabel("Package invoice due date").fill("2026-07-10");
   await page.getByRole("button", { name: /^sell package$/i }).click();
   await expect(page).toHaveURL(/packageSold=1/);
   let packageCard = page.getByRole("article", {
@@ -118,6 +123,12 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
     .selectOption({ label: "Student One (student@example.com)" });
   await page.getByRole("button", { name: /^enroll selected student in Algebra I$/i }).click();
 
+  await page.goto("/billing");
+  await page.getByLabel("Default rate course").selectOption({ label: "Algebra I" });
+  await page.getByLabel("Default rate plan").selectOption({ label: "Session rate" });
+  await page.getByRole("button", { name: /^set course default rate plan$/i }).click();
+  await expect(page).toHaveURL(/courseDefault=1/);
+
   await page.goto("/schedule");
   await page.getByLabel("Course").selectOption({ label: "Algebra I" });
   await page.getByLabel("Weekday").selectOption("1");
@@ -143,6 +154,24 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
   });
   await expect(packageCard.getByText("1 credit remaining")).toBeVisible();
   await expect(packageCard.getByText("Low credit")).toBeVisible();
+  await page.getByLabel("Invoice student").selectOption({
+    label: "Student One (student@example.com)",
+  });
+  await page.getByLabel("Invoice month").fill("2026-07");
+  await page.getByLabel("Generated invoice due date").fill("2026-07-31");
+  await page.getByRole("button", { name: /^generate invoice$/i }).click();
+  await expect(page).toHaveURL(/generatedInvoice=TL-202607-0002/);
+  invoiceCard = page.getByRole("article", { name: "Invoice TL-202607-0002" });
+  await expect(invoiceCard.getByText("Draft")).toBeVisible();
+  await expect(invoiceCard.getByText("Total 100000")).toBeVisible();
+  await page.getByRole("button", { name: /^send TL-202607-0002$/i }).click();
+  await expect(page).toHaveURL(/invoiceSent=1/);
+  await page.getByLabel("Payment amount for TL-202607-0002").fill("100000");
+  await page.getByLabel("Payment method for TL-202607-0002").selectOption("cash");
+  await page.getByRole("button", { name: /^record payment for TL-202607-0002$/i }).click();
+  await expect(page).toHaveURL(/paymentRecorded=1/);
+  invoiceCard = page.getByRole("article", { name: "Invoice TL-202607-0002" });
+  await expect(invoiceCard.getByText(/^Paid$/)).toBeVisible();
 
   await page.context().clearCookies();
   await page.goto("/login");
@@ -158,9 +187,11 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
   await expect(page.getByRole("heading", { name: /^billing$/i })).toBeVisible();
   await expect(page.getByText("Outstanding balance")).toBeVisible();
   await expect(page.getByText("TL-202607-0001")).toBeVisible();
-  await expect(page.getByText(/^Paid$/)).toBeVisible();
-  await expect(page.getByText("Balance 0")).toBeVisible();
-  await page.getByRole("link", { name: /^view invoice$/i }).click();
+  await expect(page.getByText("TL-202607-0002")).toBeVisible();
+  const studentPackageInvoice = page.getByRole("article").filter({ hasText: "TL-202607-0001" });
+  await expect(studentPackageInvoice.getByText(/^Paid$/)).toBeVisible();
+  await expect(studentPackageInvoice.getByText("Balance 0")).toBeVisible();
+  await studentPackageInvoice.getByRole("link", { name: /^view invoice$/i }).click();
   await expect(page).toHaveURL(/\/invoices\//);
   await expect(page.getByRole("heading", { name: "TL-202607-0001" })).toBeVisible();
   await expect(page.getByText("Starter package (2 sessions)")).toBeVisible();

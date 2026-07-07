@@ -5,13 +5,14 @@ import { Archive, PackageCheck, Plus, RefreshCw, Save } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
-import { ratePlans, users } from "@/db/schema";
+import { courses, ratePlans, users } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { requireTutor, requireUser } from "@/lib/authz";
 import {
   archiveRatePlan,
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
+  generateMonthlyInvoice,
   getInvoiceDetail,
   listPackageCredits,
   listParentInvoices,
@@ -20,6 +21,7 @@ import {
   markInvoiceSent,
   recordPayment,
   sellPackage,
+  setCourseDefaultRatePlan,
   updateRatePlan,
   voidInvoice,
 } from "@/lib/billing";
@@ -58,6 +60,28 @@ function dateStart(value: FormDataEntryValue | null) {
 function dateEnd(value: FormDataEntryValue | null) {
   const start = dateStart(value);
   return start === null ? null : start + 24 * 60 * 60 * 1000;
+}
+
+function monthStart(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+
+  if (!/^\d{4}-\d{2}$/.test(raw)) {
+    return null;
+  }
+
+  const [year, month] = raw.split("-").map(Number);
+  return Date.UTC(year, month - 1, 1);
+}
+
+function nextMonthStart(value: FormDataEntryValue | null) {
+  const start = monthStart(value);
+
+  if (start === null) {
+    return null;
+  }
+
+  const date = new Date(start);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
 }
 
 function creditLabel(remaining: number) {
@@ -214,6 +238,67 @@ async function sellPackageAction(formData: FormData) {
   redirect("/billing?packageSold=1");
 }
 
+async function setCourseDefaultRatePlanAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await setCourseDefaultRatePlan(getDb(), {
+    courseId: String(formData.get("courseId") ?? ""),
+    ratePlanId: String(formData.get("ratePlanId") ?? ""),
+  });
+
+  redirect("/billing?courseDefault=1");
+}
+
+async function generateInvoiceAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const periodStart = monthStart(formData.get("month"));
+  const periodEnd = nextMonthStart(formData.get("month"));
+
+  if (periodStart === null || periodEnd === null) {
+    throw new Error("Invoice month is required.");
+  }
+
+  const result = await generateMonthlyInvoice(getDb(), {
+    dueDate: dateStart(formData.get("dueDate")) ?? undefined,
+    periodEnd,
+    periodStart,
+    studentId: String(formData.get("studentId") ?? ""),
+  });
+
+  redirect(`/billing?generatedInvoice=${result.invoice.number}`);
+}
+
+async function generateAllInvoicesAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const periodStart = monthStart(formData.get("month"));
+  const periodEnd = nextMonthStart(formData.get("month"));
+
+  if (periodStart === null || periodEnd === null) {
+    throw new Error("Invoice month is required.");
+  }
+
+  const activeStudents = await getDb()
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.role, "student"), eq(users.status, "active")));
+
+  for (const student of activeStudents) {
+    await generateMonthlyInvoice(getDb(), {
+      dueDate: dateStart(formData.get("dueDate")) ?? undefined,
+      periodEnd,
+      periodStart,
+      studentId: student.id,
+    });
+  }
+
+  redirect(`/billing?generatedAll=${activeStudents.length}`);
+}
+
 async function applyPackageCreditsAction(formData: FormData) {
   "use server";
 
@@ -323,13 +408,18 @@ export default async function BillingPage({
     return <ReadOnlyBillingView invoices={invoices} title="Parent billing" />;
   }
 
-  const [plans, students, packageCredits, invoiceRows] = await Promise.all([
+  const [plans, students, courseRows, packageCredits, invoiceRows] = await Promise.all([
     database.select().from(ratePlans).orderBy(asc(ratePlans.name)),
     database
       .select({ email: users.email, id: users.id, name: users.name })
       .from(users)
       .where(and(eq(users.role, "student"), eq(users.status, "active")))
       .orderBy(asc(users.name)),
+    database
+      .select({ id: courses.id, title: courses.title })
+      .from(courses)
+      .where(eq(courses.status, "active"))
+      .orderBy(asc(courses.title)),
     listPackageCredits(database),
     listTutorInvoices(database),
   ]);
@@ -453,7 +543,7 @@ export default async function BillingPage({
                 type="date"
               />
               <label className="block text-sm font-medium" htmlFor="dueDate">
-                Invoice due date
+                Package invoice due date
               </label>
               <input
                 className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
@@ -512,6 +602,104 @@ export default async function BillingPage({
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Apply package credits
               </Button>
+            </form>
+          </section>
+
+          <section className="rounded-2xl border bg-card p-6 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Plan assignment
+            </p>
+            <h2 className="mt-3 text-lg font-semibold">Course default</h2>
+            <form action={setCourseDefaultRatePlanAction} className="mt-5 space-y-4">
+              <label className="block text-sm font-medium" htmlFor="defaultRateCourse">
+                Default rate course
+              </label>
+              <select
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="defaultRateCourse"
+                name="courseId"
+                required
+              >
+                <option value="">Select course</option>
+                {courseRows.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title}
+                  </option>
+                ))}
+              </select>
+              <label className="block text-sm font-medium" htmlFor="defaultRatePlan">
+                Default rate plan
+              </label>
+              <select
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="defaultRatePlan"
+                name="ratePlanId"
+                required
+              >
+                <option value="">Select plan</option>
+                {plans
+                  .filter((plan) => plan.active)
+                  .map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </option>
+                  ))}
+              </select>
+              <Button type="submit" variant="outline">
+                Set course default rate plan
+              </Button>
+            </form>
+          </section>
+
+          <section className="rounded-2xl border bg-card p-6 shadow-soft">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Invoice generation
+            </p>
+            <h2 className="mt-3 text-lg font-semibold">Monthly invoices</h2>
+            <form action={generateInvoiceAction} className="mt-5 space-y-4">
+              <label className="block text-sm font-medium" htmlFor="invoiceStudent">
+                Invoice student
+              </label>
+              <select
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="invoiceStudent"
+                name="studentId"
+                required
+              >
+                <option value="">Select student</option>
+                {students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} ({student.email})
+                  </option>
+                ))}
+              </select>
+              <label className="block text-sm font-medium" htmlFor="invoiceMonth">
+                Invoice month
+              </label>
+              <input
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="invoiceMonth"
+                name="month"
+                required
+                type="month"
+              />
+              <label className="block text-sm font-medium" htmlFor="invoiceDueDate">
+                Generated invoice due date
+              </label>
+              <input
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                id="invoiceDueDate"
+                name="dueDate"
+                type="date"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" variant="gradient">
+                  Generate invoice
+                </Button>
+                <Button formAction={generateAllInvoicesAction} type="submit" variant="outline">
+                  Generate all invoices
+                </Button>
+              </div>
             </form>
           </section>
         </div>
