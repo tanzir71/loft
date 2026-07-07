@@ -411,7 +411,7 @@ Rules:
 - [x] P3 acceptance tests green
 
 **P4 Billing**
-- [ ] Rate plans CRUD + plan resolution (enrollment → course default)
+- [x] Rate plans CRUD + plan resolution (enrollment → course default)
 - [ ] Prepaid packages: sell → invoice + purchase row; credit consumption in invoice engine (unit-tested); remaining-credit displays + low-credit warning
 - [ ] Invoice generation engine + unit tests (per_session from attendance, monthly_flat, package credits, idempotent drafts, sequential numbering)
 - [ ] Invoice lifecycle UI + payment recording + derived partial/paid status
@@ -498,3 +498,4 @@ Rules:
 2026-07-07 | P3 ICS feed: regenerable calendar URL | Added hand-rolled ICS builder with escaping/UTC tests, per-user token regeneration in Settings, `/api/ics/[token]`, and e2e smoke for text/calendar output.
 2026-07-07 | P3 portal schedule: student/parent attendance views | Added shared schedule/attendance sections to student home and parent overview, including shared notes only, plus invite-to-parent/student e2e coverage for late attendance visibility.
 2026-07-07 | P3 acceptance: schedule, attendance, notes, ICS green | Re-ran `npm run check` and full Playwright suite; smoke coverage includes slot generation, attendance marking, shared-note portal visibility, and ICS response.
+2026-07-07 | P4 rate plans: CRUD and enrollment resolution | Added rate plan helpers, enrollment-over-course-default resolution, tutor `/billing` rate plan UI, and unit/e2e coverage for create/edit/archive.
