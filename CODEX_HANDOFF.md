@@ -462,7 +462,7 @@ Rules:
 - [x] Feedback draft on submissions (assignment + rubric + submission context)
 - [x] Progress report AI narrative from structured facts (optional path)
 - [x] Verify zero-key mode: no AI UI, lesson-plan editor fully manual, full test suite green
-- [ ] P9 acceptance tests green
+- [x] P9 acceptance tests green
 
 **P10 Polish**
 - [ ] Tutor dashboard + activity log wiring
@@ -539,3 +539,4 @@ Rules:
 2026-07-07 | P9 feedback drafts | Added AI submission feedback drafts using assignment instructions, rubric, and submission context, persisted drafts into grading workflow, and covered with unit and mocked Playwright tests.
 2026-07-07 | P9 progress report narrative | Added AI progress-report generation from structured student facts, persisted progress_reports rows, surfaced latest reports on the roster, and covered with unit and mocked Playwright tests.
 2026-07-07 | P9 zero-key verification | Added Playwright zero-key smoke proving AI controls are hidden without a key while manual lesson-plan editing works; re-verified `npm run check` and full e2e.
+2026-07-07 | P9 acceptance | Verified `npm run check` (typecheck, lint, 85 unit tests) and full Playwright e2e (26 tests) after all BYOK AI work.
