@@ -446,7 +446,7 @@ Rules:
 
 **P8 Automations**
 - [x] `/api/cron` with `CRON_SECRET`: session gen, monthly draft invoices, quiz close, scheduled publish — idempotent (unit-tested double-run)
-- [ ] Payment reminders: due+3d/due+10d email (max one per invoice per day, logged) + copyable reminder message on invoice
+- [x] Payment reminders: due+3d/due+10d email (max one per invoice per day, logged) + copyable reminder message on invoice
 - [ ] Read-time fallbacks so app is correct without cron
 - [ ] Optional tutor daily digest email
 - [ ] P8 acceptance tests green
@@ -525,3 +525,4 @@ Rules:
 2026-07-07 | P7 gradebook and CSV | Added per-course gradebook rows across assignments and quizzes, missing/pending states, row averages, protected CSV export, unit coverage, and Playwright smoke.
 2026-07-07 | P7 acceptance | Verified `npm run check` (typecheck, lint, 60 unit tests) and `npm run e2e` (18 Playwright tests) after classroom feed, assignments, grading, and gradebook work.
 2026-07-07 | P8 cron endpoint | Added `CRON_SECRET`-guarded `/api/cron`, idempotent session generation/monthly invoice drafting, quiz close, scheduled announcement/material publish, and double-run unit coverage.
+2026-07-07 | P8 payment reminders | Added due+3/due+10 invoice reminder delivery with Resend/copy fallback, activity-log dedupe, cron integration, and copyable Bangla/English reminder messages on invoice pages.

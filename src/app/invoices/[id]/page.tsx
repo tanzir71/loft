@@ -1,12 +1,15 @@
 import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { CopyTextButton } from "@/components/copy-text-button";
 import { getDb } from "@/db";
 import { parentLinks } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/authz";
 import { getInvoiceDetail } from "@/lib/billing";
+import { paymentReminderMessage } from "@/lib/payment-reminders";
 
 export const metadata: Metadata = {
   title: "Invoice",
@@ -14,6 +17,12 @@ export const metadata: Metadata = {
 
 function statusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function requestOrigin(headerList: Headers) {
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const protocol = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
 }
 
 async function canViewInvoice(input: {
@@ -51,6 +60,17 @@ export default async function InvoiceDetailPage({
   const user = await requireUser();
   const { id } = await params;
   const detail = await getInvoiceDetail(getDb(), id);
+  const origin = requestOrigin(await headers());
+  const reminderMessage =
+    detail.invoice.balance > 0 && detail.invoice.displayStatus !== "void"
+      ? paymentReminderMessage({
+          balance: detail.invoice.balance,
+          dueDate: detail.invoice.dueDate,
+          invoiceNumber: detail.invoice.number,
+          invoiceUrl: new URL(`/invoices/${id}`, origin).toString(),
+          studentName: detail.invoice.studentName,
+        })
+      : null;
   const canView = await canViewInvoice({
     role: user.role,
     studentId: detail.invoice.studentId,
@@ -157,6 +177,20 @@ export default async function InvoiceDetailPage({
                 </div>
               ))}
             </div>
+          </section>
+        ) : null}
+        {reminderMessage ? (
+          <section className="print-hidden mt-8 border-t pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Payment reminder</h2>
+              <CopyTextButton text={reminderMessage} />
+            </div>
+            <textarea
+              aria-label="Copy reminder message"
+              className="mt-4 min-h-48 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              readOnly
+              value={reminderMessage}
+            />
           </section>
         ) : null}
       </article>

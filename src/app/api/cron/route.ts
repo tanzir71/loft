@@ -14,7 +14,9 @@ async function handleCron(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const result = await runCronTasks(getDb());
+  const result = await runCronTasks(getDb(), {
+    origin: new URL(request.url).origin,
+  });
 
   return NextResponse.json({ ok: true, result });
 }

@@ -4,11 +4,15 @@ import { z } from "zod";
 
 import { announcements, invoices, materials, quizzes, schema, users } from "@/db/schema";
 import { generateMonthlyInvoice } from "@/lib/billing";
+import { sendPaymentReminders } from "@/lib/payment-reminders";
 import { generateSessions } from "@/lib/schedule";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 
 type RunCronTasksInput = {
+  env?: Record<string, string | undefined>;
+  fetchFn?: typeof fetch;
+  origin?: string;
   now?: number;
   sessionWeeks?: number;
 };
@@ -119,6 +123,12 @@ export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {
       invoicesCreated += 1;
     }
   }
+  const paymentReminders = await sendPaymentReminders(database, {
+    env: input.env,
+    fetchFn: input.fetchFn,
+    now,
+    origin: input.origin ?? "http://localhost:3000",
+  });
 
   return {
     announcementsPublished: publishedAnnouncements.length,
@@ -126,6 +136,7 @@ export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {
     invoicesRefreshed,
     invoicesSkipped,
     materialsPublished: publishedMaterials.length,
+    paymentReminders,
     quizzesClosed: closedQuizzes.length,
     sessions,
   };
