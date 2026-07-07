@@ -22,6 +22,15 @@ import {
 import { youtubeEmbedUrl, safeEmbedUrl } from "@/lib/embeds";
 import { hasBlob } from "@/lib/features";
 import { renderMarkdown } from "@/lib/markdown";
+import {
+  bulkImportStandards,
+  courseCoverageMatrix,
+  createStandard,
+  listStandards,
+  materialStandardIdsByMaterial,
+  tagMaterialStandards,
+  updateStandard,
+} from "@/lib/standards";
 
 export const metadata: Metadata = {
   title: "Content",
@@ -59,6 +68,17 @@ function visibility(value: FormDataEntryValue | null) {
 function linkKind(value: FormDataEntryValue | null) {
   const raw = String(value ?? "");
   return raw === "youtube" || raw === "pdf" ? raw : "link";
+}
+
+function boolValue(value: FormDataEntryValue | null) {
+  return String(value ?? "") === "true";
+}
+
+function standardIds(formData: FormData) {
+  return formData
+    .getAll("standardId")
+    .map((value) => String(value))
+    .filter(Boolean);
 }
 
 function lessonPlanFromForm(formData: FormData) {
@@ -237,6 +257,58 @@ async function addMaterialLinkAction(formData: FormData) {
   redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
 }
 
+async function createStandardAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await createStandard(getDb(), {
+    code: String(formData.get("code") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    framework: String(formData.get("framework") ?? ""),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
+async function updateStandardAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await updateStandard(getDb(), {
+    active: boolValue(formData.get("active")),
+    code: String(formData.get("code") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    framework: String(formData.get("framework") ?? ""),
+    id: String(formData.get("id") ?? ""),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
+async function bulkImportStandardsAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await bulkImportStandards(getDb(), {
+    defaultFramework: String(formData.get("defaultFramework") ?? "") || undefined,
+    text: String(formData.get("text") ?? ""),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
+async function tagMaterialStandardsAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await tagMaterialStandards(getDb(), {
+    materialId: String(formData.get("materialId") ?? ""),
+    standardIds: standardIds(formData),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
@@ -253,6 +325,15 @@ export default async function ContentPage({
   const content = selectedCourseId
     ? await listCourseContent(getDb(), selectedCourseId)
     : { completionCounts: {}, linksByMaterial: {}, materials: [], modules: [] };
+  const standardsRows = await listStandards(getDb());
+  const activeStandards = standardsRows.filter((standard) => standard.active);
+  const coverageRows = selectedCourseId ? await courseCoverageMatrix(getDb(), selectedCourseId) : [];
+  const materialStandardTags: Record<string, string[]> = selectedCourseId
+    ? await materialStandardIdsByMaterial(
+        getDb(),
+        content.materials.map((material) => material.id),
+      )
+    : {};
   const blobEnabled = hasBlob();
 
   return (
@@ -364,9 +445,111 @@ export default async function ContentPage({
                 </Button>
               </form>
             </section>
+
+            <section className="rounded-2xl border bg-card p-6 shadow-soft">
+              <p className="font-mono text-[10px] uppercase text-muted-foreground">Standards</p>
+              <h2 className="mt-3 text-lg font-semibold">Add standard</h2>
+              <form action={createStandardAction} className="mt-5 space-y-4">
+                <input name="courseId" type="hidden" value={selectedCourseId} />
+                <label className="block text-sm font-medium" htmlFor="standardFramework">
+                  Framework
+                </label>
+                <input className="h-11 w-full rounded-xl border bg-background px-3 text-sm" id="standardFramework" name="framework" required />
+                <label className="block text-sm font-medium" htmlFor="standardCode">
+                  Code
+                </label>
+                <input className="h-11 w-full rounded-xl border bg-background px-3 text-sm" id="standardCode" name="code" required />
+                <label className="block text-sm font-medium" htmlFor="standardDescription">
+                  Description
+                </label>
+                <textarea className="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" id="standardDescription" name="description" required />
+                <Button type="submit" variant="gradient">
+                  Add standard
+                </Button>
+              </form>
+              <form action={bulkImportStandardsAction} className="mt-6 space-y-4">
+                <input name="courseId" type="hidden" value={selectedCourseId} />
+                <label className="block text-sm font-medium" htmlFor="bulkFramework">
+                  Default framework
+                </label>
+                <input className="h-11 w-full rounded-xl border bg-background px-3 text-sm" id="bulkFramework" name="defaultFramework" />
+                <label className="block text-sm font-medium" htmlFor="bulkStandards">
+                  Bulk import
+                </label>
+                <textarea className="min-h-28 w-full rounded-xl border bg-background px-3 py-2 text-sm" id="bulkStandards" name="text" required />
+                <Button type="submit" variant="outline">
+                  Import standards
+                </Button>
+              </form>
+              <div className="mt-6 grid gap-3">
+                {standardsRows.map((standard) => (
+                  <form action={updateStandardAction} className="grid gap-2 rounded-xl border bg-background p-3" key={standard.id}>
+                    <input name="courseId" type="hidden" value={selectedCourseId} />
+                    <input name="id" type="hidden" value={standard.id} />
+                    <input aria-label={`Framework for ${standard.code}`} className="h-9 rounded-lg border bg-card px-3 text-sm" name="framework" defaultValue={standard.framework} />
+                    <input aria-label={`Code for ${standard.code}`} className="h-9 rounded-lg border bg-card px-3 text-sm" name="code" defaultValue={standard.code} />
+                    <textarea aria-label={`Description for ${standard.code}`} className="min-h-16 rounded-lg border bg-card px-3 py-2 text-sm" name="description" defaultValue={standard.description} />
+                    <select aria-label={`Active state for ${standard.code}`} className="h-9 rounded-lg border bg-card px-3 text-sm" name="active" defaultValue={String(standard.active)}>
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                    <Button size="sm" type="submit">
+                      Save standard
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            </section>
           </div>
 
           <section className="space-y-4">
+            <section className="rounded-2xl border bg-card p-5 shadow-soft">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Coverage matrix</h2>
+                <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {coverageRows.filter((row) => row.gap).length} gaps
+                </span>
+              </div>
+              {coverageRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active standards.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="border-b py-2 pr-3">Standard</th>
+                        <th className="border-b py-2 pr-3">Materials</th>
+                        <th className="border-b py-2 pr-3">Quizzes</th>
+                        <th className="border-b py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coverageRows.map((row) => (
+                        <tr className={row.gap ? "bg-destructive/10" : ""} key={row.id}>
+                          <td className="border-b py-3 pr-3 align-top">
+                            <span className="font-semibold">
+                              {row.framework} {row.code}
+                            </span>
+                            <p className="mt-1 text-xs text-muted-foreground">{row.description}</p>
+                          </td>
+                          <td className="border-b py-3 pr-3 align-top">
+                            {row.materialTitles.join(", ") || "-"}
+                          </td>
+                          <td className="border-b py-3 pr-3 align-top">
+                            {row.quizTitles.join(", ") || "-"}
+                          </td>
+                          <td className="border-b py-3 align-top">
+                            <span className={row.gap ? "font-semibold text-destructive" : "font-semibold text-primary"}>
+                              {row.gap ? "Gap" : "Covered"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
             <h2 className="text-lg font-semibold">Course outline</h2>
             {content.modules.map((module) => (
               <article className="rounded-2xl border bg-card p-5 shadow-soft" key={module.id}>
@@ -513,6 +696,31 @@ export default async function ContentPage({
                     </select>
                     <Button size="sm" type="submit" variant="outline">
                       Add link
+                    </Button>
+                  </form>
+                  <form action={tagMaterialStandardsAction} className="mt-5 rounded-xl border bg-background p-4">
+                    <input name="courseId" type="hidden" value={selectedCourseId} />
+                    <input name="materialId" type="hidden" value={material.id} />
+                    <p className="text-sm font-semibold">Standards</p>
+                    {activeStandards.length === 0 ? (
+                      <p className="mt-2 text-sm text-muted-foreground">No active standards.</p>
+                    ) : (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {activeStandards.map((standard) => (
+                          <label className="flex items-center gap-2 rounded-full border bg-card px-3 py-2 text-xs font-medium" key={standard.id}>
+                            <input
+                              defaultChecked={(materialStandardTags[material.id] ?? []).includes(standard.id)}
+                              name="standardId"
+                              type="checkbox"
+                              value={standard.id}
+                            />
+                            {standard.framework} {standard.code}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    <Button className="mt-3" size="sm" type="submit" variant="outline">
+                      Save standards
                     </Button>
                   </form>
                   <form action={updateMaterialAction} className="mt-5 space-y-4">
