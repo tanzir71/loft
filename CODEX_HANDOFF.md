@@ -442,7 +442,7 @@ Rules:
 - [x] Assignments CRUD (incl. rubric_md shown to students) + student submission (text/link/file-when-enabled) + resubmit-until-graded + late flag
 - [x] Grading UI + return with feedback + comment bank + private submission comment threads (authz-tested)
 - [x] Gradebook per course (students × assignments/quizzes, averages, missing highlighted) + CSV export
-- [ ] P7 acceptance tests green
+- [x] P7 acceptance tests green
 
 **P8 Automations**
 - [ ] `/api/cron` with `CRON_SECRET`: session gen, monthly draft invoices, quiz close, scheduled publish — idempotent (unit-tested double-run)
@@ -523,3 +523,4 @@ Rules:
 2026-07-07 | P7 assignments and submissions | Added tutor assignment builder, student assignment submission/resubmission with rubric display, late detection, optional file attachment support, unit coverage, and Playwright smoke.
 2026-07-07 | P7 grading and private feedback | Added tutor grading queue, returned feedback with reusable comment bank snippets, student-visible returned scores, private tutor/student submission threads with authz coverage, and Playwright smoke.
 2026-07-07 | P7 gradebook and CSV | Added per-course gradebook rows across assignments and quizzes, missing/pending states, row averages, protected CSV export, unit coverage, and Playwright smoke.
+2026-07-07 | P7 acceptance | Verified `npm run check` (typecheck, lint, 60 unit tests) and `npm run e2e` (18 Playwright tests) after classroom feed, assignments, grading, and gradebook work.
