@@ -11,6 +11,7 @@ import {
   createCourse,
   enrollStudent,
   listCoursesWithEnrollments,
+  listStudentCourses,
   updateCourse,
   unenrollStudent,
 } from "@/lib/courses";
@@ -187,6 +188,39 @@ describe("courses", () => {
           },
         ],
       }),
+    ]);
+  });
+
+  it("lists active enrolled courses for a student home page", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "Algebra foundations",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+
+    const listed = await listStudentCourses(db, "student_id");
+    client.close();
+
+    expect(listed).toEqual([
+      {
+        description: "Algebra foundations",
+        enrollmentId: "enrollment_id",
+        id: "course_id",
+        subject: "Math",
+        title: "Algebra I",
+      },
     ]);
   });
 });

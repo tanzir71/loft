@@ -32,6 +32,14 @@ export type CourseWithEnrollments = CourseSummary & {
   students: EnrolledStudentSummary[];
 };
 
+export type StudentCourseSummary = {
+  description: string;
+  enrollmentId: string;
+  id: string;
+  subject: string;
+  title: string;
+};
+
 type CreateCourseInput = {
   description: string;
   makeId?: () => string;
@@ -296,4 +304,31 @@ export async function listCoursesWithEnrollments(
     ...toCourseSummary(course),
     students: studentsByCourse.get(course.id) ?? [],
   }));
+}
+
+export async function listStudentCourses(
+  database: AppDb,
+  studentId: string,
+): Promise<StudentCourseSummary[]> {
+  const parsedStudentId = z.string().trim().min(1).parse(studentId);
+  const rows = await database
+    .select({
+      enrollmentId: enrollments.id,
+      id: courses.id,
+      title: courses.title,
+      subject: courses.subject,
+      description: courses.description,
+    })
+    .from(enrollments)
+    .innerJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(enrollments.studentId, parsedStudentId),
+        eq(enrollments.status, "active"),
+        eq(courses.status, "active"),
+      ),
+    )
+    .orderBy(asc(courses.title));
+
+  return rows;
 }

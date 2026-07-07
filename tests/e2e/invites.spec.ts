@@ -44,7 +44,7 @@ test("tutor creates a student invite and the student lands on home after joining
 
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
-  await expect(page.getByText("Student home is ready for enrollment work.")).toBeVisible();
+  await expect(page.getByText("No courses yet.")).toBeVisible();
 
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/home$/);

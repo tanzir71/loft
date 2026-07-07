@@ -399,7 +399,7 @@ Rules:
 **P2 Students, Courses, Enrollment**
 - [x] Students CRUD (archive, not delete) + list with parent links
 - [x] Courses CRUD + enrollment management
-- [ ] Student `/home` with enrolled courses; parent `/overview` skeleton
+- [x] Student `/home` with enrolled courses; parent `/overview` skeleton
 - [ ] P2 acceptance tests green
 
 **P3 Schedule & Attendance**
@@ -490,3 +490,4 @@ Rules:
 2026-07-07 | P1 e2e acceptance: login, invite registration, route guard | Expanded Playwright coverage for wrong-password rejection, student invite registration to `/home`, and student redirect away from `/dashboard`; changed e2e DB reset to clear rows in-place on Windows.
 2026-07-07 | P2 students: CRUD roster with parent links | Added student create/update/archive helpers and tutor `/students` page with parent-link display, balance placeholder, unit coverage, and e2e create/edit/archive flow; serialized e2e workers for shared SQLite stability.
 2026-07-07 | P2 courses: CRUD and enrollment management | Added course create/update/archive helpers, active enrollment/unenrollment helpers, tutor `/courses` management UI, and unit/e2e coverage for editing, archiving, enrolling, and unenrolling.
+2026-07-07 | P2 student home: enrolled courses and parent skeleton | Added active enrolled-course query, rendered student `/home` course cards with empty state, added server role checks to parent overview, and covered invite-to-enrollment-to-student-home in e2e.
