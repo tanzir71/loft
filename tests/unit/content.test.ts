@@ -14,6 +14,7 @@ import {
   duplicateMaterial,
   duplicateModule,
   getStudentMaterial,
+  lessonPlanToMarkdown,
   listCourseContent,
   listStudentVisibleMaterials,
   markMaterialComplete,
@@ -157,6 +158,67 @@ describe("course content", () => {
       "material_copy",
       "material_copy_0",
     ]);
+  });
+
+  it("stores structured lesson plans as tutor-only content and exports enabled sections", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    const planJson = {
+      sections: [
+        { body: "Students solve two warm-up equations.", enabled: true, id: "warmup", title: "Warm-up" },
+        { body: "Internal pacing notes.", enabled: false, id: "notes", title: "Tutor notes" },
+      ],
+    };
+    const lessonInput = {
+      bodyMd: "Bring algebra tiles.",
+      courseId: "course_id",
+      makeId: () => "lesson_id",
+      planJson,
+      status: "published" as const,
+      title: "Linear equations plan",
+      type: "lesson_plan" as const,
+    };
+    const worksheet = await createMaterial(db, {
+      bodyMd: "1. Solve x + 3 = 8",
+      courseId: "course_id",
+      makeId: () => "worksheet_id",
+      status: "published",
+      title: "Equation worksheet",
+      type: "worksheet",
+    });
+    const lesson = await createMaterial(db, lessonInput);
+    const markdown = lessonPlanToMarkdown(lesson.title, lesson.bodyMd, lesson.planJson);
+
+    await expect(
+      getStudentMaterial(db, {
+        materialId: "lesson_id",
+        studentId: "student_id",
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    client.close();
+
+    expect(lesson.visibility).toBe("tutor_only");
+    expect(lesson.planJson).toEqual(planJson);
+    expect(worksheet.visibility).toBe("students");
+    expect(markdown).toContain("# Linear equations plan");
+    expect(markdown).toContain("## Warm-up");
+    expect(markdown).toContain("Students solve two warm-up equations.");
+    expect(markdown).not.toContain("Internal pacing notes.");
   });
 
   it("enforces student material visibility at read time", async () => {

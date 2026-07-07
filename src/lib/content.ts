@@ -19,6 +19,27 @@ type MaterialType = "lecture" | "study" | "lesson_plan" | "worksheet";
 type MaterialVisibility = "students" | "tutor_only";
 type PublishStatus = "draft" | "published";
 
+export const lessonPlanSectionDefinitions = [
+  { id: "objectives", title: "Objectives" },
+  { id: "warmup", title: "Warm-up" },
+  { id: "instruction", title: "Instruction" },
+  { id: "practice", title: "Practice" },
+  { id: "assessment", title: "Assessment" },
+  { id: "homework", title: "Homework" },
+  { id: "notes", title: "Tutor notes" },
+] as const;
+
+export type LessonPlanSection = {
+  body: string;
+  enabled: boolean;
+  id: string;
+  title: string;
+};
+
+export type LessonPlanJson = {
+  sections: LessonPlanSection[];
+};
+
 type CreateModuleInput = {
   courseId: string;
   description?: string | null;
@@ -43,6 +64,7 @@ type CreateMaterialInput = {
   makeId?: () => string;
   moduleId?: string | null;
   now?: () => number;
+  planJson?: LessonPlanJson | null;
   publishAt?: number | null;
   sortOrder?: number;
   status?: PublishStatus;
@@ -94,6 +116,16 @@ type MarkMaterialCompleteInput = {
 const publishStatusSchema = z.enum(["draft", "published"]);
 const materialTypeSchema = z.enum(["lecture", "study", "lesson_plan", "worksheet"]);
 const visibilitySchema = z.enum(["students", "tutor_only"]);
+const lessonPlanJsonSchema = z.object({
+  sections: z.array(
+    z.object({
+      body: z.string().trim(),
+      enabled: z.boolean(),
+      id: z.string().trim().min(1),
+      title: z.string().trim().min(1),
+    }),
+  ),
+});
 
 const moduleFieldsSchema = z.object({
   courseId: z.string().trim().min(1),
@@ -112,6 +144,7 @@ const materialFieldsSchema = z.object({
   bodyMd: z.string().trim(),
   courseId: z.string().trim().min(1),
   moduleId: z.string().trim().min(1).nullable().optional(),
+  planJson: lessonPlanJsonSchema.nullable().optional(),
   publishAt: z.number().int().nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),
   status: publishStatusSchema.optional(),
@@ -152,6 +185,34 @@ const markMaterialCompleteSchema = z.object({
 
 function createId() {
   return randomBytes(12).toString("base64url");
+}
+
+export function lessonPlanSections(planJson: unknown) {
+  const parsed = lessonPlanJsonSchema.safeParse(planJson);
+
+  return parsed.success ? parsed.data.sections : [];
+}
+
+export function lessonPlanToMarkdown(title: string, bodyMd: string, planJson: unknown) {
+  const lines = [`# ${title.trim() || "Lesson plan"}`];
+
+  for (const section of lessonPlanSections(planJson)) {
+    const body = section.body.trim();
+
+    if (!section.enabled || !body) {
+      continue;
+    }
+
+    lines.push("", `## ${section.title}`, "", body);
+  }
+
+  const trimmedBody = bodyMd.trim();
+
+  if (trimmedBody) {
+    lines.push("", "## Notes", "", trimmedBody);
+  }
+
+  return `${lines.join("\n").trim()}\n`;
 }
 
 async function requireActiveCourse(database: AppDb, id: string) {
@@ -266,7 +327,7 @@ export async function createMaterial(database: AppDb, input: CreateMaterialInput
       type: parsed.type,
       title: parsed.title,
       bodyMd: parsed.bodyMd,
-      planJson: null,
+      planJson: parsed.type === "lesson_plan" ? (parsed.planJson ?? null) : null,
       visibility: parsed.visibility ?? (parsed.type === "lesson_plan" ? "tutor_only" : "students"),
       status: parsed.status ?? "draft",
       publishAt: parsed.publishAt ?? null,
@@ -290,6 +351,7 @@ export async function updateMaterial(database: AppDb, input: UpdateMaterialInput
       type: parsed.type,
       title: parsed.title,
       bodyMd: parsed.bodyMd,
+      planJson: parsed.type === "lesson_plan" ? (parsed.planJson ?? null) : null,
       visibility: parsed.visibility,
       status: parsed.status,
       publishAt: parsed.publishAt ?? null,
@@ -417,6 +479,17 @@ export async function addMaterialLink(database: AppDb, input: AddMaterialLinkInp
     .returning();
 
   return link;
+}
+
+export async function getTutorMaterial(database: AppDb, id: string) {
+  const parsedId = z.string().trim().min(1).parse(id);
+  const [material] = await database.select().from(materials).where(eq(materials.id, parsedId));
+
+  if (!material) {
+    throw new Error("Material not found.");
+  }
+
+  return material;
 }
 
 export async function listCourseContent(database: AppDb, courseId: string) {

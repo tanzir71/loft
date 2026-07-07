@@ -13,6 +13,8 @@ import {
   createModule,
   duplicateMaterial,
   duplicateModule,
+  lessonPlanSectionDefinitions,
+  lessonPlanSections,
   listCourseContent,
   updateMaterial,
   updateModule,
@@ -59,6 +61,74 @@ function linkKind(value: FormDataEntryValue | null) {
   return raw === "youtube" || raw === "pdf" ? raw : "link";
 }
 
+function lessonPlanFromForm(formData: FormData) {
+  return {
+    sections: lessonPlanSectionDefinitions.map((section) => ({
+      body: String(formData.get(`planSection:${section.id}:body`) ?? ""),
+      enabled: formData.get(`planSection:${section.id}:enabled`) === "on",
+      id: section.id,
+      title: section.title,
+    })),
+  };
+}
+
+function LessonPlanFields({ idPrefix, planJson }: { idPrefix: string; planJson?: unknown }) {
+  const savedSections = new Map(lessonPlanSections(planJson).map((section) => [section.id, section]));
+
+  return (
+    <details className="rounded-xl border bg-background p-4" open>
+      <summary className="cursor-pointer text-sm font-semibold">Lesson plan sections</summary>
+      <div className="mt-4 grid gap-4">
+        {lessonPlanSectionDefinitions.map((section) => {
+          const saved = savedSections.get(section.id);
+          const fieldId = `${idPrefix}-${section.id}`;
+
+          return (
+            <div className="grid gap-2" key={section.id}>
+              <label className="flex items-center gap-2 text-sm font-medium" htmlFor={fieldId}>
+                <input
+                  className="h-4 w-4 rounded border"
+                  defaultChecked={saved?.enabled ?? section.id !== "notes"}
+                  name={`planSection:${section.id}:enabled`}
+                  type="checkbox"
+                />
+                {section.title}
+              </label>
+              <textarea
+                className="min-h-20 w-full rounded-xl border bg-card px-3 py-2 text-sm"
+                defaultValue={saved?.body ?? ""}
+                id={fieldId}
+                name={`planSection:${section.id}:body`}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+function StructuredLessonPlan({ planJson }: { planJson: unknown }) {
+  const sections = lessonPlanSections(planJson).filter(
+    (section) => section.enabled && section.body.trim(),
+  );
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 grid gap-3 rounded-xl border bg-background p-4">
+      {sections.map((section) => (
+        <section key={section.id}>
+          <h4 className="text-sm font-semibold">{section.title}</h4>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{section.body}</p>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 async function createModuleAction(formData: FormData) {
   "use server";
 
@@ -96,6 +166,7 @@ async function createMaterialAction(formData: FormData) {
     bodyMd: String(formData.get("bodyMd") ?? ""),
     courseId: String(formData.get("courseId") ?? ""),
     moduleId: String(formData.get("moduleId") ?? "") || null,
+    planJson: lessonPlanFromForm(formData),
     publishAt: dateStart(formData.get("publishAt")),
     sortOrder: numberValue(formData.get("sortOrder")),
     status: publishStatus(formData.get("status")),
@@ -116,6 +187,7 @@ async function updateMaterialAction(formData: FormData) {
     courseId: String(formData.get("courseId") ?? ""),
     id: String(formData.get("id") ?? ""),
     moduleId: String(formData.get("moduleId") ?? "") || null,
+    planJson: lessonPlanFromForm(formData),
     publishAt: dateStart(formData.get("publishAt")),
     sortOrder: numberValue(formData.get("sortOrder")),
     status: publishStatus(formData.get("status")),
@@ -280,6 +352,7 @@ export default async function ContentPage({
                 />
                 <input name="status" type="hidden" value="draft" />
                 <input name="sortOrder" type="hidden" value={content.materials.length} />
+                <LessonPlanFields idPrefix="new-plan" />
                 <MarkdownEditor id="materialBody" label="Material body" name="bodyMd" />
                 <p className="text-xs text-muted-foreground">
                   {blobEnabled
@@ -356,6 +429,19 @@ export default async function ContentPage({
                     className="mt-4 rounded-xl border bg-background p-4"
                     dangerouslySetInnerHTML={{ __html: renderMarkdown(material.bodyMd) }}
                   />
+                  {material.type === "lesson_plan" ? (
+                    <>
+                      <StructuredLessonPlan planJson={material.planJson} />
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <a href={`/content/materials/${material.id}/print`}>Print</a>
+                        </Button>
+                        <Button asChild size="sm" variant="outline">
+                          <a href={`/content/materials/${material.id}/download`}>Download .md</a>
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
                   <div className="mt-4 grid gap-3">
                     {(content.linksByMaterial[material.id] ?? []).map((link) => {
                       const youtubeUrl = link.kind === "youtube" ? youtubeEmbedUrl(link.url) : null;
@@ -472,6 +558,7 @@ export default async function ContentPage({
                       <option value="draft">Draft</option>
                       <option value="published">Published</option>
                     </select>
+                    <LessonPlanFields idPrefix={`plan-${material.id}`} planJson={material.planJson} />
                     <MarkdownEditor id={`body-${material.id}`} label="Material body" name="bodyMd" defaultValue={material.bodyMd} />
                     <Button type="submit">Save material</Button>
                   </form>
