@@ -1,10 +1,11 @@
 import { createClient, type Client } from "@libsql/client";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { schema } from "@/db/schema";
+import { materials, schema } from "@/db/schema";
 import { createCourse, enrollStudent } from "@/lib/courses";
 import {
   addMaterialLink,
@@ -12,8 +13,10 @@ import {
   createModule,
   duplicateMaterial,
   duplicateModule,
+  getStudentMaterial,
   listCourseContent,
   listStudentVisibleMaterials,
+  markMaterialComplete,
   updateMaterial,
   updateModule,
 } from "@/lib/content";
@@ -239,5 +242,66 @@ describe("course content", () => {
     expect(beforeModulePublish).toEqual([]);
     expect(visibleNow.map((material) => material.title)).toEqual(["Visible"]);
     expect(visibleLater.map((material) => material.title)).toEqual(["Visible", "Scheduled"]);
+  });
+
+  it("blocks prerequisite-gated materials until the student completes the prerequisite", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await createMaterial(db, {
+      bodyMd: "First",
+      courseId: "course_id",
+      makeId: () => "first_id",
+      status: "published",
+      title: "First",
+      type: "lecture",
+      visibility: "students",
+    });
+    await createMaterial(db, {
+      bodyMd: "Second",
+      courseId: "course_id",
+      makeId: () => "second_id",
+      status: "published",
+      title: "Second",
+      type: "lecture",
+      visibility: "students",
+    });
+    await db
+      .update(materials)
+      .set({ requiresMaterialId: "first_id" })
+      .where(eq(materials.id, "second_id"));
+
+    await expect(
+      getStudentMaterial(db, {
+        materialId: "second_id",
+        studentId: "student_id",
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    await markMaterialComplete(db, {
+      makeId: () => "progress_id",
+      materialId: "first_id",
+      studentId: "student_id",
+    });
+    const unlocked = await getStudentMaterial(db, {
+      materialId: "second_id",
+      studentId: "student_id",
+    });
+    client.close();
+
+    expect(unlocked.id).toBe("second_id");
   });
 });

@@ -424,7 +424,7 @@ Rules:
 - [x] Tutor curriculum view (outline, status chips, completion counts) + duplicate material/module across courses
 - [x] Embeds: youtube-nocookie (URL parsing unit-tested) + inline PDF + link cards; blob image upload when enabled
 - [x] Publish/draft/scheduled visibility incl. module-level toggle (read-time enforcement)
-- [ ] Student curriculum tab: progress bar, mark-complete, prev/next nav, server-enforced prerequisite gating (403 test)
+- [x] Student curriculum tab: progress bar, mark-complete, prev/next nav, server-enforced prerequisite gating (403 test)
 - [ ] Lesson-plan material type: structured plan_json editor (toggleable sections), tutor_only visibility (403 test), print + .md download; worksheet material type
 - [ ] Standards library CRUD + bulk-paste import + tagging on materials/quizzes + course coverage matrix with gap highlighting
 - [ ] Tutor progress matrix (students × materials)
@@ -509,3 +509,4 @@ Rules:
 2026-07-07 | P5 curriculum view: completion counts and duplication | Added completion count chips, duplicate material/module helpers and tutor controls, cross-course copy coverage, and e2e duplicate-material smoke.
 2026-07-07 | P5 embeds: material links and guarded blob endpoint | Added YouTube nocookie parser tests, material link cards/PDF/YouTube rendering, link creation UI, and a feature-detected blob upload endpoint; `@vercel/blob` install timed out, so the endpoint returns a clear unavailable response until the package is installed.
 2026-07-07 | P5 visibility: publish, schedule, and read enforcement | Added material publish dates, module-level status cascade, student course material view, and unit coverage for enrolled-student visibility enforcement.
+2026-07-07 | P5 student curriculum: progress and prerequisite gating | Added student curriculum completion state, mark-complete flow, previous/next indicators, locked prerequisite handling, and 403 unit coverage.

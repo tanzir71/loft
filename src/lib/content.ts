@@ -12,6 +12,7 @@ import {
   modules,
   schema,
 } from "@/db/schema";
+import { AuthzError } from "@/lib/authz";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 type MaterialType = "lecture" | "study" | "lesson_plan" | "worksheet";
@@ -83,6 +84,13 @@ type AddMaterialLinkInput = {
   url: string;
 };
 
+type MarkMaterialCompleteInput = {
+  makeId?: () => string;
+  materialId: string;
+  now?: () => number;
+  studentId: string;
+};
+
 const publishStatusSchema = z.enum(["draft", "published"]);
 const materialTypeSchema = z.enum(["lecture", "study", "lesson_plan", "worksheet"]);
 const visibilitySchema = z.enum(["students", "tutor_only"]);
@@ -135,6 +143,11 @@ const addMaterialLinkSchema = z.object({
   label: z.string().trim().min(1),
   materialId: z.string().trim().min(1),
   url: z.string().trim().url(),
+});
+
+const markMaterialCompleteSchema = z.object({
+  materialId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
 });
 
 function createId() {
@@ -485,4 +498,98 @@ export async function listStudentVisibleMaterials(
 
     return true;
   });
+}
+
+async function completedMaterialIds(database: AppDb, studentId: string) {
+  const rows = await database
+    .select({ materialId: materialProgress.materialId })
+    .from(materialProgress)
+    .where(eq(materialProgress.studentId, studentId));
+
+  return new Set(rows.map((row) => row.materialId));
+}
+
+export async function listStudentCurriculum(
+  database: AppDb,
+  input: { courseId: string; now?: number; studentId: string },
+) {
+  const visibleMaterials = await listStudentVisibleMaterials(database, input);
+  const completed = await completedMaterialIds(database, input.studentId);
+
+  return visibleMaterials.map((material, index) => ({
+    completed: completed.has(material.id),
+    locked: Boolean(material.requiresMaterialId && !completed.has(material.requiresMaterialId)),
+    material,
+    nextId: visibleMaterials[index + 1]?.id ?? null,
+    previousId: visibleMaterials[index - 1]?.id ?? null,
+  }));
+}
+
+export async function getStudentMaterial(
+  database: AppDb,
+  input: { materialId: string; now?: number; studentId: string },
+) {
+  const parsed = z
+    .object({
+      materialId: z.string().trim().min(1),
+      now: z.number().int().optional(),
+      studentId: z.string().trim().min(1),
+    })
+    .parse(input);
+  const [material] = await database
+    .select()
+    .from(materials)
+    .where(eq(materials.id, parsed.materialId));
+
+  if (!material) {
+    throw new Error("Material not found.");
+  }
+
+  const visibleMaterials = await listStudentVisibleMaterials(database, {
+    courseId: material.courseId,
+    now: parsed.now,
+    studentId: parsed.studentId,
+  });
+  const visible = visibleMaterials.find((row) => row.id === material.id);
+
+  if (!visible) {
+    throw new AuthzError("Material forbidden", 403);
+  }
+
+  if (material.requiresMaterialId) {
+    const completed = await completedMaterialIds(database, parsed.studentId);
+
+    if (!completed.has(material.requiresMaterialId)) {
+      throw new AuthzError("Prerequisite material required", 403);
+    }
+  }
+
+  return material;
+}
+
+export async function markMaterialComplete(database: AppDb, input: MarkMaterialCompleteInput) {
+  const parsed = markMaterialCompleteSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  await getStudentMaterial(database, {
+    materialId: parsed.materialId,
+    now,
+    studentId: parsed.studentId,
+  });
+  const [progress] = await database
+    .insert(materialProgress)
+    .values({
+      id: input.makeId?.() ?? createId(),
+      materialId: parsed.materialId,
+      studentId: parsed.studentId,
+      completedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [materialProgress.materialId, materialProgress.studentId],
+      set: { completedAt: now, updatedAt: now },
+    })
+    .returning();
+
+  return progress;
 }
