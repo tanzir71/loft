@@ -431,7 +431,7 @@ Rules:
 - [x] P5 acceptance tests green
 
 **P6 Quizzes**
-- [ ] Quiz + question builder (4 types) with zod answer schemas + preview
+- [x] Quiz + question builder (4 types) with zod answer schemas + preview
 - [ ] Attempt flow: start/window/attempt-limit enforcement, autosave, timer, submit
 - [ ] Autograder + unit tests all types; manual grading queue for short answers
 - [ ] Results views (student + tutor table + CSV export)
@@ -514,3 +514,4 @@ Rules:
 2026-07-07 | P5 standards library and coverage | Added standards CRUD/import helpers, material and quiz tagging, tutor content controls, and a course coverage matrix with gap highlighting plus unit coverage.
 2026-07-07 | P5 tutor progress matrix | Added student-facing material completion matrix for active enrollments, hiding tutor-only materials and surfacing per-student completion percentages in `/content`.
 2026-07-07 | P5 acceptance | Verified `npm run check` (typecheck, lint, 53 unit tests) and `npm run e2e` (12 Playwright tests) after all P5 material-builder work.
+2026-07-07 | P6 quiz builder | Added tutor `/quizzes` builder, four typed question schemas with zod validation, ordered question CRUD, server-rendered previews, unit coverage, and a Playwright quiz smoke.
