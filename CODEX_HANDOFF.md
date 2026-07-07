@@ -403,7 +403,7 @@ Rules:
 - [x] P2 acceptance tests green
 
 **P3 Schedule & Attendance**
-- [ ] Weekly slots CRUD + idempotent session generation (unit-tested)
+- [x] Weekly slots CRUD + idempotent session generation (unit-tested)
 - [ ] Sessions week view + status changes + attendance marking UI
 - [ ] Session notes: private vs shared visibility (authz-tested)
 - [ ] ICS calendar feed per user with regenerable token (unit-tested output)
@@ -492,3 +492,4 @@ Rules:
 2026-07-07 | P2 courses: CRUD and enrollment management | Added course create/update/archive helpers, active enrollment/unenrollment helpers, tutor `/courses` management UI, and unit/e2e coverage for editing, archiving, enrolling, and unenrolling.
 2026-07-07 | P2 student home: enrolled courses and parent skeleton | Added active enrolled-course query, rendered student `/home` course cards with empty state, added server role checks to parent overview, and covered invite-to-enrollment-to-student-home in e2e.
 2026-07-07 | P2 acceptance: students, courses, enrollment smoke green | Re-ran `npm run check` and full Playwright suite; acceptance path covers tutor-created course, enrolled student, and student-visible course on `/home`.
+2026-07-07 | P3 schedule slots: weekly templates and idempotent generation | Added schedule slot create/update/deactivate helpers, UTC-based idempotent session generation, tutor `/schedule` UI, and unit/e2e coverage for duplicate-safe generation.
