@@ -428,7 +428,7 @@ Rules:
 - [x] Lesson-plan material type: structured plan_json editor (toggleable sections), tutor_only visibility (403 test), print + .md download; worksheet material type
 - [x] Standards library CRUD + bulk-paste import + tagging on materials/quizzes + course coverage matrix with gap highlighting
 - [x] Tutor progress matrix (students × materials)
-- [ ] P5 acceptance tests green
+- [x] P5 acceptance tests green
 
 **P6 Quizzes**
 - [ ] Quiz + question builder (4 types) with zod answer schemas + preview
@@ -513,3 +513,4 @@ Rules:
 2026-07-07 | P5 lesson plans and worksheets | Added structured `plan_json` lesson sections with toggleable editor fields, tutor-only 403 coverage, print and Markdown export routes, and worksheet material persistence.
 2026-07-07 | P5 standards library and coverage | Added standards CRUD/import helpers, material and quiz tagging, tutor content controls, and a course coverage matrix with gap highlighting plus unit coverage.
 2026-07-07 | P5 tutor progress matrix | Added student-facing material completion matrix for active enrollments, hiding tutor-only materials and surfacing per-student completion percentages in `/content`.
+2026-07-07 | P5 acceptance | Verified `npm run check` (typecheck, lint, 53 unit tests) and `npm run e2e` (12 Playwright tests) after all P5 material-builder work.
