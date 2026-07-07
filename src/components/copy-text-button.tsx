@@ -5,10 +5,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type CopyTextButtonProps = {
+  copiedLabel?: string;
+  label?: string;
   text: string;
 };
 
-export function CopyTextButton({ text }: CopyTextButtonProps) {
+export function CopyTextButton({
+  copiedLabel = "Copied",
+  label = "Copy reminder message",
+  text,
+}: CopyTextButtonProps) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -21,7 +27,7 @@ export function CopyTextButton({ text }: CopyTextButtonProps) {
       type="button"
       variant="outline"
     >
-      {copied ? "Copied" : "Copy reminder message"}
+      {copied ? copiedLabel : label}
     </Button>
   );
 }

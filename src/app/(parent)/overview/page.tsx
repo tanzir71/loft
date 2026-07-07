@@ -13,6 +13,10 @@ import {
 } from "@/lib/classroom";
 import { runReadTimeFallbacks } from "@/lib/cron";
 import { renderMarkdown } from "@/lib/markdown";
+import {
+  listProgressReportsForParent,
+  progressReportPeriodLabel,
+} from "@/lib/progress-reports";
 import { listParentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
 
@@ -76,10 +80,11 @@ export default async function ParentOverviewPage() {
   }
 
   await runReadTimeFallbacks(getDb());
-  const [sessions, packageCredits, announcements] = await Promise.all([
+  const [sessions, packageCredits, announcements, progressReports] = await Promise.all([
     listParentPortalSessions(getDb(), user.id),
     listPackageCreditsForParent(getDb(), user.id),
     listParentAnnouncements(getDb(), { parentId: user.id }),
+    listProgressReportsForParent(getDb(), user.id),
   ]);
   const commentEntries = await Promise.all(
     announcements.map(async (announcement) => [
@@ -131,6 +136,41 @@ export default async function ParentOverviewPage() {
                     </form>
                   </div>
                 ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="mt-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Progress reports</h2>
+          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+            {progressReports.length} reports
+          </span>
+        </div>
+        {progressReports.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No progress reports yet.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {progressReports.map((report) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={report.id}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                      {report.studentName} - {progressReportPeriodLabel(report)}
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold">Progress report</h3>
+                  </div>
+                  <Button asChild size="sm" variant="outline">
+                    <a href={`/progress-reports/${report.id}`}>View report</a>
+                  </Button>
+                </div>
+                <div
+                  className="mt-4 border-t pt-4 text-sm leading-6 text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(report.bodyMd) }}
+                />
               </article>
             ))}
           </div>

@@ -30,8 +30,9 @@ test("tutor generates an AI progress report narrative for a student", async ({ p
   await expect(page.getByText("AI progress report generated.")).toBeVisible();
   await expect(page.getByText("Latest progress report")).toBeVisible();
   await expect(
-    page.getByText(
-      "Student One is building confidence with one-step equations and should keep practicing inverse operations.",
-    ),
+    page.getByRole("paragraph").filter({
+      hasText:
+        "Student One is building confidence with one-step equations and should keep practicing inverse operations.",
+    }),
   ).toBeVisible();
 });

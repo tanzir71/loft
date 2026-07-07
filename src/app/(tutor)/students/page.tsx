@@ -12,6 +12,12 @@ import { Button } from "@/components/ui/button";
 import { requireTutor } from "@/lib/authz";
 import { renderMarkdown } from "@/lib/markdown";
 import {
+  generateMonthlyProgressReports,
+  generateNumbersOnlyProgressReport,
+  progressReportPeriodLabel,
+  updateProgressReport,
+} from "@/lib/progress-reports";
+import {
   archiveStudent,
   createStudent,
   listStudentsWithParents,
@@ -44,6 +50,24 @@ function dateEnd(value: FormDataEntryValue | null, fallback: number) {
 
   const timestamp = Date.parse(`${raw}T23:59:59.999Z`);
   return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
+function monthRange(value: FormDataEntryValue | null, fallback: number) {
+  const raw = String(value ?? "").trim();
+  const match = /^(\d{4})-(\d{2})$/.exec(raw);
+
+  if (!match) {
+    const date = new Date(fallback);
+    const periodStart = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+    const periodEnd = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999);
+    return { periodEnd, periodStart };
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const periodStart = Date.UTC(year, month, 1);
+  const periodEnd = Date.UTC(year, month + 1, 0, 23, 59, 59, 999);
+  return { periodEnd, periodStart };
 }
 
 function encryptionSecret() {
@@ -147,10 +171,56 @@ async function generateAiProgressReportAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+async function generateProgressReportAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const studentId = String(formData.get("studentId") ?? "");
+  const now = Date.now();
+  const database = getDb();
+
+  await generateNumbersOnlyProgressReport(database, {
+    periodEnd: dateEnd(formData.get("periodEnd"), now),
+    periodStart: dateStart(formData.get("periodStart"), now - 30 * dayMs),
+    studentId,
+  });
+
+  redirect("/students?progressReport=manual");
+}
+
+async function generateMonthlyProgressReportsAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const now = Date.now();
+  const database = getDb();
+  const period = monthRange(formData.get("month"), now);
+  const result = await generateMonthlyProgressReports(database, period);
+
+  redirect(`/students?progressReportBatch=${result.created}`);
+}
+
+async function updateProgressReportAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await updateProgressReport(getDb(), {
+    bodyMd: String(formData.get("bodyMd") ?? ""),
+    id: String(formData.get("reportId") ?? ""),
+  });
+
+  redirect("/students?progressReportUpdated=1");
+}
+
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ progressReport?: string; progressReportError?: "ai" }>;
+  searchParams: Promise<{
+    progressReport?: string;
+    progressReportBatch?: string;
+    progressReportError?: "ai";
+    progressReportUpdated?: string;
+  }>;
 }) {
   await requireTutor();
   const params = await searchParams;
@@ -181,7 +251,19 @@ export default async function StudentsPage({
       ) : null}
       {params.progressReport ? (
         <div className="mb-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
-          AI progress report generated.
+          {params.progressReport === "manual"
+            ? "Progress report generated."
+            : "AI progress report generated."}
+        </div>
+      ) : null}
+      {params.progressReportUpdated ? (
+        <div className="mb-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+          Progress report updated.
+        </div>
+      ) : null}
+      {params.progressReportBatch ? (
+        <div className="mb-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+          Monthly progress reports generated for {params.progressReportBatch} students.
         </div>
       ) : null}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -211,6 +293,21 @@ export default async function StudentsPage({
             <Button type="submit" variant="gradient">
               <UserPlus className="h-4 w-4" aria-hidden="true" />
               Add student
+            </Button>
+          </form>
+          <form action={generateMonthlyProgressReportsAction} className="mt-6 border-t pt-6">
+            <label className="block text-sm font-medium" htmlFor="report-month">
+              Batch month
+            </label>
+            <input
+              className="mt-2 h-11 w-full rounded-xl border bg-background px-3 text-sm"
+              id="report-month"
+              name="month"
+              required
+              type="month"
+            />
+            <Button className="mt-3" type="submit" variant="outline">
+              Generate monthly reports
             </Button>
           </form>
         </section>
@@ -336,11 +433,81 @@ export default async function StudentsPage({
                       </div>
                     </form>
                   ) : null}
+                  {student.status === "active" ? (
+                    <form
+                      action={generateProgressReportAction}
+                      className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-[1fr_1fr_auto]"
+                    >
+                      <input name="studentId" type="hidden" value={student.id} />
+                      <label className="block text-sm font-medium">
+                        Report start
+                        <input
+                          aria-label={`Report start for ${student.name}`}
+                          className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                          name="periodStart"
+                          type="date"
+                        />
+                      </label>
+                      <label className="block text-sm font-medium">
+                        Report end
+                        <input
+                          aria-label={`Report end for ${student.name}`}
+                          className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                          name="periodEnd"
+                          type="date"
+                        />
+                      </label>
+                      <div className="self-end">
+                        <Button
+                          aria-label={`Generate progress report for ${student.name}`}
+                          size="sm"
+                          type="submit"
+                          variant="outline"
+                        >
+                          Generate progress report
+                        </Button>
+                      </div>
+                    </form>
+                  ) : null}
                   {latestReport ? (
                     <div className="mt-4 rounded-xl border bg-background p-4">
-                      <p className="text-sm font-semibold">Latest progress report</p>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Latest progress report</p>
+                          <p className="mt-1 font-mono text-[10px] uppercase text-muted-foreground">
+                            {progressReportPeriodLabel(latestReport)}
+                          </p>
+                        </div>
+                        <Button asChild size="sm" variant="outline">
+                          <a
+                            aria-label={`View progress report for ${student.name}`}
+                            href={`/progress-reports/${latestReport.id}`}
+                          >
+                            View report
+                          </a>
+                        </Button>
+                      </div>
+                      <form action={updateProgressReportAction} className="mt-4 grid gap-3">
+                        <input name="reportId" type="hidden" value={latestReport.id} />
+                        <textarea
+                          aria-label={`Report body for ${student.name}`}
+                          className="min-h-32 rounded-xl border bg-card px-3 py-2 text-sm"
+                          name="bodyMd"
+                          defaultValue={latestReport.bodyMd}
+                          required
+                        />
+                        <div>
+                          <Button
+                            aria-label={`Save progress report for ${student.name}`}
+                            size="sm"
+                            type="submit"
+                          >
+                            Save report
+                          </Button>
+                        </div>
+                      </form>
                       <div
-                        className="mt-2 text-sm text-muted-foreground"
+                        className="mt-4 border-t pt-4 text-sm text-muted-foreground"
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(latestReport.bodyMd) }}
                       />
                     </div>
