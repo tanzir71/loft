@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { announcements, invoices, materials, quizzes, schema, users } from "@/db/schema";
 import { generateMonthlyInvoice } from "@/lib/billing";
+import { sendTutorDailyDigest } from "@/lib/daily-digest";
 import { sendPaymentReminders } from "@/lib/payment-reminders";
 import { generateSessions } from "@/lib/schedule";
 
@@ -159,9 +160,16 @@ export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {
     now: input.now,
     origin: input.origin ?? "http://localhost:3000",
   });
+  const dailyDigest = await sendTutorDailyDigest(database, {
+    env: input.env,
+    fetchFn: input.fetchFn,
+    now: input.now,
+    origin: input.origin ?? "http://localhost:3000",
+  });
 
   return {
     ...core,
+    dailyDigest,
     paymentReminders,
   };
 }

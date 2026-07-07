@@ -5,12 +5,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { announcements, classSessions, invoices, materials, quizzes, schema } from "@/db/schema";
-import { createAnnouncement } from "@/lib/classroom";
+import { activityLog, announcements, classSessions, invoices, materials, quizzes, schema } from "@/db/schema";
+import { createAnnouncement, createAssignment, submitAssignment } from "@/lib/classroom";
 import { createMaterial } from "@/lib/content";
 import { createCourse, enrollStudent } from "@/lib/courses";
 import { isCronRequestAuthorized, runCronTasks, runReadTimeFallbacks } from "@/lib/cron";
-import { createQuiz } from "@/lib/quizzes";
+import { createQuiz, createQuizQuestion, saveQuizAnswer, startQuizAttempt, submitQuizAttempt } from "@/lib/quizzes";
 import { createRatePlan, setCourseDefaultRatePlan } from "@/lib/billing";
 import { createScheduleSlot } from "@/lib/schedule";
 import { seedTutor } from "@/lib/seed";
@@ -235,5 +235,141 @@ describe("cron tasks", () => {
     expect(sessionRows).toHaveLength(2);
     expect(invoiceRows).toHaveLength(0);
     expect(quizRows[0].status).toBe("closed");
+  });
+
+  it("emails a daily tutor digest once per day with sessions, grading, and overdue invoices", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 7, 8);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await db.insert(classSessions).values({
+      id: "session_id",
+      courseId: "course_id",
+      startsAt: Date.UTC(2026, 6, 7, 10),
+      durationMin: 60,
+      status: "scheduled",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await createAssignment(db, {
+      bodyMd: "Solve the worksheet.",
+      courseId: "course_id",
+      makeId: () => "assignment_id",
+      points: 10,
+      status: "published",
+      title: "Linear practice",
+    });
+    await submitAssignment(db, {
+      assignmentId: "assignment_id",
+      bodyText: "My solution",
+      makeId: () => "submission_id",
+      now: () => now,
+      studentId: "student_id",
+    });
+    await createQuiz(db, {
+      courseId: "course_id",
+      makeId: () => "quiz_id",
+      maxAttempts: 1,
+      now: () => now,
+      status: "published",
+      title: "Exit ticket",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { acceptedAnswers: ["factor"] },
+      makeId: () => "question_id",
+      optionsJson: null,
+      points: 5,
+      promptMd: "What is the next step?",
+      quizId: "quiz_id",
+      sortOrder: 0,
+      type: "short_answer",
+    });
+    const attempt = await startQuizAttempt(db, {
+      makeId: () => "attempt_id",
+      now: () => now,
+      quizId: "quiz_id",
+      studentId: "student_id",
+    });
+    await saveQuizAnswer(db, {
+      answerJson: { response: "expand" },
+      attemptId: attempt.id,
+      makeId: () => "answer_id",
+      now: () => now,
+      questionId: "question_id",
+      studentId: "student_id",
+    });
+    await submitQuizAttempt(db, {
+      attemptId: attempt.id,
+      now: () => now + 60_000,
+      studentId: "student_id",
+    });
+    await db.insert(invoices).values({
+      id: "overdue_invoice_id",
+      createdAt: now,
+      dueDate: now - 24 * 60 * 60 * 1000,
+      notes: "Needs follow-up",
+      number: "TL-202607-0099",
+      periodEnd: now,
+      periodStart: now - 30 * 24 * 60 * 60 * 1000,
+      status: "draft",
+      studentId: "student_id",
+      total: 2500,
+      updatedAt: now,
+    });
+    const sentPayloads: unknown[] = [];
+    const fetchFn = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      sentPayloads.push(JSON.parse(String(init?.body)));
+      return new Response(null, { status: 202 });
+    }) as typeof fetch;
+
+    const first = await runCronTasks(db, {
+      env: { RESEND_API_KEY: "key" },
+      fetchFn,
+      now,
+      origin: "https://tutorloft.test",
+    });
+    const second = await runCronTasks(db, {
+      env: { RESEND_API_KEY: "key" },
+      fetchFn,
+      now,
+      origin: "https://tutorloft.test",
+    });
+    const logs = await db.select().from(activityLog).where(eq(activityLog.action, "daily_digest"));
+    client.close();
+
+    expect(first.dailyDigest).toMatchObject({
+      assignmentSubmissions: 1,
+      overdueInvoices: 1,
+      quizAnswers: 1,
+      sent: 1,
+      sessions: 1,
+      skipped: 0,
+    });
+    expect(second.dailyDigest).toMatchObject({ sent: 0, skipped: 1 });
+    expect(logs).toHaveLength(1);
+    expect(sentPayloads).toHaveLength(1);
+    expect(sentPayloads[0]).toMatchObject({
+      subject: "TutorLoft daily digest - 2026-07-07",
+      to: "tutor@example.com",
+      text: expect.stringContaining("Today's sessions"),
+    });
+    expect(JSON.stringify(sentPayloads[0])).toContain("Algebra I");
+    expect(JSON.stringify(sentPayloads[0])).toContain("Linear practice");
+    expect(JSON.stringify(sentPayloads[0])).toContain("Exit ticket");
+    expect(JSON.stringify(sentPayloads[0])).toContain("TL-202607-0099");
   });
 });

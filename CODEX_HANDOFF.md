@@ -448,7 +448,7 @@ Rules:
 - [x] `/api/cron` with `CRON_SECRET`: session gen, monthly draft invoices, quiz close, scheduled publish — idempotent (unit-tested double-run)
 - [x] Payment reminders: due+3d/due+10d email (max one per invoice per day, logged) + copyable reminder message on invoice
 - [x] Read-time fallbacks so app is correct without cron
-- [ ] Optional tutor daily digest email
+- [x] Optional tutor daily digest email
 - [ ] P8 acceptance tests green
 
 **P9 AI (BYOK, optional)**
@@ -527,3 +527,4 @@ Rules:
 2026-07-07 | P8 cron endpoint | Added `CRON_SECRET`-guarded `/api/cron`, idempotent session generation/monthly invoice drafting, quiz close, scheduled announcement/material publish, and double-run unit coverage.
 2026-07-07 | P8 payment reminders | Added due+3/due+10 invoice reminder delivery with Resend/copy fallback, activity-log dedupe, cron integration, and copyable Bangla/English reminder messages on invoice pages.
 2026-07-07 | P8 read-time fallbacks | Added safe read-time automation on student/parent/course/quiz reads for sessions, scheduled publishing, and quiz close; kept invoice drafting cron/manual-only to avoid billing-number side effects.
+2026-07-07 | P8 daily digest | Added optional Resend daily digest to the tutor with today's sessions, ungraded assignments/manual quiz answers, overdue invoices, and once-per-day activity-log dedupe.
