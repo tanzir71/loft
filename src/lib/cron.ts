@@ -1,0 +1,132 @@
+import { and, eq, lte } from "drizzle-orm";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
+import { z } from "zod";
+
+import { announcements, invoices, materials, quizzes, schema, users } from "@/db/schema";
+import { generateMonthlyInvoice } from "@/lib/billing";
+import { generateSessions } from "@/lib/schedule";
+
+type AppDb = LibSQLDatabase<typeof schema>;
+
+type RunCronTasksInput = {
+  now?: number;
+  sessionWeeks?: number;
+};
+
+const monthlyInvoiceNotes = "Generated monthly invoice";
+const runCronTasksSchema = z.object({
+  now: z.number().int().optional(),
+  sessionWeeks: z.number().int().min(1).max(52).optional(),
+});
+
+function utcMonthStart(timestamp: number) {
+  const date = new Date(timestamp);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+}
+
+function utcNextMonthStart(timestamp: number) {
+  const date = new Date(timestamp);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
+}
+
+export function isCronRequestAuthorized(request: Request, secret: string) {
+  const normalizedSecret = secret.trim();
+
+  if (!normalizedSecret) {
+    return false;
+  }
+
+  const url = new URL(request.url);
+  const authorization = request.headers.get("authorization") ?? "";
+
+  return (
+    authorization === `Bearer ${normalizedSecret}` ||
+    url.searchParams.get("secret") === normalizedSecret
+  );
+}
+
+async function monthlyDraftInvoiceExists(
+  database: AppDb,
+  input: { periodEnd: number; periodStart: number; studentId: string },
+) {
+  const [invoice] = await database
+    .select({ id: invoices.id })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.studentId, input.studentId),
+        eq(invoices.periodStart, input.periodStart),
+        eq(invoices.periodEnd, input.periodEnd),
+        eq(invoices.notes, monthlyInvoiceNotes),
+      ),
+    );
+
+  return Boolean(invoice);
+}
+
+export async function runCronTasks(database: AppDb, input: RunCronTasksInput = {}) {
+  const parsed = runCronTasksSchema.parse(input);
+  const now = parsed.now ?? Date.now();
+  const periodStart = utcMonthStart(now);
+  const periodEnd = utcNextMonthStart(now);
+  const sessions = await generateSessions(database, {
+    from: now,
+    now: () => now,
+    weeks: parsed.sessionWeeks ?? 4,
+  });
+  const closedQuizzes = await database
+    .update(quizzes)
+    .set({ status: "closed", updatedAt: now })
+    .where(and(eq(quizzes.status, "published"), lte(quizzes.closeAt, now)))
+    .returning({ id: quizzes.id });
+  const publishedAnnouncements = await database
+    .update(announcements)
+    .set({ status: "published", updatedAt: now })
+    .where(and(eq(announcements.status, "draft"), lte(announcements.publishAt, now)))
+    .returning({ id: announcements.id });
+  const publishedMaterials = await database
+    .update(materials)
+    .set({ status: "published", updatedAt: now })
+    .where(and(eq(materials.status, "draft"), lte(materials.publishAt, now)))
+    .returning({ id: materials.id });
+  const studentRows = await database
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.role, "student"), eq(users.status, "active")));
+  let invoicesCreated = 0;
+  let invoicesRefreshed = 0;
+  let invoicesSkipped = 0;
+
+  for (const student of studentRows) {
+    const existed = await monthlyDraftInvoiceExists(database, {
+      periodEnd,
+      periodStart,
+      studentId: student.id,
+    });
+    const result = await generateMonthlyInvoice(database, {
+      dueDate: periodEnd,
+      now: () => now,
+      periodEnd,
+      periodStart,
+      studentId: student.id,
+    });
+
+    if (result.skipped) {
+      invoicesSkipped += 1;
+    } else if (existed) {
+      invoicesRefreshed += 1;
+    } else {
+      invoicesCreated += 1;
+    }
+  }
+
+  return {
+    announcementsPublished: publishedAnnouncements.length,
+    invoicesCreated,
+    invoicesRefreshed,
+    invoicesSkipped,
+    materialsPublished: publishedMaterials.length,
+    quizzesClosed: closedQuizzes.length,
+    sessions,
+  };
+}
