@@ -1,7 +1,7 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 
-import { schema } from "@/db/schema";
+import { schema } from "./schema";
 
 const databaseUrl = process.env.DATABASE_URL ?? "file:./data/dev.db";
 
