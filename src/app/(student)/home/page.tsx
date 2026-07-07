@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
 import { requireUser } from "@/lib/authz";
 import { listPackageCreditsForStudent } from "@/lib/billing";
+import {
+  addAnnouncementComment,
+  listAnnouncementComments,
+  listStudentAnnouncements,
+} from "@/lib/classroom";
 import { listStudentCourses } from "@/lib/courses";
+import { renderMarkdown } from "@/lib/markdown";
 import { listStudentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Home",
@@ -41,6 +49,25 @@ function creditLabel(remaining: number) {
   return `${remaining} ${remaining === 1 ? "credit" : "credits"} remaining`;
 }
 
+async function addFeedCommentAction(formData: FormData) {
+  "use server";
+
+  const user = await requireUser();
+
+  if (user.role !== "student") {
+    redirect(roleHomePath(user.role));
+  }
+
+  await addAnnouncementComment(getDb(), {
+    announcementId: String(formData.get("announcementId") ?? ""),
+    authorId: user.id,
+    body: String(formData.get("body") ?? ""),
+  });
+
+  revalidatePath("/home");
+  redirect("/home");
+}
+
 export default async function StudentHomePage() {
   const user = await requireUser();
 
@@ -48,11 +75,19 @@ export default async function StudentHomePage() {
     redirect(roleHomePath(user.role));
   }
 
-  const [courses, sessions, packageCredits] = await Promise.all([
+  const [courses, sessions, packageCredits, announcements] = await Promise.all([
     listStudentCourses(getDb(), user.id),
     listStudentPortalSessions(getDb(), user.id),
     listPackageCreditsForStudent(getDb(), user.id),
+    listStudentAnnouncements(getDb(), { studentId: user.id }),
   ]);
+  const commentEntries = await Promise.all(
+    announcements.map(async (announcement) => [
+      announcement.id,
+      await listAnnouncementComments(getDb(), announcement.id),
+    ] as const),
+  );
+  const commentsByAnnouncement = Object.fromEntries(commentEntries);
 
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -80,6 +115,51 @@ export default async function StudentHomePage() {
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {course.description}
                   </p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Classroom feed</h2>
+          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+            {announcements.length} posts
+          </span>
+        </div>
+        {announcements.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No announcements yet.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {announcements.map((announcement) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={announcement.id}>
+                <h3 className="text-lg font-semibold">{announcement.title}</h3>
+                <div
+                  className="mt-3 text-sm leading-6 text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(announcement.bodyMd) }}
+                />
+                {announcement.allowComments ? (
+                  <div className="mt-4 rounded-xl border bg-background p-4">
+                    <div className="grid gap-2">
+                      {(commentsByAnnouncement[announcement.id] ?? []).map((comment) => (
+                        <p className="text-sm" key={comment.id}>
+                          <span className="font-semibold">{comment.authorName}: </span>
+                          {comment.body}
+                        </p>
+                      ))}
+                    </div>
+                    <form action={addFeedCommentAction} className="mt-3 flex gap-2">
+                      <input name="announcementId" type="hidden" value={announcement.id} />
+                      <input className="h-10 flex-1 rounded-xl border bg-card px-3 text-sm" name="body" required />
+                      <Button size="sm" type="submit" variant="outline">
+                        Comment
+                      </Button>
+                    </form>
+                  </div>
                 ) : null}
               </article>
             ))}

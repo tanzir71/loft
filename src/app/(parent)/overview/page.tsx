@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
+import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/authz";
 import { listPackageCreditsForParent } from "@/lib/billing";
+import {
+  addAnnouncementComment,
+  listAnnouncementComments,
+  listParentAnnouncements,
+} from "@/lib/classroom";
+import { renderMarkdown } from "@/lib/markdown";
 import { listParentPortalSessions } from "@/lib/schedule";
 import { roleHomePath } from "@/lib/session-routing";
 
@@ -40,6 +48,25 @@ function creditLabel(remaining: number) {
   return `${remaining} ${remaining === 1 ? "credit" : "credits"} remaining`;
 }
 
+async function addFeedCommentAction(formData: FormData) {
+  "use server";
+
+  const user = await requireUser();
+
+  if (user.role !== "parent") {
+    redirect(roleHomePath(user.role));
+  }
+
+  await addAnnouncementComment(getDb(), {
+    announcementId: String(formData.get("announcementId") ?? ""),
+    authorId: user.id,
+    body: String(formData.get("body") ?? ""),
+  });
+
+  revalidatePath("/overview");
+  redirect("/overview");
+}
+
 export default async function ParentOverviewPage() {
   const user = await requireUser();
 
@@ -47,14 +74,66 @@ export default async function ParentOverviewPage() {
     redirect(roleHomePath(user.role));
   }
 
-  const [sessions, packageCredits] = await Promise.all([
+  const [sessions, packageCredits, announcements] = await Promise.all([
     listParentPortalSessions(getDb(), user.id),
     listPackageCreditsForParent(getDb(), user.id),
+    listParentAnnouncements(getDb(), { parentId: user.id }),
   ]);
+  const commentEntries = await Promise.all(
+    announcements.map(async (announcement) => [
+      announcement.id,
+      await listAnnouncementComments(getDb(), announcement.id),
+    ] as const),
+  );
+  const commentsByAnnouncement = Object.fromEntries(commentEntries);
 
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="font-display text-3xl italic">Overview</h1>
+      <section className="mt-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Classroom feed</h2>
+          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+            {announcements.length} posts
+          </span>
+        </div>
+        {announcements.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No announcements yet.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {announcements.map((announcement) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={announcement.id}>
+                <h3 className="text-lg font-semibold">{announcement.title}</h3>
+                <div
+                  className="mt-3 text-sm leading-6 text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(announcement.bodyMd) }}
+                />
+                {announcement.allowComments ? (
+                  <div className="mt-4 rounded-xl border bg-background p-4">
+                    <div className="grid gap-2">
+                      {(commentsByAnnouncement[announcement.id] ?? []).map((comment) => (
+                        <p className="text-sm" key={comment.id}>
+                          <span className="font-semibold">{comment.authorName}: </span>
+                          {comment.body}
+                        </p>
+                      ))}
+                    </div>
+                    <form action={addFeedCommentAction} className="mt-3 flex gap-2">
+                      <input name="announcementId" type="hidden" value={announcement.id} />
+                      <input className="h-10 flex-1 rounded-xl border bg-card px-3 text-sm" name="body" required />
+                      <Button size="sm" type="submit" variant="outline">
+                        Comment
+                      </Button>
+                    </form>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
       <section className="mt-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Package credits</h2>

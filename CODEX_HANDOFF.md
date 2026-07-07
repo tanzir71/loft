@@ -438,7 +438,7 @@ Rules:
 - [x] P6 acceptance tests green
 
 **P7 Classroom Feed**
-- [ ] Announcements (global/per-course, scheduled) + student/parent feed + optional class comment threads
+- [x] Announcements (global/per-course, scheduled) + student/parent feed + optional class comment threads
 - [ ] Assignments CRUD (incl. rubric_md shown to students) + student submission (text/link/file-when-enabled) + resubmit-until-graded + late flag
 - [ ] Grading UI + return with feedback + comment bank + private submission comment threads (authz-tested)
 - [ ] Gradebook per course (students × assignments/quizzes, averages, missing highlighted) + CSV export
@@ -519,3 +519,4 @@ Rules:
 2026-07-07 | P6 autograder and manual queue | Added autograding for single-select, multi-select, true/false, and exact short answers, pending manual queue for unmatched short answers, tutor grading controls, and unit coverage.
 2026-07-07 | P6 quiz results | Added student result detail view, tutor results table, protected CSV export, result helper coverage, and Playwright assertions for table/export output.
 2026-07-07 | P6 acceptance | Verified `npm run check` (typecheck, lint, 56 unit tests) and `npm run e2e` (14 Playwright tests) after the quiz builder/taking/results phase.
+2026-07-07 | P7 announcements and feed | Added tutor announcements workspace, global/course scheduled feed visibility for students and parents, comment threads with cache revalidation, unit coverage, and Playwright smoke.
