@@ -391,7 +391,7 @@ Rules:
 **P1 Landing, Auth & Invites**
 - [x] Landing page at `/` per §6.5 (hero, feature cards, request-access, SEO/OG meta, logged-in redirect)
 - [x] Auth.js credentials login + role-based redirects + middleware route guards
-- [ ] `lib/authz.ts` helpers + negative authz unit tests
+- [x] `lib/authz.ts` helpers + negative authz unit tests
 - [ ] Invite create/list (tutor) + `/join/[code]` registration + parent↔student linking
 - [ ] Email-or-copyable-link invite delivery via `lib/features.ts` detection
 - [ ] P1 e2e acceptance suite green
@@ -484,3 +484,4 @@ Rules:
 2026-07-07 | P0 tests: Vitest and Playwright smoke coverage | Added Playwright config scoped to tests/e2e with Next dev webServer and a landing-page e2e smoke; Vitest remains wired through npm run check.
 2026-07-07 | P0 seed/env: tutor seed script and environment reference | Added bcrypt-backed seed helper, npm run seed CLI, default settings insert, and .env.example for required and optional variables.
 2026-07-07 | P1 landing/auth: public landing redirect and Auth.js credentials | Added JWT credentials auth, login page, role destinations, Next 16 proxy guards, and verified login/redirect behavior with seeded local tutor.
+2026-07-07 | P1 authz: centralized role and student-scope helpers | Added requireUser, requireTutor, scopeToStudent, AuthzError, and negative unit tests for unauthenticated/non-tutor/cross-student access.
