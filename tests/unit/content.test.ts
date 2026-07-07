@@ -6,7 +6,15 @@ import { describe, expect, it } from "vitest";
 
 import { schema } from "@/db/schema";
 import { createCourse } from "@/lib/courses";
-import { createMaterial, createModule, listCourseContent, updateMaterial, updateModule } from "@/lib/content";
+import {
+  createMaterial,
+  createModule,
+  duplicateMaterial,
+  duplicateModule,
+  listCourseContent,
+  updateMaterial,
+  updateModule,
+} from "@/lib/content";
 import { seedTutor } from "@/lib/seed";
 
 async function applyInitialMigration(client: Client) {
@@ -50,6 +58,12 @@ describe("course content", () => {
       subject: "Math",
       title: "Algebra I",
     });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "target_course_id",
+      subject: "Math",
+      title: "Algebra II",
+    });
     await createModule(db, {
       courseId: "course_id",
       makeId: () => "module_1",
@@ -86,7 +100,18 @@ describe("course content", () => {
       type: "lecture",
       visibility: "students",
     });
+    await duplicateMaterial(db, {
+      id: "material_1",
+      makeId: () => "material_copy",
+      targetCourseId: "target_course_id",
+    });
+    await duplicateModule(db, {
+      id: "module_1",
+      makeId: (kind, index) => `${kind}_copy_${index}`,
+      targetCourseId: "target_course_id",
+    });
     const content = await listCourseContent(db, "course_id");
+    const copiedContent = await listCourseContent(db, "target_course_id");
     client.close();
 
     expect(material.visibility).toBe("tutor_only");
@@ -103,6 +128,14 @@ describe("course content", () => {
         title: "Updated notes",
         visibility: "students",
       },
+    ]);
+    expect(content.completionCounts).toEqual({});
+    expect(copiedContent.modules).toMatchObject([
+      { id: "module_copy_0", title: "Foundations copy" },
+    ]);
+    expect(copiedContent.materials.map((row) => row.id).sort()).toEqual([
+      "material_copy",
+      "material_copy_0",
     ]);
   });
 });

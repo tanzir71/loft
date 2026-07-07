@@ -35,4 +35,8 @@ test("tutor builds a module and material with live markdown preview", async ({ p
   await page.getByRole("button", { name: /^add material$/i }).click();
 
   await expect(page.getByText("Lesson notes")).toBeVisible();
+  await page.getByText("Lesson notes").click();
+  await expect(page.getByText("0 completed")).toBeVisible();
+  await page.getByRole("button", { name: /^duplicate material Lesson notes$/i }).click();
+  await expect(page.getByText("Lesson notes copy")).toBeVisible();
 });

@@ -7,7 +7,15 @@ import { courses } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { requireTutor } from "@/lib/authz";
-import { createMaterial, createModule, listCourseContent, updateMaterial, updateModule } from "@/lib/content";
+import {
+  createMaterial,
+  createModule,
+  duplicateMaterial,
+  duplicateModule,
+  listCourseContent,
+  updateMaterial,
+  updateModule,
+} from "@/lib/content";
 import { renderMarkdown } from "@/lib/markdown";
 
 export const metadata: Metadata = {
@@ -98,6 +106,30 @@ async function updateMaterialAction(formData: FormData) {
   redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
 }
 
+async function duplicateModuleAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await duplicateModule(getDb(), {
+    id: String(formData.get("id") ?? ""),
+    targetCourseId: String(formData.get("targetCourseId") ?? ""),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
+async function duplicateMaterialAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await duplicateMaterial(getDb(), {
+    id: String(formData.get("id") ?? ""),
+    targetCourseId: String(formData.get("targetCourseId") ?? ""),
+  });
+
+  redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
@@ -113,7 +145,7 @@ export default async function ContentPage({
   const selectedCourseId = params.courseId ?? courseRows[0]?.id ?? "";
   const content = selectedCourseId
     ? await listCourseContent(getDb(), selectedCourseId)
-    : { materials: [], modules: [] };
+    : { completionCounts: {}, materials: [], modules: [] };
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -229,6 +261,33 @@ export default async function ContentPage({
                     Save module
                   </Button>
                 </form>
+                <form action={duplicateModuleAction} className="mt-3 flex flex-wrap gap-2">
+                  <input name="courseId" type="hidden" value={selectedCourseId} />
+                  <input name="id" type="hidden" value={module.id} />
+                  <label className="sr-only" htmlFor={`duplicate-module-${module.id}`}>
+                    Duplicate module target
+                  </label>
+                  <select
+                    className="h-9 rounded-lg border bg-background px-3 text-sm"
+                    id={`duplicate-module-${module.id}`}
+                    name="targetCourseId"
+                    defaultValue={selectedCourseId}
+                  >
+                    {courseRows.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    aria-label={`Duplicate module ${module.title}`}
+                    size="sm"
+                    type="submit"
+                    variant="outline"
+                  >
+                    Duplicate module
+                  </Button>
+                </form>
               </article>
             ))}
             {content.materials.map((material) => (
@@ -239,6 +298,9 @@ export default async function ContentPage({
                     <span className="rounded-full bg-muted px-3 py-1">{material.type}</span>
                     <span className="rounded-full bg-muted px-3 py-1">{material.status}</span>
                     <span className="rounded-full bg-muted px-3 py-1">{material.visibility}</span>
+                    <span className="rounded-full bg-muted px-3 py-1">
+                      {content.completionCounts[material.id] ?? 0} completed
+                    </span>
                   </div>
                   <div
                     className="mt-4 rounded-xl border bg-background p-4"
@@ -278,6 +340,33 @@ export default async function ContentPage({
                     </select>
                     <MarkdownEditor id={`body-${material.id}`} label="Material body" name="bodyMd" defaultValue={material.bodyMd} />
                     <Button type="submit">Save material</Button>
+                  </form>
+                  <form action={duplicateMaterialAction} className="mt-3 flex flex-wrap gap-2">
+                    <input name="courseId" type="hidden" value={selectedCourseId} />
+                    <input name="id" type="hidden" value={material.id} />
+                    <label className="sr-only" htmlFor={`duplicate-material-${material.id}`}>
+                      Duplicate material target
+                    </label>
+                    <select
+                      className="h-9 rounded-lg border bg-background px-3 text-sm"
+                      id={`duplicate-material-${material.id}`}
+                      name="targetCourseId"
+                      defaultValue={selectedCourseId}
+                    >
+                      {courseRows.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.title}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      aria-label={`Duplicate material ${material.title}`}
+                      size="sm"
+                      type="submit"
+                      variant="outline"
+                    >
+                      Duplicate material
+                    </Button>
                   </form>
                 </details>
               </article>
