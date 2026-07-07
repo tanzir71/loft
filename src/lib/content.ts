@@ -11,6 +11,7 @@ import {
   materials,
   modules,
   schema,
+  users,
 } from "@/db/schema";
 import { AuthzError } from "@/lib/authz";
 
@@ -535,6 +536,83 @@ export async function listCourseContent(database: AppDb, courseId: string) {
   }
 
   return { completionCounts, linksByMaterial, materials: materialRows, modules: moduleRows };
+}
+
+export async function courseProgressMatrix(database: AppDb, courseId: string) {
+  const parsedCourseId = z.string().trim().min(1).parse(courseId);
+  await requireActiveCourse(database, parsedCourseId);
+  const [studentRows, materialRows] = await Promise.all([
+    database
+      .select({
+        email: users.email,
+        id: users.id,
+        name: users.name,
+      })
+      .from(enrollments)
+      .innerJoin(users, eq(enrollments.studentId, users.id))
+      .where(
+        and(
+          eq(enrollments.courseId, parsedCourseId),
+          eq(enrollments.status, "active"),
+          eq(users.status, "active"),
+        ),
+      )
+      .orderBy(asc(users.name), asc(users.email)),
+    database
+      .select()
+      .from(materials)
+      .where(and(eq(materials.courseId, parsedCourseId), eq(materials.visibility, "students")))
+      .orderBy(asc(materials.sortOrder), asc(materials.title)),
+  ]);
+  const materialIds = materialRows.map((material) => material.id);
+  const studentIds = studentRows.map((student) => student.id);
+  const progressRows =
+    materialIds.length > 0 && studentIds.length > 0
+      ? await database
+          .select({
+            completedAt: materialProgress.completedAt,
+            materialId: materialProgress.materialId,
+            studentId: materialProgress.studentId,
+          })
+          .from(materialProgress)
+          .where(
+            and(
+              inArray(materialProgress.materialId, materialIds),
+              inArray(materialProgress.studentId, studentIds),
+            ),
+          )
+      : [];
+  const completed = new Map(
+    progressRows.map((progress) => [
+      `${progress.studentId}:${progress.materialId}`,
+      progress.completedAt,
+    ]),
+  );
+  const rows = studentRows.map((student) => {
+    const cells = materialRows.map((material) => {
+      const completedAt = completed.get(`${student.id}:${material.id}`) ?? null;
+
+      return {
+        completed: completedAt !== null,
+        completedAt,
+        materialId: material.id,
+        studentId: student.id,
+      };
+    });
+
+    return {
+      cells,
+      completedCount: cells.filter((cell) => cell.completed).length,
+      student,
+      totalCount: materialRows.length,
+    };
+  });
+
+  return {
+    materials: materialRows,
+    rows,
+    students: studentRows,
+  };
 }
 
 export async function listStudentVisibleMaterials(

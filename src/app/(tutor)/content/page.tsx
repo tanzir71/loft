@@ -11,6 +11,7 @@ import {
   addMaterialLink,
   createMaterial,
   createModule,
+  courseProgressMatrix,
   duplicateMaterial,
   duplicateModule,
   lessonPlanSectionDefinitions,
@@ -328,6 +329,9 @@ export default async function ContentPage({
   const standardsRows = await listStandards(getDb());
   const activeStandards = standardsRows.filter((standard) => standard.active);
   const coverageRows = selectedCourseId ? await courseCoverageMatrix(getDb(), selectedCourseId) : [];
+  const progressMatrix = selectedCourseId
+    ? await courseProgressMatrix(getDb(), selectedCourseId)
+    : { materials: [], rows: [], students: [] };
   const materialStandardTags: Record<string, string[]> = selectedCourseId
     ? await materialStandardIdsByMaterial(
         getDb(),
@@ -545,6 +549,63 @@ export default async function ContentPage({
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+            <section className="rounded-2xl border bg-card p-5 shadow-soft">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Progress matrix</h2>
+                <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {progressMatrix.rows.length} students
+                </span>
+              </div>
+              {progressMatrix.rows.length === 0 || progressMatrix.materials.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No student progress yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse text-left text-sm">
+                    <thead className="text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="border-b py-2 pr-3">Student</th>
+                        {progressMatrix.materials.map((material) => (
+                          <th className="border-b py-2 pr-3" key={material.id}>
+                            {material.title}
+                          </th>
+                        ))}
+                        <th className="border-b py-2">Complete</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {progressMatrix.rows.map((row) => {
+                        const percent =
+                          row.totalCount > 0
+                            ? Math.round((row.completedCount / row.totalCount) * 100)
+                            : 0;
+
+                        return (
+                          <tr key={row.student.id}>
+                            <td className="border-b py-3 pr-3 align-top font-medium">
+                              {row.student.name}
+                            </td>
+                            {row.cells.map((cell) => (
+                              <td className="border-b py-3 pr-3 align-top" key={cell.materialId}>
+                                <span
+                                  className={
+                                    cell.completed
+                                      ? "font-semibold text-primary"
+                                      : "text-muted-foreground"
+                                  }
+                                >
+                                  {cell.completed ? "Done" : "Open"}
+                                </span>
+                              </td>
+                            ))}
+                            <td className="border-b py-3 align-top font-semibold">{percent}%</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

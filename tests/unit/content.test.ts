@@ -11,6 +11,7 @@ import {
   addMaterialLink,
   createMaterial,
   createModule,
+  courseProgressMatrix,
   duplicateMaterial,
   duplicateModule,
   getStudentMaterial,
@@ -219,6 +220,96 @@ describe("course content", () => {
     expect(markdown).toContain("## Warm-up");
     expect(markdown).toContain("Students solve two warm-up equations.");
     expect(markdown).not.toContain("Internal pacing notes.");
+  });
+
+  it("builds a tutor progress matrix for enrolled students and student-facing materials", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "ada@example.com",
+      makeId: () => "student_ada",
+      name: "Ada Student",
+    });
+    await createStudent(db, {
+      email: "ben@example.com",
+      makeId: () => "student_ben",
+      name: "Ben Student",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_ada",
+      studentId: "student_ada",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_ben",
+      studentId: "student_ben",
+    });
+    await createMaterial(db, {
+      bodyMd: "Intro",
+      courseId: "course_id",
+      makeId: () => "material_intro",
+      sortOrder: 0,
+      status: "published",
+      title: "Intro notes",
+      type: "lecture",
+    });
+    await createMaterial(db, {
+      bodyMd: "Private",
+      courseId: "course_id",
+      makeId: () => "material_private",
+      sortOrder: 1,
+      status: "published",
+      title: "Tutor plan",
+      type: "lesson_plan",
+    });
+    await createMaterial(db, {
+      bodyMd: "Practice",
+      courseId: "course_id",
+      makeId: () => "material_practice",
+      sortOrder: 2,
+      status: "published",
+      title: "Practice worksheet",
+      type: "worksheet",
+    });
+    await markMaterialComplete(db, {
+      makeId: () => "progress_ada_intro",
+      materialId: "material_intro",
+      studentId: "student_ada",
+    });
+
+    const matrix = await courseProgressMatrix(db, "course_id");
+    client.close();
+
+    expect(matrix.materials.map((material) => material.title)).toEqual([
+      "Intro notes",
+      "Practice worksheet",
+    ]);
+    expect(matrix.rows).toMatchObject([
+      {
+        completedCount: 1,
+        student: { id: "student_ada", name: "Ada Student" },
+        totalCount: 2,
+        cells: [
+          { completed: true, materialId: "material_intro" },
+          { completed: false, materialId: "material_practice" },
+        ],
+      },
+      {
+        completedCount: 0,
+        student: { id: "student_ben", name: "Ben Student" },
+        totalCount: 2,
+        cells: [
+          { completed: false, materialId: "material_intro" },
+          { completed: false, materialId: "material_practice" },
+        ],
+      },
+    ]);
   });
 
   it("enforces student material visibility at read time", async () => {

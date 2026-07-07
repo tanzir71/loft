@@ -427,7 +427,7 @@ Rules:
 - [x] Student curriculum tab: progress bar, mark-complete, prev/next nav, server-enforced prerequisite gating (403 test)
 - [x] Lesson-plan material type: structured plan_json editor (toggleable sections), tutor_only visibility (403 test), print + .md download; worksheet material type
 - [x] Standards library CRUD + bulk-paste import + tagging on materials/quizzes + course coverage matrix with gap highlighting
-- [ ] Tutor progress matrix (students × materials)
+- [x] Tutor progress matrix (students × materials)
 - [ ] P5 acceptance tests green
 
 **P6 Quizzes**
@@ -512,3 +512,4 @@ Rules:
 2026-07-07 | P5 student curriculum: progress and prerequisite gating | Added student curriculum completion state, mark-complete flow, previous/next indicators, locked prerequisite handling, and 403 unit coverage.
 2026-07-07 | P5 lesson plans and worksheets | Added structured `plan_json` lesson sections with toggleable editor fields, tutor-only 403 coverage, print and Markdown export routes, and worksheet material persistence.
 2026-07-07 | P5 standards library and coverage | Added standards CRUD/import helpers, material and quiz tagging, tutor content controls, and a course coverage matrix with gap highlighting plus unit coverage.
+2026-07-07 | P5 tutor progress matrix | Added student-facing material completion matrix for active enrollments, hiding tutor-only materials and surfacing per-student completion percentages in `/content`.
