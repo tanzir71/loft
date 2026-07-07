@@ -11,6 +11,10 @@ import {
   getCourseOutlineDraft,
   materializeCourseOutlinePlan,
 } from "@/lib/ai/course-outline";
+import {
+  generateLessonPlanDraft,
+  regenerateLessonPlanSection,
+} from "@/lib/ai/lesson-plan";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { requireTutor } from "@/lib/authz";
@@ -119,9 +123,57 @@ function courseOutlineMockFetch() {
     )) as typeof fetch;
 }
 
+function objectValue(value: unknown) {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function lessonPlanMockFetch() {
+  if (process.env.PLAYWRIGHT !== "1") {
+    return undefined;
+  }
+
+  return (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    let body: Record<string, unknown> = {};
+
+    if (typeof init?.body === "string") {
+      try {
+        body = JSON.parse(init.body) as Record<string, unknown>;
+      } catch {
+        body = {};
+      }
+    }
+
+    const responseFormat = objectValue(body.response_format);
+    const jsonSchema = objectValue(responseFormat.json_schema);
+    const schemaName = String(jsonSchema.name ?? "");
+    const content =
+      schemaName === "lesson_plan_section"
+        ? JSON.stringify({ body: "Regenerated objectives with an exit check." })
+        : JSON.stringify({
+            sections: [
+              { body: "Students solve one-step equations.", id: "objectives" },
+              { body: "Guided equation practice.", id: "practice" },
+            ],
+          });
+
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content } }],
+      }),
+    );
+  }) as typeof fetch;
+}
+
 function standardIds(formData: FormData) {
   return formData
     .getAll("standardId")
+    .map((value) => String(value))
+    .filter(Boolean);
+}
+
+function componentIds(formData: FormData) {
+  return formData
+    .getAll("componentId")
     .map((value) => String(value))
     .filter(Boolean);
 }
@@ -419,11 +471,95 @@ async function materializeCourseOutlineAction(formData: FormData) {
   redirect(`/content?courseId=${courseId}&outlineMaterialized=1`);
 }
 
+async function generateLessonPlanAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const courseId = String(formData.get("courseId") ?? "");
+  let redirectTo = `/content?courseId=${courseId}&lessonPlanError=ai`;
+
+  try {
+    const database = getDb();
+    const aiSettings = await readAiGenerationSettings(database, {
+      encryptionSecret: encryptionSecret(),
+    });
+    const selectedStandardIds = standardIds(formData);
+    const lessonTitle = String(formData.get("lessonTitle") ?? "");
+    const result = await generateLessonPlanDraft(database, {
+      apiKey: aiSettings.apiKey,
+      componentIds: componentIds(formData),
+      courseId,
+      fetchFn: lessonPlanMockFetch(),
+      lessonTitle,
+      model: aiSettings.model,
+      pastedText: String(formData.get("pastedText") ?? ""),
+      provider: aiSettings.provider,
+      standardIds: selectedStandardIds,
+      youtubeTranscript: String(formData.get("youtubeTranscript") ?? ""),
+      youtubeUrl: String(formData.get("youtubeUrl") ?? "") || undefined,
+    });
+    const material = await createMaterial(database, {
+      bodyMd: "AI-generated draft lesson plan.",
+      courseId,
+      planJson: result.planJson,
+      status: "draft",
+      title: lessonTitle,
+      type: "lesson_plan",
+      visibility: "tutor_only",
+    });
+
+    if (selectedStandardIds.length > 0) {
+      await tagMaterialStandards(database, {
+        materialId: material.id,
+        standardIds: selectedStandardIds,
+      });
+    }
+
+    redirectTo = `/content?courseId=${courseId}&lessonPlanCreated=${material.id}`;
+  } catch {
+    redirectTo = `/content?courseId=${courseId}&lessonPlanError=ai`;
+  }
+
+  redirect(redirectTo);
+}
+
+async function regenerateLessonPlanSectionAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const courseId = String(formData.get("courseId") ?? "");
+  const materialId = String(formData.get("materialId") ?? "");
+  let redirectTo = `/content?courseId=${courseId}&lessonPlanError=ai`;
+
+  try {
+    const database = getDb();
+    const aiSettings = await readAiGenerationSettings(database, {
+      encryptionSecret: encryptionSecret(),
+    });
+    await regenerateLessonPlanSection(database, {
+      apiKey: aiSettings.apiKey,
+      fetchFn: lessonPlanMockFetch(),
+      materialId,
+      model: aiSettings.model,
+      provider: aiSettings.provider,
+      sectionId: String(formData.get("sectionId") ?? ""),
+    });
+    redirectTo = `/content?courseId=${courseId}&lessonSectionRegenerated=${materialId}`;
+  } catch {
+    redirectTo = `/content?courseId=${courseId}&lessonPlanError=ai`;
+  }
+
+  redirect(redirectTo);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
   searchParams: Promise<{
     courseId?: string;
+    lessonPlanCreated?: string;
+    lessonPlanError?: "ai";
+    lessonSectionRegenerated?: string;
     outlineError?: "ai";
     outlineMaterialized?: string;
     outlinePlan?: string;
@@ -540,6 +676,107 @@ export default async function ContentPage({
                   />
                   <Button type="submit" variant="gradient">
                     Generate AI outline
+                  </Button>
+                </form>
+              </section>
+            ) : null}
+
+            {aiSettings.hasKey ? (
+              <section className="rounded-2xl border bg-card p-6 shadow-soft">
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  AI lesson plan
+                </p>
+                <h2 className="mt-3 text-lg font-semibold">Generate lesson plan</h2>
+                {params.lessonPlanError ? (
+                  <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    AI lesson plan could not be generated.
+                  </div>
+                ) : null}
+                {params.lessonPlanCreated ? (
+                  <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                    AI lesson plan created.
+                  </div>
+                ) : null}
+                {params.lessonSectionRegenerated ? (
+                  <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                    Lesson plan section regenerated.
+                  </div>
+                ) : null}
+                <form action={generateLessonPlanAction} className="mt-5 space-y-4">
+                  <input name="courseId" type="hidden" value={selectedCourseId} />
+                  <label className="block text-sm font-medium" htmlFor="aiLessonTitle">
+                    AI lesson plan title
+                  </label>
+                  <input
+                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                    id="aiLessonTitle"
+                    name="lessonTitle"
+                    required
+                  />
+                  <div>
+                    <p className="text-sm font-medium">Components</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {lessonPlanSectionDefinitions.map((section) => (
+                        <label
+                          className="flex items-center gap-2 rounded-full border bg-background px-3 py-2 text-xs font-medium"
+                          key={section.id}
+                        >
+                          <input
+                            defaultChecked={section.id !== "notes"}
+                            name="componentId"
+                            type="checkbox"
+                            value={section.id}
+                          />
+                          {section.title}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Standards</p>
+                    {activeStandards.length === 0 ? (
+                      <p className="mt-2 text-sm text-muted-foreground">No active standards.</p>
+                    ) : (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {activeStandards.map((standard) => (
+                          <label
+                            className="flex items-center gap-2 rounded-full border bg-background px-3 py-2 text-xs font-medium"
+                            key={standard.id}
+                          >
+                            <input name="standardId" type="checkbox" value={standard.id} />
+                            {standard.framework} {standard.code}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <label className="block text-sm font-medium" htmlFor="aiLessonPaste">
+                    Lesson source notes
+                  </label>
+                  <textarea
+                    className="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    id="aiLessonPaste"
+                    name="pastedText"
+                  />
+                  <label className="block text-sm font-medium" htmlFor="aiLessonYouTubeUrl">
+                    Lesson YouTube URL
+                  </label>
+                  <input
+                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                    id="aiLessonYouTubeUrl"
+                    name="youtubeUrl"
+                    type="url"
+                  />
+                  <label className="block text-sm font-medium" htmlFor="aiLessonYouTubeNotes">
+                    Lesson YouTube notes
+                  </label>
+                  <textarea
+                    className="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    id="aiLessonYouTubeNotes"
+                    name="youtubeTranscript"
+                  />
+                  <Button type="submit" variant="gradient">
+                    Generate AI lesson plan
                   </Button>
                 </form>
               </section>
@@ -959,6 +1196,27 @@ export default async function ContentPage({
                           <a href={`/content/materials/${material.id}/download`}>Download .md</a>
                         </Button>
                       </div>
+                      {aiSettings.hasKey ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {lessonPlanSections(material.planJson)
+                            .filter((section) => section.enabled)
+                            .map((section) => (
+                              <form action={regenerateLessonPlanSectionAction} key={section.id}>
+                                <input name="courseId" type="hidden" value={selectedCourseId} />
+                                <input name="materialId" type="hidden" value={material.id} />
+                                <input name="sectionId" type="hidden" value={section.id} />
+                                <Button
+                                  aria-label={`Regenerate ${section.title}`}
+                                  size="sm"
+                                  type="submit"
+                                  variant="outline"
+                                >
+                                  Regenerate {section.title}
+                                </Button>
+                              </form>
+                            ))}
+                        </div>
+                      ) : null}
                     </>
                   ) : null}
                   <div className="mt-4 grid gap-3">

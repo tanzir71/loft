@@ -28,7 +28,7 @@ test("tutor generates, edits, and materializes an AI course outline", async ({ p
 
   await page.goto("/content");
   await page.getByLabel("Course outline goal").fill("Build a short algebra introduction.");
-  await page.getByLabel("Source notes").fill("Students need confidence with variables.");
+  await page.getByLabel("Source notes", { exact: true }).fill("Students need confidence with variables.");
   await page.getByRole("button", { name: /^generate AI outline$/i }).click();
   await expect(page).toHaveURL(/outlinePlan=/);
   await expect(page.getByRole("heading", { name: /^editable AI outline$/i })).toBeVisible();
