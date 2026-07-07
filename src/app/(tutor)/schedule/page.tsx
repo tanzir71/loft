@@ -13,6 +13,7 @@ import {
   deactivateScheduleSlot,
   generateSessions,
   markAttendance,
+  updateSessionNotes,
   updateSessionStatus,
   updateScheduleSlot,
 } from "@/lib/schedule";
@@ -168,6 +169,19 @@ async function markAttendanceAction(formData: FormData) {
   redirect("/schedule?attendanceUpdated=1");
 }
 
+async function updateSessionNotesAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await updateSessionNotes(getDb(), {
+    id: String(formData.get("sessionId") ?? ""),
+    notesPrivate: String(formData.get("notesPrivate") ?? ""),
+    notesShared: String(formData.get("notesShared") ?? ""),
+  });
+
+  redirect("/schedule?notesUpdated=1");
+}
+
 export default async function SchedulePage({
   searchParams,
 }: {
@@ -206,6 +220,8 @@ export default async function SchedulePage({
         startsAt: classSessions.startsAt,
         durationMin: classSessions.durationMin,
         status: classSessions.status,
+        notesPrivate: classSessions.notesPrivate,
+        notesShared: classSessions.notesShared,
       })
       .from(classSessions)
       .innerJoin(courses, eq(classSessions.courseId, courses.id))
@@ -480,6 +496,31 @@ export default async function SchedulePage({
                       >
                         <Save className="h-4 w-4" aria-hidden="true" />
                         Save
+                      </Button>
+                    </form>
+
+                    <form action={updateSessionNotesAction} className="mt-4 grid gap-3">
+                      <input name="sessionId" type="hidden" value={session.id} />
+                      <textarea
+                        aria-label={`Private notes for ${session.courseTitle}`}
+                        className="min-h-20 rounded-xl border bg-background px-3 py-2 text-sm"
+                        name="notesPrivate"
+                        defaultValue={session.notesPrivate ?? ""}
+                      />
+                      <textarea
+                        aria-label={`Shared notes for ${session.courseTitle}`}
+                        className="min-h-20 rounded-xl border bg-background px-3 py-2 text-sm"
+                        name="notesShared"
+                        defaultValue={session.notesShared ?? ""}
+                      />
+                      <Button
+                        aria-label={`Save notes for ${session.courseTitle}`}
+                        className="w-fit"
+                        size="sm"
+                        type="submit"
+                        variant="outline"
+                      >
+                        Save notes
                       </Button>
                     </form>
 

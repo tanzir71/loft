@@ -405,7 +405,7 @@ Rules:
 **P3 Schedule & Attendance**
 - [x] Weekly slots CRUD + idempotent session generation (unit-tested)
 - [x] Sessions week view + status changes + attendance marking UI
-- [ ] Session notes: private vs shared visibility (authz-tested)
+- [x] Session notes: private vs shared visibility (authz-tested)
 - [ ] ICS calendar feed per user with regenerable token (unit-tested output)
 - [ ] Student/parent schedule + attendance history views
 - [ ] P3 acceptance tests green
@@ -494,3 +494,4 @@ Rules:
 2026-07-07 | P2 acceptance: students, courses, enrollment smoke green | Re-ran `npm run check` and full Playwright suite; acceptance path covers tutor-created course, enrolled student, and student-visible course on `/home`.
 2026-07-07 | P3 schedule slots: weekly templates and idempotent generation | Added schedule slot create/update/deactivate helpers, UTC-based idempotent session generation, tutor `/schedule` UI, and unit/e2e coverage for duplicate-safe generation.
 2026-07-07 | P3 sessions: week view, status, attendance marking | Added current-week sessions on `/schedule`, session status updates, default-present attendance for done sessions, attendance upsert helpers, and e2e coverage for present-to-late changes.
+2026-07-07 | P3 session notes: tutor-private and shared visibility | Added note update/retrieval helpers, authz tests proving students/parents only receive shared notes, and tutor `/schedule` note editing in the session week view.

@@ -8,10 +8,13 @@ import {
   classSessions,
   courses,
   enrollments,
+  parentLinks,
   scheduleSlots,
   schema,
   users,
 } from "@/db/schema";
+import { AuthzError } from "@/lib/authz";
+import type { AuthenticatedUser } from "@/lib/user-types";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 
@@ -62,6 +65,18 @@ type MarkAttendanceInput = {
   sessionId: string;
   status: "present" | "absent" | "late" | "excused";
   studentId: string;
+};
+
+type UpdateSessionNotesInput = {
+  id: string;
+  notesPrivate?: string | null;
+  notesShared?: string | null;
+  now?: () => number;
+};
+
+type GetSessionNotesInput = {
+  sessionId: string;
+  user: AuthenticatedUser;
 };
 
 const minuteMs = 60 * 1000;
@@ -350,4 +365,103 @@ export async function markAttendance(database: AppDb, input: MarkAttendanceInput
     .returning();
 
   return row;
+}
+
+export async function updateSessionNotes(database: AppDb, input: UpdateSessionNotesInput) {
+  const parsed = z
+    .object({
+      id: z.string().trim().min(1),
+      notesPrivate: z.string().trim().nullable().optional(),
+      notesShared: z.string().trim().nullable().optional(),
+    })
+    .parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [session] = await database
+    .update(classSessions)
+    .set({
+      notesPrivate: parsed.notesPrivate ?? null,
+      notesShared: parsed.notesShared ?? null,
+      updatedAt: now,
+    })
+    .where(eq(classSessions.id, parsed.id))
+    .returning();
+
+  if (!session) {
+    throw new Error("Session not found.");
+  }
+
+  return session;
+}
+
+async function canStudentViewSession(database: AppDb, input: { courseId: string; userId: string }) {
+  const [enrollment] = await database
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.courseId, input.courseId),
+        eq(enrollments.studentId, input.userId),
+        eq(enrollments.status, "active"),
+      ),
+    );
+
+  return Boolean(enrollment);
+}
+
+async function canParentViewSession(database: AppDb, input: { courseId: string; userId: string }) {
+  const [link] = await database
+    .select({ studentId: parentLinks.studentId })
+    .from(parentLinks)
+    .innerJoin(enrollments, eq(parentLinks.studentId, enrollments.studentId))
+    .where(
+      and(
+        eq(parentLinks.parentId, input.userId),
+        eq(enrollments.courseId, input.courseId),
+        eq(enrollments.status, "active"),
+      ),
+    );
+
+  return Boolean(link);
+}
+
+export async function getSessionNotesForUser(database: AppDb, input: GetSessionNotesInput) {
+  const sessionId = z.string().trim().min(1).parse(input.sessionId);
+  const [session] = await database
+    .select({
+      courseId: classSessions.courseId,
+      notesPrivate: classSessions.notesPrivate,
+      notesShared: classSessions.notesShared,
+    })
+    .from(classSessions)
+    .where(eq(classSessions.id, sessionId));
+
+  if (!session) {
+    throw new Error("Session not found.");
+  }
+
+  if (input.user.role === "tutor") {
+    return {
+      notesPrivate: session.notesPrivate,
+      notesShared: session.notesShared,
+    };
+  }
+
+  const canView =
+    input.user.role === "student"
+      ? await canStudentViewSession(database, {
+          courseId: session.courseId,
+          userId: input.user.id,
+        })
+      : await canParentViewSession(database, {
+          courseId: session.courseId,
+          userId: input.user.id,
+        });
+
+  if (!canView) {
+    throw new AuthzError("Session notes forbidden", 403);
+  }
+
+  return {
+    notesShared: session.notesShared,
+  };
 }

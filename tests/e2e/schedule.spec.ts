@@ -62,6 +62,15 @@ test("tutor manages weekly slots and generates sessions idempotently", async ({ 
   await page.getByLabel("Attendance for Student One").selectOption("late");
   await page.getByRole("button", { name: /^save attendance record for Student One$/i }).click();
   await expect(page.getByLabel("Attendance for Student One")).toHaveValue("late");
+  await page.getByLabel("Private notes for Algebra I").fill("Tutor-only observation");
+  await page.getByLabel("Shared notes for Algebra I").fill("We covered linear equations");
+  await page.getByRole("button", { name: /^save notes for Algebra I$/i }).click();
+  await expect(page.getByLabel("Private notes for Algebra I")).toHaveValue(
+    "Tutor-only observation",
+  );
+  await expect(page.getByLabel("Shared notes for Algebra I")).toHaveValue(
+    "We covered linear equations",
+  );
 
   await page.getByLabel("Weeks to generate").fill("2");
   await page.getByRole("button", { name: /^generate sessions$/i }).click();

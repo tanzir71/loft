@@ -5,7 +5,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { classSessions, schema, scheduleSlots } from "@/db/schema";
+import { classSessions, parentLinks, schema, scheduleSlots, users } from "@/db/schema";
+import { AuthzError } from "@/lib/authz";
 import { createCourse, enrollStudent } from "@/lib/courses";
 import { seedTutor } from "@/lib/seed";
 import {
@@ -13,7 +14,9 @@ import {
   deactivateScheduleSlot,
   defaultAttendanceForSession,
   generateSessions,
+  getSessionNotesForUser,
   markAttendance,
+  updateSessionNotes,
   updateSessionStatus,
   updateScheduleSlot,
 } from "@/lib/schedule";
@@ -218,5 +221,103 @@ describe("schedule", () => {
 
     expect(present).toMatchObject({ id: "attendance_id", status: "present" });
     expect(late).toMatchObject({ id: "attendance_id", status: "late", updatedAt: 4000 });
+  });
+
+  it("keeps private session notes tutor-only while sharing public notes with linked viewers", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createStudent(db, {
+      email: "other@example.com",
+      makeId: () => "other_student_id",
+      name: "Other Student",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await db.insert(users).values({
+      id: "parent_id",
+      name: "Parent One",
+      email: "parent@example.com",
+      passwordHash: "hash",
+      role: "parent",
+      status: "active",
+      createdAt: 2000,
+      updatedAt: 2000,
+    });
+    await db.insert(parentLinks).values({
+      parentId: "parent_id",
+      studentId: "student_id",
+    });
+    await db.insert(classSessions).values({
+      id: "session_id",
+      courseId: "course_id",
+      startsAt: Date.UTC(2026, 0, 5, 9),
+      durationMin: 60,
+      status: "scheduled",
+      createdAt: 2000,
+      updatedAt: 2000,
+    });
+
+    await updateSessionNotes(db, {
+      id: "session_id",
+      notesPrivate: "Tutor-only observation",
+      notesShared: "We covered linear equations",
+      now: () => 3000,
+    });
+    const tutorView = await getSessionNotesForUser(db, {
+      sessionId: "session_id",
+      user: {
+        id: "tutor_id",
+        name: "Tutor",
+        email: "tutor@example.com",
+        role: "tutor",
+      },
+    });
+    const studentView = await getSessionNotesForUser(db, {
+      sessionId: "session_id",
+      user: {
+        id: "student_id",
+        name: "Student One",
+        email: "student@example.com",
+        role: "student",
+      },
+    });
+    const parentView = await getSessionNotesForUser(db, {
+      sessionId: "session_id",
+      user: {
+        id: "parent_id",
+        name: "Parent One",
+        email: "parent@example.com",
+        role: "parent",
+      },
+    });
+    const forbiddenStudent = getSessionNotesForUser(db, {
+      sessionId: "session_id",
+      user: {
+        id: "other_student_id",
+        name: "Other Student",
+        email: "other@example.com",
+        role: "student",
+      },
+    });
+
+    expect(tutorView).toEqual({
+      notesPrivate: "Tutor-only observation",
+      notesShared: "We covered linear equations",
+    });
+    expect(studentView).toEqual({
+      notesShared: "We covered linear equations",
+    });
+    expect(parentView).toEqual({
+      notesShared: "We covered linear equations",
+    });
+    await expect(forbiddenStudent).rejects.toBeInstanceOf(AuthzError);
+    client.close();
   });
 });
