@@ -754,9 +754,14 @@ export default async function BillingPage({
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Invoices</h2>
-              <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                {invoiceRows.length} total
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <a href="/billing/invoices.csv">Export invoices CSV</a>
+                </Button>
+                <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {invoiceRows.length} total
+                </span>
+              </div>
             </div>
             <div className="grid gap-3">
               {invoiceRows.length === 0 ? (

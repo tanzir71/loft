@@ -428,6 +428,12 @@ function toPackageCreditSummary(row: {
   };
 }
 
+function csvCell(value: string | number | null) {
+  const text = value === null ? "" : String(value);
+
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 export async function createRatePlan(database: AppDb, input: CreateRatePlanInput) {
   const parsed = ratePlanFieldsSchema.parse(input);
   const now = input.now?.() ?? Date.now();
@@ -1121,6 +1127,30 @@ export async function listTutorInvoices(database: AppDb): Promise<TutorInvoiceSu
   return Promise.all(
     rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentEmail, row.studentName)),
   );
+}
+
+export async function invoicesCsv(database: AppDb) {
+  const rows = await listTutorInvoices(database);
+  const lines = ["Invoice,Student,Email,Status,Total,Paid,Balance,Due date"];
+
+  for (const invoice of rows) {
+    lines.push(
+      [
+        invoice.number,
+        invoice.studentName,
+        invoice.studentEmail,
+        invoice.displayStatus,
+        invoice.total,
+        invoice.paidTotal,
+        invoice.balance,
+        new Date(invoice.dueDate).toISOString().slice(0, 10),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 export async function getBillingDashboardMetrics(

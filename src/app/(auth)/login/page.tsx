@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { loginRateLimitStatus, recordFailedLogin } from "@/lib/login-rate-limit";
 import { roleHomePath } from "@/lib/session-routing";
 
 export const metadata: Metadata = {
@@ -14,14 +15,22 @@ export const metadata: Metadata = {
 async function loginAction(formData: FormData) {
   "use server";
 
+  const email = String(formData.get("email") ?? "");
+  const rateLimit = loginRateLimitStatus(email);
+
+  if (!rateLimit.allowed) {
+    redirect("/login?error=RateLimited");
+  }
+
   try {
     await signIn("credentials", {
-      email: String(formData.get("email") ?? ""),
+      email,
       password: String(formData.get("password") ?? ""),
       redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      recordFailedLogin(email);
       redirect("/login?error=CredentialsSignin");
     }
 
@@ -42,6 +51,7 @@ export default async function LoginPage({
 
   const params = await searchParams;
   const hasError = params.error === "CredentialsSignin";
+  const isRateLimited = params.error === "RateLimited";
 
   return (
     <main className="min-h-screen canvas-bg dot-grid px-4 py-10">
@@ -60,6 +70,11 @@ export default async function LoginPage({
           {hasError ? (
             <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               The email or password was not accepted.
+            </p>
+          ) : null}
+          {isRateLimited ? (
+            <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              Too many failed attempts. Try again in a few minutes.
             </p>
           ) : null}
           <form action={loginAction} className="mt-6 space-y-4">

@@ -230,6 +230,18 @@ export default async function SettingsPage({
 
           <section className="mt-8 border-t pt-6">
             <p className="font-mono text-[10px] uppercase text-muted-foreground">
+              Backup
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Download a JSON snapshot of TutorLoft tables for safekeeping.
+            </p>
+            <Button asChild className="mt-4" variant="outline">
+              <a href="/settings/backup.json">Download JSON backup</a>
+            </Button>
+          </section>
+
+          <section className="mt-8 border-t pt-6">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">
               AI settings
             </p>
             {params.ai === "saved" ? (

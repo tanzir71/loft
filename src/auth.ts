@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getDb } from "@/db";
 import { verifyCredentials } from "@/lib/credentials";
+import { clearLoginFailures } from "@/lib/login-rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -40,7 +41,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        return verifyCredentials(getDb(), parsed.data);
+        const user = await verifyCredentials(getDb(), parsed.data);
+
+        if (user) {
+          clearLoginFailures(parsed.data.email);
+        }
+
+        return user;
       },
     }),
   ],
