@@ -460,7 +460,7 @@ Rules:
 - [x] Derived resources from plan/material: lecture, study notes, worksheet, quiz (module-linked, standards inherited), rubric → assignments.rubric_md
 - [x] Refine actions: Expand/Simplify/Examples + level/Bloom's/reading-level/translate + custom instruction
 - [x] Feedback draft on submissions (assignment + rubric + submission context)
-- [ ] Progress report AI narrative from structured facts (optional path)
+- [x] Progress report AI narrative from structured facts (optional path)
 - [ ] Verify zero-key mode: no AI UI, lesson-plan editor fully manual, full test suite green
 - [ ] P9 acceptance tests green
 
@@ -537,3 +537,4 @@ Rules:
 2026-07-07 | P9 derived resources | Added AI derived-resource generation from source materials into draft lecture/study/worksheet materials, quizzes with inherited standards, and assignment rubrics, with unit and mocked Playwright coverage.
 2026-07-07 | P9 refine actions | Added per-material AI refinement for expand/simplify/examples with level, Bloom, reading-level, translation, and custom instruction controls, plus unit and mocked Playwright coverage.
 2026-07-07 | P9 feedback drafts | Added AI submission feedback drafts using assignment instructions, rubric, and submission context, persisted drafts into grading workflow, and covered with unit and mocked Playwright tests.
+2026-07-07 | P9 progress report narrative | Added AI progress-report generation from structured student facts, persisted progress_reports rows, surfaced latest reports on the roster, and covered with unit and mocked Playwright tests.

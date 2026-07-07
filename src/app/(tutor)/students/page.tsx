@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import { desc, inArray } from "drizzle-orm";
 import { Archive, Save, UserPlus } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
+import { progressReports } from "@/db/schema";
+import { generateProgressReportNarrative } from "@/lib/ai/progress-report";
+import { readAiGenerationSettings, readAiSettings } from "@/lib/ai-settings";
 import { Button } from "@/components/ui/button";
 import { requireTutor } from "@/lib/authz";
+import { renderMarkdown } from "@/lib/markdown";
 import {
   archiveStudent,
   createStudent,
@@ -15,6 +20,56 @@ import {
 export const metadata: Metadata = {
   title: "Students",
 };
+
+const dayMs = 24 * 60 * 60 * 1000;
+
+function dateStart(value: FormDataEntryValue | null, fallback: number) {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return fallback;
+  }
+
+  const timestamp = Date.parse(`${raw}T00:00:00.000Z`);
+  return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
+function dateEnd(value: FormDataEntryValue | null, fallback: number) {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return fallback;
+  }
+
+  const timestamp = Date.parse(`${raw}T23:59:59.999Z`);
+  return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
+function encryptionSecret() {
+  return process.env.AUTH_SECRET ?? "dev-only-change-me-for-production";
+}
+
+function progressReportMockFetch() {
+  if (process.env.PLAYWRIGHT !== "1") {
+    return undefined;
+  }
+
+  return (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                bodyMd:
+                  "Student One is building confidence with one-step equations and should keep practicing inverse operations.",
+              }),
+            },
+          },
+        ],
+      }),
+    )) as typeof fetch;
+}
 
 async function createStudentAction(formData: FormData) {
   "use server";
@@ -53,13 +108,73 @@ async function archiveStudentAction(formData: FormData) {
   redirect("/students?archived=1");
 }
 
-export default async function StudentsPage() {
+async function generateAiProgressReportAction(formData: FormData) {
+  "use server";
+
   await requireTutor();
+  const studentId = String(formData.get("studentId") ?? "");
+  const now = Date.now();
+  let redirectTo = "/students?progressReportError=ai";
 
-  const students = await listStudentsWithParents(getDb());
+  try {
+    const database = getDb();
+    const aiSettings = await readAiGenerationSettings(database, {
+      encryptionSecret: encryptionSecret(),
+    });
+    await generateProgressReportNarrative(database, {
+      apiKey: aiSettings.apiKey,
+      fetchFn: progressReportMockFetch(),
+      model: aiSettings.model,
+      periodEnd: dateEnd(formData.get("periodEnd"), now),
+      periodStart: dateStart(formData.get("periodStart"), now - 30 * dayMs),
+      provider: aiSettings.provider,
+      studentId,
+    });
+    redirectTo = `/students?progressReport=1`;
+  } catch {
+    redirectTo = "/students?progressReportError=ai";
+  }
 
+  redirect(redirectTo);
+}
+
+export default async function StudentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ progressReport?: string; progressReportError?: "ai" }>;
+}) {
+  await requireTutor();
+  const params = await searchParams;
+  const database = getDb();
+  const students = await listStudentsWithParents(database);
+  const aiSettings = await readAiSettings(database);
+  const reportRows =
+    students.length === 0
+      ? []
+      : await database
+          .select()
+          .from(progressReports)
+          .where(inArray(progressReports.studentId, students.map((student) => student.id)))
+          .orderBy(desc(progressReports.createdAt));
+  const latestReportByStudent = new Map<string, (typeof reportRows)[number]>();
+
+  for (const report of reportRows) {
+    if (!latestReportByStudent.has(report.studentId)) {
+      latestReportByStudent.set(report.studentId, report);
+    }
+  }
   return (
     <main className="mx-auto max-w-6xl p-6">
+      {params.progressReportError ? (
+        <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          AI progress report could not be generated.
+        </div>
+      ) : null}
+      {params.progressReport ? (
+        <div className="mb-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+          AI progress report generated.
+        </div>
+      ) : null}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <section className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-soft">
           <p className="font-mono text-[10px] uppercase text-muted-foreground">Roster</p>
@@ -104,7 +219,10 @@ export default async function StudentsPage() {
                 <p className="font-display text-2xl italic">No students yet.</p>
               </div>
             ) : (
-              students.map((student) => (
+              students.map((student) => {
+                const latestReport = latestReportByStudent.get(student.id);
+
+                return (
                 <article className="rounded-2xl border bg-card p-4 shadow-soft" key={student.id}>
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <span
@@ -180,8 +298,47 @@ export default async function StudentsPage() {
                       </Button>
                     </form>
                   </div>
+                  {aiSettings.hasKey && student.status === "active" ? (
+                    <form
+                      action={generateAiProgressReportAction}
+                      className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-[1fr_1fr_auto]"
+                    >
+                      <input name="studentId" type="hidden" value={student.id} />
+                      <label className="block text-sm font-medium">
+                        Report start
+                        <input
+                          className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                          name="periodStart"
+                          type="date"
+                        />
+                      </label>
+                      <label className="block text-sm font-medium">
+                        Report end
+                        <input
+                          className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                          name="periodEnd"
+                          type="date"
+                        />
+                      </label>
+                      <div className="self-end">
+                        <Button size="sm" type="submit" variant="outline">
+                          Generate AI progress report
+                        </Button>
+                      </div>
+                    </form>
+                  ) : null}
+                  {latestReport ? (
+                    <div className="mt-4 rounded-xl border bg-background p-4">
+                      <p className="text-sm font-semibold">Latest progress report</p>
+                      <div
+                        className="mt-2 text-sm text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(latestReport.bodyMd) }}
+                      />
+                    </div>
+                  ) : null}
                 </article>
-              ))
+              );
+              })
             )}
           </div>
         </section>
