@@ -3,7 +3,15 @@ import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
-import { courses, materialLinks, materialProgress, materials, modules, schema } from "@/db/schema";
+import {
+  courses,
+  enrollments,
+  materialLinks,
+  materialProgress,
+  materials,
+  modules,
+  schema,
+} from "@/db/schema";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 type MaterialType = "lecture" | "study" | "lesson_plan" | "worksheet";
@@ -34,6 +42,7 @@ type CreateMaterialInput = {
   makeId?: () => string;
   moduleId?: string | null;
   now?: () => number;
+  publishAt?: number | null;
   sortOrder?: number;
   status?: PublishStatus;
   title: string;
@@ -95,6 +104,7 @@ const materialFieldsSchema = z.object({
   bodyMd: z.string().trim(),
   courseId: z.string().trim().min(1),
   moduleId: z.string().trim().min(1).nullable().optional(),
+  publishAt: z.number().int().nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),
   status: publishStatusSchema.optional(),
   title: z.string().trim().min(1),
@@ -139,6 +149,28 @@ async function requireActiveCourse(database: AppDb, id: string) {
 
   if (!course) {
     throw new Error("Active course not found.");
+  }
+}
+
+async function requireActiveEnrollment(
+  database: AppDb,
+  input: { courseId: string; studentId: string },
+) {
+  const [enrollment] = await database
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .innerJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(enrollments.courseId, input.courseId),
+        eq(enrollments.studentId, input.studentId),
+        eq(enrollments.status, "active"),
+        eq(courses.status, "active"),
+      ),
+    );
+
+  if (!enrollment) {
+    throw new Error("Enrollment not found.");
   }
 }
 
@@ -199,6 +231,11 @@ export async function updateModule(database: AppDb, input: UpdateModuleInput) {
     throw new Error("Module not found.");
   }
 
+  await database
+    .update(materials)
+    .set({ status: parsed.status, updatedAt: now })
+    .where(eq(materials.moduleId, parsed.id));
+
   return module;
 }
 
@@ -219,7 +256,7 @@ export async function createMaterial(database: AppDb, input: CreateMaterialInput
       planJson: null,
       visibility: parsed.visibility ?? (parsed.type === "lesson_plan" ? "tutor_only" : "students"),
       status: parsed.status ?? "draft",
-      publishAt: null,
+      publishAt: parsed.publishAt ?? null,
       sortOrder: parsed.sortOrder ?? (await nextMaterialSortOrder(database, parsed.courseId, moduleId)),
       requiresMaterialId: null,
       createdAt: now,
@@ -242,6 +279,7 @@ export async function updateMaterial(database: AppDb, input: UpdateMaterialInput
       bodyMd: parsed.bodyMd,
       visibility: parsed.visibility,
       status: parsed.status,
+      publishAt: parsed.publishAt ?? null,
       sortOrder: parsed.sortOrder,
       updatedAt: now,
     })
@@ -411,4 +449,40 @@ export async function listCourseContent(database: AppDb, courseId: string) {
   }
 
   return { completionCounts, linksByMaterial, materials: materialRows, modules: moduleRows };
+}
+
+export async function listStudentVisibleMaterials(
+  database: AppDb,
+  input: { courseId: string; now?: number; studentId: string },
+) {
+  const parsed = z
+    .object({
+      courseId: z.string().trim().min(1),
+      now: z.number().int().optional(),
+      studentId: z.string().trim().min(1),
+    })
+    .parse(input);
+  const now = parsed.now ?? Date.now();
+  await requireActiveEnrollment(database, {
+    courseId: parsed.courseId,
+    studentId: parsed.studentId,
+  });
+  const content = await listCourseContent(database, parsed.courseId);
+  const moduleStatus = new Map(content.modules.map((module) => [module.id, module.status]));
+
+  return content.materials.filter((material) => {
+    if (material.visibility !== "students" || material.status !== "published") {
+      return false;
+    }
+
+    if (material.publishAt !== null && material.publishAt > now) {
+      return false;
+    }
+
+    if (material.moduleId && moduleStatus.get(material.moduleId) !== "published") {
+      return false;
+    }
+
+    return true;
+  });
 }

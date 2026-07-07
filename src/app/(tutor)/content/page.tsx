@@ -30,6 +30,17 @@ function numberValue(value: FormDataEntryValue | null, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function dateStart(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const timestamp = Date.parse(`${raw}T00:00:00.000Z`);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
 function publishStatus(value: FormDataEntryValue | null) {
   return String(value ?? "") === "published" ? "published" : "draft";
 }
@@ -85,6 +96,7 @@ async function createMaterialAction(formData: FormData) {
     bodyMd: String(formData.get("bodyMd") ?? ""),
     courseId: String(formData.get("courseId") ?? ""),
     moduleId: String(formData.get("moduleId") ?? "") || null,
+    publishAt: dateStart(formData.get("publishAt")),
     sortOrder: numberValue(formData.get("sortOrder")),
     status: publishStatus(formData.get("status")),
     title: String(formData.get("title") ?? ""),
@@ -104,6 +116,7 @@ async function updateMaterialAction(formData: FormData) {
     courseId: String(formData.get("courseId") ?? ""),
     id: String(formData.get("id") ?? ""),
     moduleId: String(formData.get("moduleId") ?? "") || null,
+    publishAt: dateStart(formData.get("publishAt")),
     sortOrder: numberValue(formData.get("sortOrder")),
     status: publishStatus(formData.get("status")),
     title: String(formData.get("title") ?? ""),
@@ -256,6 +269,15 @@ export default async function ContentPage({
                   <option value="students">Students</option>
                   <option value="tutor_only">Tutor only</option>
                 </select>
+                <label className="block text-sm font-medium" htmlFor="materialPublishAt">
+                  Material publish date
+                </label>
+                <input
+                  className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                  id="materialPublishAt"
+                  name="publishAt"
+                  type="date"
+                />
                 <input name="status" type="hidden" value="draft" />
                 <input name="sortOrder" type="hidden" value={content.materials.length} />
                 <MarkdownEditor id="materialBody" label="Material body" name="bodyMd" />
@@ -435,6 +457,17 @@ export default async function ContentPage({
                       </select>
                       <input aria-label={`Sort order for ${material.title}`} className="h-10 rounded-xl border bg-background px-3 text-sm" min={0} name="sortOrder" defaultValue={material.sortOrder} type="number" />
                     </div>
+                    <input
+                      aria-label={`Publish date for ${material.title}`}
+                      className="h-10 rounded-xl border bg-background px-3 text-sm"
+                      defaultValue={
+                        material.publishAt
+                          ? new Date(material.publishAt).toISOString().slice(0, 10)
+                          : ""
+                      }
+                      name="publishAt"
+                      type="date"
+                    />
                     <select aria-label={`Status for ${material.title}`} className="h-10 rounded-xl border bg-background px-3 text-sm" name="status" defaultValue={material.status}>
                       <option value="draft">Draft</option>
                       <option value="published">Published</option>

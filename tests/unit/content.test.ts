@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { schema } from "@/db/schema";
-import { createCourse } from "@/lib/courses";
+import { createCourse, enrollStudent } from "@/lib/courses";
 import {
   addMaterialLink,
   createMaterial,
@@ -13,10 +13,12 @@ import {
   duplicateMaterial,
   duplicateModule,
   listCourseContent,
+  listStudentVisibleMaterials,
   updateMaterial,
   updateModule,
 } from "@/lib/content";
 import { seedTutor } from "@/lib/seed";
+import { createStudent } from "@/lib/students";
 
 async function applyInitialMigration(client: Client) {
   const migrationDir = path.join(process.cwd(), "drizzle");
@@ -152,5 +154,90 @@ describe("course content", () => {
       "material_copy",
       "material_copy_0",
     ]);
+  });
+
+  it("enforces student material visibility at read time", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 1);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await createModule(db, {
+      courseId: "course_id",
+      makeId: () => "module_id",
+      title: "Foundations",
+    });
+    await createMaterial(db, {
+      bodyMd: "Visible now",
+      courseId: "course_id",
+      makeId: () => "visible_id",
+      moduleId: "module_id",
+      status: "published",
+      title: "Visible",
+      type: "lecture",
+      visibility: "students",
+    });
+    await createMaterial(db, {
+      bodyMd: "Later",
+      courseId: "course_id",
+      makeId: () => "scheduled_id",
+      moduleId: "module_id",
+      publishAt: now + 24 * 60 * 60 * 1000,
+      status: "published",
+      title: "Scheduled",
+      type: "lecture",
+      visibility: "students",
+    });
+    await createMaterial(db, {
+      bodyMd: "Private",
+      courseId: "course_id",
+      makeId: () => "private_id",
+      moduleId: "module_id",
+      status: "published",
+      title: "Private",
+      type: "lecture",
+      visibility: "tutor_only",
+    });
+
+    const beforeModulePublish = await listStudentVisibleMaterials(db, {
+      courseId: "course_id",
+      now,
+      studentId: "student_id",
+    });
+    await updateModule(db, {
+      description: "",
+      id: "module_id",
+      sortOrder: 0,
+      status: "published",
+      title: "Foundations",
+    });
+    const visibleNow = await listStudentVisibleMaterials(db, {
+      courseId: "course_id",
+      now,
+      studentId: "student_id",
+    });
+    const visibleLater = await listStudentVisibleMaterials(db, {
+      courseId: "course_id",
+      now: now + 2 * 24 * 60 * 60 * 1000,
+      studentId: "student_id",
+    });
+    client.close();
+
+    expect(beforeModulePublish).toEqual([]);
+    expect(visibleNow.map((material) => material.title)).toEqual(["Visible"]);
+    expect(visibleLater.map((material) => material.title)).toEqual(["Visible", "Scheduled"]);
   });
 });
