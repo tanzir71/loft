@@ -107,3 +107,27 @@ export async function testAiSettings(database: AppDb, input: TestAiSettingsInput
     return { ok: false as const, provider, reason: "invalid_key" as const };
   }
 }
+
+export async function readAiGenerationSettings(
+  database: AppDb,
+  input: TestAiSettingsInput = {},
+) {
+  const settingsMap = await readSettingsMap(database);
+  const providerResult = aiProviderSchema.safeParse(settingsMap.ai_provider);
+  const provider = providerResult.success ? providerResult.data : "openrouter";
+  const encryptedKey = settingsMap.ai_key_encrypted?.trim();
+
+  if (!encryptedKey) {
+    throw new Error("AI key is not configured.");
+  }
+
+  try {
+    return {
+      apiKey: decryptSecret(encryptedKey, input.encryptionSecret),
+      model: settingsMap.ai_model ?? "",
+      provider,
+    };
+  } catch {
+    throw new Error("AI key could not be decrypted.");
+  }
+}

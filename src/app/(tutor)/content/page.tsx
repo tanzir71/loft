@@ -4,6 +4,13 @@ import { redirect } from "next/navigation";
 
 import { getDb } from "@/db";
 import { courses } from "@/db/schema";
+import { readAiGenerationSettings, readAiSettings } from "@/lib/ai-settings";
+import {
+  type CourseOutlinePlan,
+  generateCourseOutlinePlan,
+  getCourseOutlineDraft,
+  materializeCourseOutlinePlan,
+} from "@/lib/ai/course-outline";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { requireTutor } from "@/lib/authz";
@@ -75,6 +82,43 @@ function boolValue(value: FormDataEntryValue | null) {
   return String(value ?? "") === "true";
 }
 
+function encryptionSecret() {
+  return process.env.AUTH_SECRET ?? "dev-only-change-me-for-production";
+}
+
+function courseOutlineMockFetch() {
+  if (process.env.PLAYWRIGHT !== "1") {
+    return undefined;
+  }
+
+  return (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                modules: [
+                  {
+                    description: "AI-planned foundations for the course.",
+                    materials: [
+                      {
+                        bodyMd: "Draft diagnostic prompts and vocabulary review.",
+                        title: "AI diagnostic",
+                        type: "study",
+                      },
+                    ],
+                    title: "AI foundations",
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+    )) as typeof fetch;
+}
+
 function standardIds(formData: FormData) {
   return formData
     .getAll("standardId")
@@ -90,6 +134,28 @@ function lessonPlanFromForm(formData: FormData) {
       id: section.id,
       title: section.title,
     })),
+  };
+}
+
+function outlinePlanFromForm(formData: FormData): CourseOutlinePlan {
+  const moduleCount = numberValue(formData.get("moduleCount"));
+
+  return {
+    modules: Array.from({ length: moduleCount }, (_, moduleIndex) => {
+      const materialCount = numberValue(formData.get(`module:${moduleIndex}:materialCount`));
+
+      return {
+        description: String(formData.get(`module:${moduleIndex}:description`) ?? ""),
+        materials: Array.from({ length: materialCount }, (_, materialIndex) => ({
+          bodyMd: String(
+            formData.get(`module:${moduleIndex}:material:${materialIndex}:bodyMd`) ?? "",
+          ),
+          title: String(formData.get(`module:${moduleIndex}:material:${materialIndex}:title`) ?? ""),
+          type: materialType(formData.get(`module:${moduleIndex}:material:${materialIndex}:type`)),
+        })),
+        title: String(formData.get(`module:${moduleIndex}:title`) ?? ""),
+      };
+    }),
   };
 }
 
@@ -310,34 +376,87 @@ async function tagMaterialStandardsAction(formData: FormData) {
   redirect(`/content?courseId=${formData.get("courseId") ?? ""}`);
 }
 
+async function generateCourseOutlineAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const courseId = String(formData.get("courseId") ?? "");
+  let redirectTo = `/content?courseId=${courseId}&outlineError=ai`;
+
+  try {
+    const aiSettings = await readAiGenerationSettings(getDb(), {
+      encryptionSecret: encryptionSecret(),
+    });
+    const result = await generateCourseOutlinePlan(getDb(), {
+      apiKey: aiSettings.apiKey,
+      courseId,
+      fetchFn: courseOutlineMockFetch(),
+      goal: String(formData.get("goal") ?? ""),
+      model: aiSettings.model,
+      pastedText: String(formData.get("pastedText") ?? ""),
+      provider: aiSettings.provider,
+      youtubeTranscript: String(formData.get("youtubeTranscript") ?? ""),
+      youtubeUrl: String(formData.get("youtubeUrl") ?? "") || undefined,
+    });
+    redirectTo = `/content?courseId=${courseId}&outlinePlan=${result.history.id}`;
+  } catch {
+    redirectTo = `/content?courseId=${courseId}&outlineError=ai`;
+  }
+
+  redirect(redirectTo);
+}
+
+async function materializeCourseOutlineAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const courseId = String(formData.get("courseId") ?? "");
+  await materializeCourseOutlinePlan(getDb(), {
+    courseId,
+    plan: outlinePlanFromForm(formData),
+  });
+
+  redirect(`/content?courseId=${courseId}&outlineMaterialized=1`);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ courseId?: string }>;
+  searchParams: Promise<{
+    courseId?: string;
+    outlineError?: "ai";
+    outlineMaterialized?: string;
+    outlinePlan?: string;
+  }>;
 }) {
   await requireTutor();
   const params = await searchParams;
-  const courseRows = await getDb()
+  const database = getDb();
+  const courseRows = await database
     .select({ id: courses.id, title: courses.title })
     .from(courses)
     .where(eq(courses.status, "active"))
     .orderBy(asc(courses.title));
   const selectedCourseId = params.courseId ?? courseRows[0]?.id ?? "";
   const content = selectedCourseId
-    ? await listCourseContent(getDb(), selectedCourseId)
+    ? await listCourseContent(database, selectedCourseId)
     : { completionCounts: {}, linksByMaterial: {}, materials: [], modules: [] };
-  const standardsRows = await listStandards(getDb());
+  const standardsRows = await listStandards(database);
   const activeStandards = standardsRows.filter((standard) => standard.active);
-  const coverageRows = selectedCourseId ? await courseCoverageMatrix(getDb(), selectedCourseId) : [];
+  const coverageRows = selectedCourseId ? await courseCoverageMatrix(database, selectedCourseId) : [];
   const progressMatrix = selectedCourseId
-    ? await courseProgressMatrix(getDb(), selectedCourseId)
+    ? await courseProgressMatrix(database, selectedCourseId)
     : { materials: [], rows: [], students: [] };
   const materialStandardTags: Record<string, string[]> = selectedCourseId
     ? await materialStandardIdsByMaterial(
-        getDb(),
+        database,
         content.materials.map((material) => material.id),
       )
     : {};
+  const aiSettings = await readAiSettings(database);
+  const outlineDraft = params.outlinePlan
+    ? await getCourseOutlineDraft(database, params.outlinePlan)
+    : null;
   const blobEnabled = hasBlob();
 
   return (
@@ -367,6 +486,65 @@ export default async function ContentPage({
       {selectedCourseId ? (
         <div className="mt-8 grid gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-6">
+            {aiSettings.hasKey ? (
+              <section className="rounded-2xl border bg-card p-6 shadow-soft">
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  AI outline
+                </p>
+                <h2 className="mt-3 text-lg font-semibold">Generate course outline</h2>
+                {params.outlineError ? (
+                  <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    AI outline could not be generated.
+                  </div>
+                ) : null}
+                {params.outlineMaterialized ? (
+                  <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                    AI outline materialized.
+                  </div>
+                ) : null}
+                <form action={generateCourseOutlineAction} className="mt-5 space-y-4">
+                  <input name="courseId" type="hidden" value={selectedCourseId} />
+                  <label className="block text-sm font-medium" htmlFor="courseOutlineGoal">
+                    Course outline goal
+                  </label>
+                  <textarea
+                    className="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    id="courseOutlineGoal"
+                    name="goal"
+                    required
+                  />
+                  <label className="block text-sm font-medium" htmlFor="courseOutlinePaste">
+                    Source notes
+                  </label>
+                  <textarea
+                    className="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    id="courseOutlinePaste"
+                    name="pastedText"
+                  />
+                  <label className="block text-sm font-medium" htmlFor="courseOutlineYouTubeUrl">
+                    YouTube URL
+                  </label>
+                  <input
+                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                    id="courseOutlineYouTubeUrl"
+                    name="youtubeUrl"
+                    type="url"
+                  />
+                  <label className="block text-sm font-medium" htmlFor="courseOutlineYouTubeNotes">
+                    YouTube notes
+                  </label>
+                  <textarea
+                    className="min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    id="courseOutlineYouTubeNotes"
+                    name="youtubeTranscript"
+                  />
+                  <Button type="submit" variant="gradient">
+                    Generate AI outline
+                  </Button>
+                </form>
+              </section>
+            ) : null}
+
             <section className="rounded-2xl border bg-card p-6 shadow-soft">
               <p className="font-mono text-[10px] uppercase text-muted-foreground">Modules</p>
               <h2 className="mt-3 text-lg font-semibold">Add module</h2>
@@ -507,6 +685,103 @@ export default async function ContentPage({
           </div>
 
           <section className="space-y-4">
+            {outlineDraft ? (
+              <section className="rounded-2xl border bg-card p-5 shadow-soft">
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  AI draft
+                </p>
+                <h2 className="mt-3 text-lg font-semibold">Editable AI outline</h2>
+                <form action={materializeCourseOutlineAction} className="mt-5 space-y-5">
+                  <input name="courseId" type="hidden" value={selectedCourseId} />
+                  <input name="moduleCount" type="hidden" value={outlineDraft.plan.modules.length} />
+                  {outlineDraft.plan.modules.map((modulePlan, moduleIndex) => (
+                    <section className="rounded-xl border bg-background p-4" key={moduleIndex}>
+                      <input
+                        name={`module:${moduleIndex}:materialCount`}
+                        type="hidden"
+                        value={modulePlan.materials.length}
+                      />
+                      <label
+                        className="block text-sm font-medium"
+                        htmlFor={`ai-module-${moduleIndex}-title`}
+                      >
+                        Module {moduleIndex + 1} title
+                      </label>
+                      <input
+                        className="mt-2 h-10 w-full rounded-xl border bg-card px-3 text-sm"
+                        defaultValue={modulePlan.title}
+                        id={`ai-module-${moduleIndex}-title`}
+                        name={`module:${moduleIndex}:title`}
+                        required
+                      />
+                      <label
+                        className="mt-3 block text-sm font-medium"
+                        htmlFor={`ai-module-${moduleIndex}-description`}
+                      >
+                        Module {moduleIndex + 1} description
+                      </label>
+                      <textarea
+                        className="mt-2 min-h-20 w-full rounded-xl border bg-card px-3 py-2 text-sm"
+                        defaultValue={modulePlan.description ?? ""}
+                        id={`ai-module-${moduleIndex}-description`}
+                        name={`module:${moduleIndex}:description`}
+                      />
+                      <div className="mt-4 grid gap-3">
+                        {modulePlan.materials.map((materialPlan, materialIndex) => (
+                          <div className="rounded-xl border bg-card p-3" key={materialIndex}>
+                            <label
+                              className="block text-sm font-medium"
+                              htmlFor={`ai-material-${moduleIndex}-${materialIndex}-title`}
+                            >
+                              Material {materialIndex + 1} title
+                            </label>
+                            <input
+                              className="mt-2 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                              defaultValue={materialPlan.title}
+                              id={`ai-material-${moduleIndex}-${materialIndex}-title`}
+                              name={`module:${moduleIndex}:material:${materialIndex}:title`}
+                              required
+                            />
+                            <label
+                              className="mt-3 block text-sm font-medium"
+                              htmlFor={`ai-material-${moduleIndex}-${materialIndex}-type`}
+                            >
+                              Material {materialIndex + 1} type
+                            </label>
+                            <select
+                              className="mt-2 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                              defaultValue={materialPlan.type}
+                              id={`ai-material-${moduleIndex}-${materialIndex}-type`}
+                              name={`module:${moduleIndex}:material:${materialIndex}:type`}
+                            >
+                              <option value="lecture">Lecture</option>
+                              <option value="study">Study</option>
+                              <option value="lesson_plan">Lesson plan</option>
+                              <option value="worksheet">Worksheet</option>
+                            </select>
+                            <label
+                              className="mt-3 block text-sm font-medium"
+                              htmlFor={`ai-material-${moduleIndex}-${materialIndex}-body`}
+                            >
+                              Material {materialIndex + 1} body
+                            </label>
+                            <textarea
+                              className="mt-2 min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                              defaultValue={materialPlan.bodyMd ?? ""}
+                              id={`ai-material-${moduleIndex}-${materialIndex}-body`}
+                              name={`module:${moduleIndex}:material:${materialIndex}:bodyMd`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                  <Button type="submit" variant="gradient">
+                    Materialize AI outline
+                  </Button>
+                </form>
+              </section>
+            ) : null}
             <section className="rounded-2xl border bg-card p-5 shadow-soft">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Coverage matrix</h2>

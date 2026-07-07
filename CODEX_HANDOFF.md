@@ -455,7 +455,7 @@ Rules:
 - [x] `lib/crypto.ts` AES-GCM + HKDF with round-trip tests; AI settings page with masked key + test button
 - [x] `lib/ai/provider.ts` fetch adapters (openrouter/anthropic/openai/google, OpenRouter default) + JSON extraction/repair + mocked tests
 - [x] Shared plumbing: `lib/ai/sources.ts` (paste/URL/materials/YouTube-or-paste) + prompt_history save/reuse + differentiation controls component
-- [ ] Course outline generator → editable module plan → materialize draft modules + stub materials (mocked e2e)
+- [x] Course outline generator → editable module plan → materialize draft modules + stub materials (mocked e2e)
 - [ ] Lesson plan generator: component picker + sources + standards alignment → plan_json draft in structured editor + per-section regenerate (mocked e2e)
 - [ ] Derived resources from plan/material: lecture, study notes, worksheet, quiz (module-linked, standards inherited), rubric → assignments.rubric_md
 - [ ] Refine actions: Expand/Simplify/Examples + level/Bloom's/reading-level/translate + custom instruction
@@ -532,3 +532,4 @@ Rules:
 2026-07-07 | P9 crypto/settings | Added AES-GCM + HKDF encrypted secret helpers, encrypted AI settings persistence with masked key hints, settings save/test UI, unit round-trip coverage, and Playwright smoke.
 2026-07-07 | P9 provider adapters | Added mocked fetch adapters for OpenRouter/OpenAI/Anthropic/Google, structured-output request wiring, JSON fence/trailing-comma repair, and a retry for intermittent SQLite busy resets in e2e setup.
 2026-07-07 | P9 shared AI plumbing | Added AI source collection from paste, fetched URLs, materials, and pasted YouTube notes; prompt history pruning/reuse helpers; and a reusable differentiation controls component.
+2026-07-07 | P9 course outline generator | Added saved-key AI outline generation in the content workspace, editable prompt-history-backed outline drafts, materialization into draft modules/material stubs, unit coverage, and mocked Playwright flow.

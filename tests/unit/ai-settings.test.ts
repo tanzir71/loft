@@ -6,7 +6,12 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { schema, settings } from "@/db/schema";
-import { readAiSettings, saveAiSettings, testAiSettings } from "@/lib/ai-settings";
+import {
+  readAiGenerationSettings,
+  readAiSettings,
+  saveAiSettings,
+  testAiSettings,
+} from "@/lib/ai-settings";
 import { decryptSecret } from "@/lib/crypto";
 
 async function applyInitialMigration(client: Client) {
@@ -60,6 +65,9 @@ describe("AI settings", () => {
       provider: "anthropic",
     });
     const secondRead = await readAiSettings(db);
+    const generationSettings = await readAiGenerationSettings(db, {
+      encryptionSecret: secret,
+    });
     const testResult = await testAiSettings(db, { encryptionSecret: secret });
     client.close();
 
@@ -80,6 +88,11 @@ describe("AI settings", () => {
     expect(testResult).toMatchObject({
       maskedKey: "sk-t...7890",
       ok: true,
+      provider: "anthropic",
+    });
+    expect(generationSettings).toMatchObject({
+      apiKey: "sk-test-1234567890",
+      model: "claude-sonnet-4",
       provider: "anthropic",
     });
   });
