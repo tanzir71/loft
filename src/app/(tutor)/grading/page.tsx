@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/db";
+import { draftSubmissionFeedback } from "@/lib/ai/feedback";
+import { readAiGenerationSettings, readAiSettings } from "@/lib/ai-settings";
 import { requireTutor } from "@/lib/authz";
 import {
   addSubmissionComment,
@@ -28,6 +30,32 @@ function joinFeedback(bankText: FormDataEntryValue | null, feedbackMd: FormDataE
   return [String(bankText ?? "").trim(), String(feedbackMd ?? "").trim()]
     .filter(Boolean)
     .join("\n\n");
+}
+
+function encryptionSecret() {
+  return process.env.AUTH_SECRET ?? "dev-only-change-me-for-production";
+}
+
+function feedbackMockFetch() {
+  if (process.env.PLAYWRIGHT !== "1") {
+    return undefined;
+  }
+
+  return (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                feedbackMd:
+                  "Strong equation setup. Add one sentence explaining inverse operations.",
+              }),
+            },
+          },
+        ],
+      }),
+    )) as typeof fetch;
 }
 
 async function createBankCommentAction(formData: FormData) {
@@ -59,6 +87,34 @@ async function gradeSubmissionAction(formData: FormData) {
   redirect("/grading");
 }
 
+async function draftFeedbackAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const submissionId = String(formData.get("submissionId") ?? "");
+  let redirectTo = `/grading?feedbackError=ai`;
+
+  try {
+    const database = getDb();
+    const aiSettings = await readAiGenerationSettings(database, {
+      encryptionSecret: encryptionSecret(),
+    });
+    await draftSubmissionFeedback(database, {
+      apiKey: aiSettings.apiKey,
+      fetchFn: feedbackMockFetch(),
+      model: aiSettings.model,
+      provider: aiSettings.provider,
+      submissionId,
+    });
+    revalidatePath("/grading");
+    redirectTo = `/grading?feedbackDrafted=${submissionId}`;
+  } catch {
+    redirectTo = `/grading?feedbackError=ai`;
+  }
+
+  redirect(redirectTo);
+}
+
 async function addTutorCommentAction(formData: FormData) {
   "use server";
 
@@ -74,9 +130,15 @@ async function addTutorCommentAction(formData: FormData) {
   redirect("/grading");
 }
 
-export default async function GradingPage() {
+export default async function GradingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ feedbackDrafted?: string; feedbackError?: "ai" }>;
+}) {
   const user = await requireTutor();
-  const [bank, submissions] = await Promise.all([
+  const params = await searchParams;
+  const [aiSettings, bank, submissions] = await Promise.all([
+    readAiSettings(getDb()),
     listCommentBank(getDb()),
     listGradingSubmissions(getDb()),
   ]);
@@ -91,6 +153,16 @@ export default async function GradingPage() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="font-display text-3xl italic">Grading</h1>
+      {params.feedbackError ? (
+        <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          AI feedback could not be drafted.
+        </div>
+      ) : null}
+      {params.feedbackDrafted ? (
+        <div className="mt-6 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+          AI feedback draft added.
+        </div>
+      ) : null}
       <div className="mt-8 grid gap-6 lg:grid-cols-[320px_1fr]">
         <section className="rounded-2xl border bg-card p-6 shadow-soft">
           <p className="font-mono text-[10px] uppercase text-muted-foreground">Feedback</p>
@@ -161,12 +233,22 @@ export default async function GradingPage() {
                 </div>
                 {submission.feedbackMd ? (
                   <div className="mt-4 rounded-xl border bg-background p-4">
-                    <p className="text-sm font-semibold">Returned feedback</p>
+                    <p className="text-sm font-semibold">
+                      {submission.status === "returned" ? "Returned feedback" : "Draft feedback"}
+                    </p>
                     <div
                       className="mt-2 text-sm text-muted-foreground"
                       dangerouslySetInnerHTML={{ __html: renderMarkdown(submission.feedbackMd) }}
                     />
                   </div>
+                ) : null}
+                {aiSettings.hasKey ? (
+                  <form action={draftFeedbackAction} className="mt-5">
+                    <input name="submissionId" type="hidden" value={submission.id} />
+                    <Button size="sm" type="submit" variant="outline">
+                      Draft AI feedback
+                    </Button>
+                  </form>
                 ) : null}
                 <form action={gradeSubmissionAction} className="mt-5 grid gap-3 md:grid-cols-[120px_220px_1fr_auto]">
                   <input name="submissionId" type="hidden" value={submission.id} />
@@ -196,6 +278,7 @@ export default async function GradingPage() {
                     Feedback
                     <textarea
                       className="mt-1 min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      defaultValue={submission.feedbackMd ?? ""}
                       name="feedbackMd"
                     />
                   </label>

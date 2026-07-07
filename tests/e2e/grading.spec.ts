@@ -88,7 +88,9 @@ test("tutor returns assignment feedback and continues a private submission threa
     .selectOption({ label: "Strong setup; add one more justification." });
   await page.getByLabel("Feedback").fill("Returned with next steps.");
   await page.getByRole("button", { name: /^return with feedback$/i }).click();
-  await expect(page.getByText("Returned with next steps.")).toBeVisible();
+  await expect(
+    page.locator("p").filter({ hasText: "Returned with next steps." }).first(),
+  ).toBeVisible();
 
   await page.context().clearCookies();
   await page.goto("/login");
