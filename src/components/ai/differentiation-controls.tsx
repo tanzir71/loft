@@ -8,32 +8,35 @@ type DifferentiationValues = {
 
 type DifferentiationControlsProps = {
   defaultValues?: DifferentiationValues;
+  idPrefix?: string;
 };
 
-export function DifferentiationControls({ defaultValues }: DifferentiationControlsProps) {
+export function DifferentiationControls({ defaultValues, idPrefix }: DifferentiationControlsProps) {
+  const id = (value: string) => (idPrefix ? `${idPrefix}-${value}` : value);
+
   return (
     <fieldset className="grid gap-4 md:grid-cols-2">
       <legend className="sr-only">Differentiation controls</legend>
-      <label className="block text-sm font-medium" htmlFor="differentiationLevel">
+      <label className="block text-sm font-medium" htmlFor={id("differentiationLevel")}>
         Level
       </label>
       <select
         className="h-11 rounded-xl border bg-background px-3 text-sm"
         defaultValue={defaultValues?.differentiationLevel ?? "standard"}
-        id="differentiationLevel"
+        id={id("differentiationLevel")}
         name="differentiationLevel"
       >
         <option value="standard">Standard</option>
         <option value="support">Extra support</option>
         <option value="advanced">Advanced</option>
       </select>
-      <label className="block text-sm font-medium" htmlFor="bloomLevel">
+      <label className="block text-sm font-medium" htmlFor={id("bloomLevel")}>
         Bloom level
       </label>
       <select
         className="h-11 rounded-xl border bg-background px-3 text-sm"
         defaultValue={defaultValues?.bloomLevel ?? "apply"}
-        id="bloomLevel"
+        id={id("bloomLevel")}
         name="bloomLevel"
       >
         <option value="remember">Remember</option>
@@ -43,36 +46,36 @@ export function DifferentiationControls({ defaultValues }: DifferentiationContro
         <option value="evaluate">Evaluate</option>
         <option value="create">Create</option>
       </select>
-      <label className="block text-sm font-medium" htmlFor="readingLevel">
+      <label className="block text-sm font-medium" htmlFor={id("readingLevel")}>
         Reading level
       </label>
       <select
         className="h-11 rounded-xl border bg-background px-3 text-sm"
         defaultValue={defaultValues?.readingLevel ?? "grade_level"}
-        id="readingLevel"
+        id={id("readingLevel")}
         name="readingLevel"
       >
         <option value="simple">Simpler</option>
         <option value="grade_level">Grade level</option>
         <option value="challenging">More challenging</option>
       </select>
-      <label className="block text-sm font-medium" htmlFor="translateTo">
+      <label className="block text-sm font-medium" htmlFor={id("translateTo")}>
         Translate to
       </label>
       <input
         className="h-11 rounded-xl border bg-background px-3 text-sm"
         defaultValue={defaultValues?.translateTo ?? ""}
-        id="translateTo"
+        id={id("translateTo")}
         name="translateTo"
         placeholder="Optional language"
       />
-      <label className="block text-sm font-medium md:col-span-2" htmlFor="differentiationNotes">
+      <label className="block text-sm font-medium md:col-span-2" htmlFor={id("differentiationNotes")}>
         Custom instruction
       </label>
       <textarea
         className="min-h-24 rounded-xl border bg-background px-3 py-2 text-sm md:col-span-2"
         defaultValue={defaultValues?.notes ?? ""}
-        id="differentiationNotes"
+        id={id("differentiationNotes")}
         name="differentiationNotes"
       />
     </fieldset>

@@ -458,7 +458,7 @@ Rules:
 - [x] Course outline generator → editable module plan → materialize draft modules + stub materials (mocked e2e)
 - [x] Lesson plan generator: component picker + sources + standards alignment → plan_json draft in structured editor + per-section regenerate (mocked e2e)
 - [x] Derived resources from plan/material: lecture, study notes, worksheet, quiz (module-linked, standards inherited), rubric → assignments.rubric_md
-- [ ] Refine actions: Expand/Simplify/Examples + level/Bloom's/reading-level/translate + custom instruction
+- [x] Refine actions: Expand/Simplify/Examples + level/Bloom's/reading-level/translate + custom instruction
 - [ ] Feedback draft on submissions (assignment + rubric + submission context)
 - [ ] Progress report AI narrative from structured facts (optional path)
 - [ ] Verify zero-key mode: no AI UI, lesson-plan editor fully manual, full test suite green
@@ -535,3 +535,4 @@ Rules:
 2026-07-07 | P9 course outline generator | Added saved-key AI outline generation in the content workspace, editable prompt-history-backed outline drafts, materialization into draft modules/material stubs, unit coverage, and mocked Playwright flow.
 2026-07-07 | P9 lesson plan generator | Added AI lesson-plan draft generation with component/standard/source context, draft lesson_plan material creation, per-section regeneration, unit coverage, and mocked Playwright flow.
 2026-07-07 | P9 derived resources | Added AI derived-resource generation from source materials into draft lecture/study/worksheet materials, quizzes with inherited standards, and assignment rubrics, with unit and mocked Playwright coverage.
+2026-07-07 | P9 refine actions | Added per-material AI refinement for expand/simplify/examples with level, Bloom, reading-level, translation, and custom instruction controls, plus unit and mocked Playwright coverage.

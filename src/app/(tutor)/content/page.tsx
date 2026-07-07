@@ -19,6 +19,8 @@ import {
   generateLessonPlanDraft,
   regenerateLessonPlanSection,
 } from "@/lib/ai/lesson-plan";
+import { refineMaterialContent } from "@/lib/ai/refine";
+import { DifferentiationControls } from "@/components/ai/differentiation-controls";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { requireTutor } from "@/lib/authz";
@@ -222,6 +224,27 @@ function derivedResourcesMockFetch() {
     )) as typeof fetch;
 }
 
+function refineMockFetch() {
+  if (process.env.PLAYWRIGHT !== "1") {
+    return undefined;
+  }
+
+  return (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                bodyMd: "Refined examples for x + 3 = 8.",
+              }),
+            },
+          },
+        ],
+      }),
+    )) as typeof fetch;
+}
+
 function standardIds(formData: FormData) {
   return formData
     .getAll("standardId")
@@ -241,6 +264,11 @@ function resourceKinds(formData: FormData) {
     .getAll("resourceKind")
     .map((value) => String(value))
     .filter(Boolean) as ("lecture" | "study" | "worksheet" | "quiz" | "rubric")[];
+}
+
+function refineAction(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "");
+  return raw === "expand" || raw === "simplify" ? raw : "examples";
 }
 
 function lessonPlanFromForm(formData: FormData) {
@@ -651,6 +679,40 @@ async function generateDerivedResourcesAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+async function refineMaterialAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  const courseId = String(formData.get("courseId") ?? "");
+  const materialId = String(formData.get("materialId") ?? "");
+  let redirectTo = `/content?courseId=${courseId}&refineError=ai`;
+
+  try {
+    const database = getDb();
+    const aiSettings = await readAiGenerationSettings(database, {
+      encryptionSecret: encryptionSecret(),
+    });
+    await refineMaterialContent(database, {
+      action: refineAction(formData.get("refineAction")),
+      apiKey: aiSettings.apiKey,
+      bloomLevel: String(formData.get("bloomLevel") ?? ""),
+      customInstruction: String(formData.get("differentiationNotes") ?? ""),
+      differentiationLevel: String(formData.get("differentiationLevel") ?? ""),
+      fetchFn: refineMockFetch(),
+      materialId,
+      model: aiSettings.model,
+      provider: aiSettings.provider,
+      readingLevel: String(formData.get("readingLevel") ?? ""),
+      translateTo: String(formData.get("translateTo") ?? ""),
+    });
+    redirectTo = `/content?courseId=${courseId}&refinedMaterial=${materialId}`;
+  } catch {
+    redirectTo = `/content?courseId=${courseId}&refineError=ai`;
+  }
+
+  redirect(redirectTo);
+}
+
 export default async function ContentPage({
   searchParams,
 }: {
@@ -664,6 +726,8 @@ export default async function ContentPage({
     outlineError?: "ai";
     outlineMaterialized?: string;
     outlinePlan?: string;
+    refinedMaterial?: string;
+    refineError?: "ai";
   }>;
 }) {
   await requireTutor();
@@ -811,6 +875,16 @@ export default async function ContentPage({
                 {params.derivedResourcesCreated ? (
                   <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
                     AI derived resources created.
+                  </div>
+                ) : null}
+                {params.refineError ? (
+                  <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    AI refinement could not be generated.
+                  </div>
+                ) : null}
+                {params.refinedMaterial ? (
+                  <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                    AI refinement applied.
                   </div>
                 ) : null}
                 <form action={generateLessonPlanAction} className="mt-5 space-y-4">
@@ -1329,6 +1403,35 @@ export default async function ContentPage({
                         </div>
                       ) : null}
                     </>
+                  ) : null}
+                  {aiSettings.hasKey ? (
+                    <form action={refineMaterialAction} className="mt-5 rounded-xl border bg-background p-4">
+                      <input name="courseId" type="hidden" value={selectedCourseId} />
+                      <input name="materialId" type="hidden" value={material.id} />
+                      <p className="text-sm font-semibold">Refine material</p>
+                      <label
+                        className="mt-3 block text-sm font-medium"
+                        htmlFor={`refine-action-${material.id}`}
+                      >
+                        Refine action
+                      </label>
+                      <select
+                        className="mt-2 h-10 w-full rounded-xl border bg-card px-3 text-sm"
+                        defaultValue="examples"
+                        id={`refine-action-${material.id}`}
+                        name="refineAction"
+                      >
+                        <option value="expand">Expand</option>
+                        <option value="simplify">Simplify</option>
+                        <option value="examples">Examples</option>
+                      </select>
+                      <div className="mt-4">
+                        <DifferentiationControls idPrefix={`refine-${material.id}`} />
+                      </div>
+                      <Button className="mt-3" size="sm" type="submit" variant="outline">
+                        Refine material
+                      </Button>
+                    </form>
                   ) : null}
                   {aiSettings.hasKey ? (
                     <form action={generateDerivedResourcesAction} className="mt-5 rounded-xl border bg-background p-4">
