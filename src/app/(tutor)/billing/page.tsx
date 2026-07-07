@@ -12,8 +12,12 @@ import {
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
   listPackageCredits,
+  listTutorInvoices,
+  markInvoiceSent,
+  recordPayment,
   sellPackage,
   updateRatePlan,
+  voidInvoice,
 } from "@/lib/billing";
 
 export const metadata: Metadata = {
@@ -28,6 +32,11 @@ function planType(value: FormDataEntryValue | null) {
 function sessionsCount(value: FormDataEntryValue | null) {
   const raw = String(value ?? "").trim();
   return raw ? Number(raw) : null;
+}
+
+function paymentMethod(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "");
+  return raw === "bank" || raw === "bkash" || raw === "nagad" || raw === "other" ? raw : "cash";
 }
 
 function dateStart(value: FormDataEntryValue | null) {
@@ -48,6 +57,10 @@ function dateEnd(value: FormDataEntryValue | null) {
 
 function creditLabel(remaining: number) {
   return `${remaining} ${remaining === 1 ? "credit" : "credits"} remaining`;
+}
+
+function statusLabel(status: string) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 async function createRatePlanAction(formData: FormData) {
@@ -122,11 +135,48 @@ async function applyPackageCreditsAction(formData: FormData) {
   redirect(`/billing?${params.toString()}`);
 }
 
+async function markInvoiceSentAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await markInvoiceSent(getDb(), {
+    id: String(formData.get("invoiceId") ?? ""),
+  });
+
+  redirect("/billing?invoiceSent=1");
+}
+
+async function voidInvoiceAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await voidInvoice(getDb(), {
+    id: String(formData.get("invoiceId") ?? ""),
+  });
+
+  redirect("/billing?invoiceVoided=1");
+}
+
+async function recordPaymentAction(formData: FormData) {
+  "use server";
+
+  await requireTutor();
+  await recordPayment(getDb(), {
+    amount: Number(formData.get("amount") ?? 0),
+    invoiceId: String(formData.get("invoiceId") ?? ""),
+    method: paymentMethod(formData.get("method")),
+    paidAt: dateStart(formData.get("paidAt")) ?? undefined,
+    reference: String(formData.get("reference") ?? "") || null,
+  });
+
+  redirect("/billing?paymentRecorded=1");
+}
+
 export default async function BillingPage() {
   await requireTutor();
 
   const database = getDb();
-  const [plans, students, packageCredits] = await Promise.all([
+  const [plans, students, packageCredits, invoiceRows] = await Promise.all([
     database.select().from(ratePlans).orderBy(asc(ratePlans.name)),
     database
       .select({ email: users.email, id: users.id, name: users.name })
@@ -134,6 +184,7 @@ export default async function BillingPage() {
       .where(and(eq(users.role, "student"), eq(users.status, "active")))
       .orderBy(asc(users.name)),
     listPackageCredits(database),
+    listTutorInvoices(database),
   ]);
   const activePackagePlans = plans.filter((plan) => plan.active && plan.type === "package");
 
@@ -347,6 +398,155 @@ export default async function BillingPage() {
                     <p className="mt-3 font-mono text-xs text-muted-foreground">
                       Invoice {credit.invoiceId}
                     </p>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Invoices</h2>
+              <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                {invoiceRows.length} total
+              </span>
+            </div>
+            <div className="grid gap-3">
+              {invoiceRows.length === 0 ? (
+                <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+                  <p className="font-display text-2xl italic">No invoices yet.</p>
+                </div>
+              ) : (
+                invoiceRows.map((invoice) => (
+                  <article
+                    aria-label={`Invoice ${invoice.number}`}
+                    className="rounded-2xl border bg-card p-4 shadow-soft"
+                    key={invoice.id}
+                  >
+                    <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                      {invoice.studentName}
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold">{invoice.number}</h3>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                      <span className="rounded-full bg-muted px-3 py-1">
+                        {statusLabel(invoice.displayStatus)}
+                      </span>
+                      <span className="rounded-full bg-muted px-3 py-1">
+                        Total {invoice.total}
+                      </span>
+                      <span className="rounded-full bg-muted px-3 py-1">
+                        Paid {invoice.paidTotal}
+                      </span>
+                      <span className="rounded-full bg-muted px-3 py-1">
+                        Balance {invoice.balance}
+                      </span>
+                    </div>
+                    {invoice.displayStatus === "void" ? null : (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <form action={markInvoiceSentAction}>
+                          <input name="invoiceId" type="hidden" value={invoice.id} />
+                          <Button
+                            aria-label={`Send ${invoice.number}`}
+                            size="sm"
+                            type="submit"
+                            variant="outline"
+                          >
+                            Send
+                          </Button>
+                        </form>
+                        <form action={voidInvoiceAction}>
+                          <input name="invoiceId" type="hidden" value={invoice.id} />
+                          <Button
+                            aria-label={`Void ${invoice.number}`}
+                            size="sm"
+                            type="submit"
+                            variant="outline"
+                          >
+                            Void
+                          </Button>
+                        </form>
+                      </div>
+                    )}
+                    {invoice.displayStatus === "void" ? null : (
+                      <form
+                        action={recordPaymentAction}
+                        className="mt-4 grid gap-3 md:grid-cols-[130px_120px_1fr_140px_auto]"
+                      >
+                        <input name="invoiceId" type="hidden" value={invoice.id} />
+                        <div>
+                          <label
+                            className="block text-xs font-medium"
+                            htmlFor={`amount-${invoice.id}`}
+                          >
+                            Payment amount for {invoice.number}
+                          </label>
+                          <input
+                            className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                            id={`amount-${invoice.id}`}
+                            min={1}
+                            name="amount"
+                            required
+                            type="number"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            className="block text-xs font-medium"
+                            htmlFor={`method-${invoice.id}`}
+                          >
+                            Payment method for {invoice.number}
+                          </label>
+                          <select
+                            className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                            id={`method-${invoice.id}`}
+                            name="method"
+                            defaultValue="cash"
+                          >
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank</option>
+                            <option value="bkash">bKash</option>
+                            <option value="nagad">Nagad</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label
+                            className="block text-xs font-medium"
+                            htmlFor={`reference-${invoice.id}`}
+                          >
+                            Payment reference for {invoice.number}
+                          </label>
+                          <input
+                            className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                            id={`reference-${invoice.id}`}
+                            name="reference"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            className="block text-xs font-medium"
+                            htmlFor={`paidAt-${invoice.id}`}
+                          >
+                            Payment date for {invoice.number}
+                          </label>
+                          <input
+                            className="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                            id={`paidAt-${invoice.id}`}
+                            name="paidAt"
+                            type="date"
+                          />
+                        </div>
+                        <Button
+                          aria-label={`Record payment for ${invoice.number}`}
+                          className="self-end"
+                          size="sm"
+                          type="submit"
+                          variant="gradient"
+                        >
+                          Record payment
+                        </Button>
+                      </form>
+                    )}
                   </article>
                 ))
               )}

@@ -12,6 +12,7 @@ import {
   invoices,
   packagePurchases,
   parentLinks,
+  payments,
   ratePlans,
   schema,
   settings,
@@ -90,6 +91,24 @@ type GenerateMonthlyInvoiceInput = {
   studentId: string;
 };
 
+type InvoiceActionInput = {
+  id: string;
+  now?: () => number;
+};
+
+type PaymentMethod = "cash" | "bank" | "bkash" | "nagad" | "other";
+
+type RecordPaymentInput = {
+  amount: number;
+  invoiceId: string;
+  makeId?: () => string;
+  method: PaymentMethod;
+  notes?: string | null;
+  now?: () => number;
+  paidAt?: number;
+  reference?: string | null;
+};
+
 type PackageCreditSummary = {
   id: string;
   invoiceId: string;
@@ -103,6 +122,15 @@ type PackageCreditSummary = {
   status: "active" | "exhausted" | "expired";
   studentId: string;
   studentName?: string;
+};
+
+type InvoiceStatus = "draft" | "sent" | "paid" | "partial" | "void";
+
+type TutorInvoiceSummary = typeof invoices.$inferSelect & {
+  balance: number;
+  displayStatus: InvoiceStatus;
+  paidTotal: number;
+  studentName: string;
 };
 
 type InvoiceItemDraft = {
@@ -162,6 +190,21 @@ const consumePackageCreditsSchema = z
 
 const generateMonthlyInvoiceSchema = consumePackageCreditsSchema.extend({
   dueDate: z.number().int().optional(),
+});
+
+const invoiceActionSchema = z.object({
+  id: z.string().trim().min(1),
+});
+
+const paymentMethodSchema = z.enum(["cash", "bank", "bkash", "nagad", "other"]);
+
+const recordPaymentSchema = z.object({
+  amount: z.number().int().min(1),
+  invoiceId: z.string().trim().min(1),
+  method: paymentMethodSchema,
+  notes: z.string().trim().nullable().optional(),
+  paidAt: z.number().int().optional(),
+  reference: z.string().trim().nullable().optional(),
 });
 
 const monthlyInvoiceNotes = "Generated monthly invoice";
@@ -274,6 +317,52 @@ function sessionUnitAmount(plan: typeof ratePlans.$inferSelect) {
   }
 
   return plan.amount;
+}
+
+async function requireInvoice(database: AppDb, id: string) {
+  const [invoice] = await database.select().from(invoices).where(eq(invoices.id, id));
+
+  if (!invoice) {
+    throw new Error("Invoice not found.");
+  }
+
+  return invoice;
+}
+
+async function paidTotalForInvoice(database: AppDb, invoiceId: string) {
+  const rows = await database
+    .select({ amount: payments.amount })
+    .from(payments)
+    .where(eq(payments.invoiceId, invoiceId));
+
+  return rows.reduce((sum, row) => sum + row.amount, 0);
+}
+
+function deriveInvoiceStatus(
+  invoice: typeof invoices.$inferSelect,
+  paidTotal: number,
+): InvoiceStatus {
+  if (invoice.status === "void") {
+    return "void";
+  }
+
+  if (paidTotal >= invoice.total && invoice.total > 0) {
+    return "paid";
+  }
+
+  if (paidTotal > 0) {
+    return "partial";
+  }
+
+  if (invoice.status === "paid" || invoice.status === "partial") {
+    return "sent";
+  }
+
+  return invoice.status;
+}
+
+function invoiceBalance(invoice: typeof invoices.$inferSelect, paidTotal: number) {
+  return Math.max(0, invoice.total - paidTotal);
 }
 
 function toPackageCreditSummary(row: {
@@ -907,6 +996,107 @@ export async function generateMonthlyInvoice(
     items: insertedItems,
     skipped: false,
   };
+}
+
+export async function markInvoiceSent(database: AppDb, input: InvoiceActionInput) {
+  const parsed = invoiceActionSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const invoice = await requireInvoice(database, parsed.id);
+
+  if (invoice.status === "void") {
+    throw new Error("Voided invoices cannot be sent.");
+  }
+
+  const paidTotal = await paidTotalForInvoice(database, invoice.id);
+  const status = paidTotal > 0 ? deriveInvoiceStatus(invoice, paidTotal) : "sent";
+  const [updated] = await database
+    .update(invoices)
+    .set({ status, updatedAt: now })
+    .where(eq(invoices.id, invoice.id))
+    .returning();
+
+  return updated;
+}
+
+export async function voidInvoice(database: AppDb, input: InvoiceActionInput) {
+  const parsed = invoiceActionSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const [invoice] = await database
+    .update(invoices)
+    .set({ status: "void", updatedAt: now })
+    .where(eq(invoices.id, parsed.id))
+    .returning();
+
+  if (!invoice) {
+    throw new Error("Invoice not found.");
+  }
+
+  return invoice;
+}
+
+export async function recordPayment(database: AppDb, input: RecordPaymentInput) {
+  const parsed = recordPaymentSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const paidAt = parsed.paidAt ?? now;
+  const invoice = await requireInvoice(database, parsed.invoiceId);
+
+  if (invoice.status === "void") {
+    throw new Error("Voided invoices cannot receive payments.");
+  }
+
+  const [payment] = await database
+    .insert(payments)
+    .values({
+      id: input.makeId?.() ?? createId(),
+      invoiceId: invoice.id,
+      amount: parsed.amount,
+      method: parsed.method,
+      reference: parsed.reference ?? null,
+      paidAt,
+      notes: parsed.notes ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+  const paidTotal = await paidTotalForInvoice(database, invoice.id);
+  const status = deriveInvoiceStatus(invoice, paidTotal);
+  const [updatedInvoice] = await database
+    .update(invoices)
+    .set({ status, updatedAt: now })
+    .where(eq(invoices.id, invoice.id))
+    .returning();
+
+  return {
+    balance: invoiceBalance(updatedInvoice, paidTotal),
+    invoice: updatedInvoice,
+    paidTotal,
+    payment,
+  };
+}
+
+export async function listTutorInvoices(database: AppDb): Promise<TutorInvoiceSummary[]> {
+  const rows = await database
+    .select({
+      invoice: invoices,
+      studentName: users.name,
+    })
+    .from(invoices)
+    .innerJoin(users, eq(invoices.studentId, users.id))
+    .orderBy(asc(invoices.number));
+  const summaries: TutorInvoiceSummary[] = [];
+
+  for (const row of rows) {
+    const paidTotal = await paidTotalForInvoice(database, row.invoice.id);
+    summaries.push({
+      ...row.invoice,
+      balance: invoiceBalance(row.invoice, paidTotal),
+      displayStatus: deriveInvoiceStatus(row.invoice, paidTotal),
+      paidTotal,
+      studentName: row.studentName,
+    });
+  }
+
+  return summaries;
 }
 
 export async function listPackageCreditsForStudent(database: AppDb, studentId: string) {

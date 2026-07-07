@@ -73,12 +73,29 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
     label: "Student One (student@example.com)",
   });
   await page.getByLabel("Package plan").selectOption({ label: "Starter package (2 sessions)" });
+  await page.getByLabel("Purchase date").fill("2026-07-01");
+  await page.getByLabel("Invoice due date").fill("2026-07-10");
   await page.getByRole("button", { name: /^sell package$/i }).click();
   await expect(page).toHaveURL(/packageSold=1/);
   let packageCard = page.getByRole("article", {
     name: /Student One Starter package package/,
   });
   await expect(packageCard.getByText("2 credits remaining")).toBeVisible();
+  let invoiceCard = page.getByRole("article", { name: "Invoice TL-202607-0001" });
+  await expect(invoiceCard.getByText("Draft")).toBeVisible();
+  await page.getByRole("button", { name: /^send TL-202607-0001$/i }).click();
+  await expect(page).toHaveURL(/invoiceSent=1/);
+  invoiceCard = page.getByRole("article", { name: "Invoice TL-202607-0001" });
+  await expect(invoiceCard.getByText(/^Sent$/)).toBeVisible();
+  await page.getByLabel("Payment amount for TL-202607-0001").fill("300000");
+  await page.getByLabel("Payment method for TL-202607-0001").selectOption("bkash");
+  await page.getByLabel("Payment reference for TL-202607-0001").fill("trx-123");
+  await page.getByLabel("Payment date for TL-202607-0001").fill("2026-07-02");
+  await page.getByRole("button", { name: /^record payment for TL-202607-0001$/i }).click();
+  await expect(page).toHaveURL(/paymentRecorded=1/);
+  invoiceCard = page.getByRole("article", { name: "Invoice TL-202607-0001" });
+  await expect(invoiceCard.getByText(/^Paid$/)).toBeVisible();
+  await expect(invoiceCard.getByText("Balance 0")).toBeVisible();
 
   await page.goto("/courses");
   await page.getByLabel("Course title").fill("Algebra I");

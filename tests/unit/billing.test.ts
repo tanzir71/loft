@@ -14,6 +14,7 @@ import {
   invoices,
   packagePurchases,
   parentLinks,
+  payments,
   ratePlans,
   schema,
   users,
@@ -25,11 +26,15 @@ import {
   generateMonthlyInvoice,
   listPackageCreditsForParent,
   listPackageCreditsForStudent,
+  listTutorInvoices,
+  markInvoiceSent,
+  recordPayment,
   resolveEnrollmentRatePlan,
   sellPackage,
   setCourseDefaultRatePlan,
   setEnrollmentRatePlan,
   updateRatePlan,
+  voidInvoice,
 } from "@/lib/billing";
 import { createCourse, enrollStudent } from "@/lib/courses";
 import { seedTutor } from "@/lib/seed";
@@ -560,5 +565,79 @@ describe("billing rate plans", () => {
     expect(lockedItems.map((item) => item.id).sort()).toEqual(
       monthlyItems.map((item) => item.id).sort(),
     );
+  });
+
+  it("records payments and derives partial and paid invoice statuses", async () => {
+    const { client, db } = await createMigratedDb();
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createRatePlan(db, {
+      amount: 300000,
+      makeId: () => "package_plan_id",
+      name: "Starter package",
+      sessionsCount: 2,
+      type: "package",
+    });
+    await sellPackage(db, {
+      makeId: (kind) => `${kind}_id`,
+      purchasedAt: Date.UTC(2026, 6, 1),
+      ratePlanId: "package_plan_id",
+      studentId: "student_id",
+    });
+
+    const sent = await markInvoiceSent(db, {
+      id: "invoice_id",
+      now: () => 8000,
+    });
+    const partial = await recordPayment(db, {
+      amount: 100000,
+      invoiceId: "invoice_id",
+      makeId: () => "payment_1",
+      method: "cash",
+      now: () => 9000,
+      paidAt: 9000,
+      reference: "cash-partial",
+    });
+    const paid = await recordPayment(db, {
+      amount: 200000,
+      invoiceId: "invoice_id",
+      makeId: () => "payment_2",
+      method: "bkash",
+      now: () => 10000,
+      paidAt: 10000,
+      reference: "bkash-final",
+    });
+    const summaries = await listTutorInvoices(db);
+    const paymentRows = await db.select().from(payments).orderBy(payments.paidAt);
+    const voided = await voidInvoice(db, {
+      id: "invoice_id",
+      now: () => 11000,
+    });
+    client.close();
+
+    expect(sent.status).toBe("sent");
+    expect(partial.invoice.status).toBe("partial");
+    expect(partial.paidTotal).toBe(100000);
+    expect(partial.balance).toBe(200000);
+    expect(paid.invoice.status).toBe("paid");
+    expect(paid.paidTotal).toBe(300000);
+    expect(paid.balance).toBe(0);
+    expect(paymentRows).toMatchObject([
+      { amount: 100000, method: "cash", reference: "cash-partial" },
+      { amount: 200000, method: "bkash", reference: "bkash-final" },
+    ]);
+    expect(summaries).toMatchObject([
+      {
+        balance: 0,
+        displayStatus: "paid",
+        number: "TL-202607-0001",
+        paidTotal: 300000,
+        studentName: "Student One",
+      },
+    ]);
+    expect(voided.status).toBe("void");
   });
 });
