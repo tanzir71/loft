@@ -415,7 +415,7 @@ Rules:
 - [x] Prepaid packages: sell → invoice + purchase row; credit consumption in invoice engine (unit-tested); remaining-credit displays + low-credit warning
 - [x] Invoice generation engine + unit tests (per_session from attendance, monthly_flat, package credits, idempotent drafts, sequential numbering)
 - [x] Invoice lifecycle UI + payment recording + derived partial/paid status
-- [ ] Print-friendly invoice page + student/parent billing views + balance
+- [x] Print-friendly invoice page + student/parent billing views + balance
 - [ ] Billing dashboard tiles + optional email send
 - [ ] P4 acceptance tests green
 
@@ -502,3 +502,4 @@ Rules:
 2026-07-07 | P4 prepaid packages: sale invoices and credit consumption | Added package sale invoices/purchases, oldest-first attended-session credit consumption, tutor package workflows, student/parent remaining-credit views, and low-credit warnings.
 2026-07-07 | P4 invoice engine: monthly draft generation | Added monthly invoice generation for per-session, monthly-flat, and package-credit lines with draft regeneration rollback, sequential numbering, and non-draft protection tests.
 2026-07-07 | P4 invoice lifecycle: send, void, and payments | Added tutor invoice list actions, payment recording, paid/partial status derivation from payment totals, unit coverage, and e2e payment-to-paid flow.
+2026-07-07 | P4 invoice views: print detail and portal billing | Made `/billing` role-aware for tutor/student/parent, added scoped `/invoices/[id]` print-friendly detail pages, balance summaries, shared route guards, and e2e student invoice detail coverage.

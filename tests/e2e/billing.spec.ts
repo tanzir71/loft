@@ -142,4 +142,16 @@ test("tutor sells a package and attendance consumes remaining credits", async ({
   const studentCredit = page.getByRole("article").filter({ hasText: "Starter package" });
   await expect(studentCredit.getByText("1 credit remaining")).toBeVisible();
   await expect(studentCredit.getByText("Low credit")).toBeVisible();
+
+  await page.goto("/billing");
+  await expect(page.getByRole("heading", { name: /^billing$/i })).toBeVisible();
+  await expect(page.getByText("Outstanding balance")).toBeVisible();
+  await expect(page.getByText("TL-202607-0001")).toBeVisible();
+  await expect(page.getByText(/^Paid$/)).toBeVisible();
+  await expect(page.getByText("Balance 0")).toBeVisible();
+  await page.getByRole("link", { name: /^view invoice$/i }).click();
+  await expect(page).toHaveURL(/\/invoices\//);
+  await expect(page.getByRole("heading", { name: "TL-202607-0001" })).toBeVisible();
+  await expect(page.getByText("Starter package (2 sessions)")).toBeVisible();
+  await expect(page.getByText(/trx-123/)).toBeVisible();
 });

@@ -133,6 +133,12 @@ type TutorInvoiceSummary = typeof invoices.$inferSelect & {
   studentName: string;
 };
 
+type InvoiceDetail = {
+  invoice: TutorInvoiceSummary;
+  items: (typeof invoiceItems.$inferSelect)[];
+  payments: (typeof payments.$inferSelect)[];
+};
+
 type InvoiceItemDraft = {
   amount: number;
   courseId: string | null;
@@ -362,7 +368,27 @@ function deriveInvoiceStatus(
 }
 
 function invoiceBalance(invoice: typeof invoices.$inferSelect, paidTotal: number) {
+  if (invoice.status === "void") {
+    return 0;
+  }
+
   return Math.max(0, invoice.total - paidTotal);
+}
+
+async function toInvoiceSummary(
+  database: AppDb,
+  invoice: typeof invoices.$inferSelect,
+  studentName: string,
+): Promise<TutorInvoiceSummary> {
+  const paidTotal = await paidTotalForInvoice(database, invoice.id);
+
+  return {
+    ...invoice,
+    balance: invoiceBalance(invoice, paidTotal),
+    displayStatus: deriveInvoiceStatus(invoice, paidTotal),
+    paidTotal,
+    studentName,
+  };
 }
 
 function toPackageCreditSummary(row: {
@@ -1083,20 +1109,80 @@ export async function listTutorInvoices(database: AppDb): Promise<TutorInvoiceSu
     .from(invoices)
     .innerJoin(users, eq(invoices.studentId, users.id))
     .orderBy(asc(invoices.number));
-  const summaries: TutorInvoiceSummary[] = [];
 
-  for (const row of rows) {
-    const paidTotal = await paidTotalForInvoice(database, row.invoice.id);
-    summaries.push({
-      ...row.invoice,
-      balance: invoiceBalance(row.invoice, paidTotal),
-      displayStatus: deriveInvoiceStatus(row.invoice, paidTotal),
-      paidTotal,
-      studentName: row.studentName,
-    });
+  return Promise.all(rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentName)));
+}
+
+export async function listStudentInvoices(
+  database: AppDb,
+  studentId: string,
+): Promise<TutorInvoiceSummary[]> {
+  const parsedStudentId = z.string().trim().min(1).parse(studentId);
+  const rows = await database
+    .select({
+      invoice: invoices,
+      studentName: users.name,
+    })
+    .from(invoices)
+    .innerJoin(users, eq(invoices.studentId, users.id))
+    .where(eq(invoices.studentId, parsedStudentId))
+    .orderBy(asc(invoices.number));
+
+  return Promise.all(rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentName)));
+}
+
+export async function listParentInvoices(
+  database: AppDb,
+  parentId: string,
+): Promise<TutorInvoiceSummary[]> {
+  const parsedParentId = z.string().trim().min(1).parse(parentId);
+  const rows = await database
+    .select({
+      invoice: invoices,
+      studentName: users.name,
+    })
+    .from(parentLinks)
+    .innerJoin(users, eq(parentLinks.studentId, users.id))
+    .innerJoin(invoices, eq(parentLinks.studentId, invoices.studentId))
+    .where(eq(parentLinks.parentId, parsedParentId))
+    .orderBy(asc(users.name), asc(invoices.number));
+
+  return Promise.all(rows.map((row) => toInvoiceSummary(database, row.invoice, row.studentName)));
+}
+
+export async function getInvoiceDetail(
+  database: AppDb,
+  invoiceId: string,
+): Promise<InvoiceDetail> {
+  const parsedInvoiceId = z.string().trim().min(1).parse(invoiceId);
+  const [row] = await database
+    .select({
+      invoice: invoices,
+      studentName: users.name,
+    })
+    .from(invoices)
+    .innerJoin(users, eq(invoices.studentId, users.id))
+    .where(eq(invoices.id, parsedInvoiceId));
+
+  if (!row) {
+    throw new Error("Invoice not found.");
   }
 
-  return summaries;
+  const [summary, items, paymentRows] = await Promise.all([
+    toInvoiceSummary(database, row.invoice, row.studentName),
+    database.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, parsedInvoiceId)),
+    database
+      .select()
+      .from(payments)
+      .where(eq(payments.invoiceId, parsedInvoiceId))
+      .orderBy(asc(payments.paidAt)),
+  ]);
+
+  return {
+    invoice: summary,
+    items,
+    payments: paymentRows,
+  };
 }
 
 export async function listPackageCreditsForStudent(database: AppDb, studentId: string) {

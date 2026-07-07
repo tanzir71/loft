@@ -24,8 +24,11 @@ import {
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
   generateMonthlyInvoice,
+  getInvoiceDetail,
   listPackageCreditsForParent,
   listPackageCreditsForStudent,
+  listParentInvoices,
+  listStudentInvoices,
   listTutorInvoices,
   markInvoiceSent,
   recordPayment,
@@ -574,6 +577,17 @@ describe("billing rate plans", () => {
       makeId: () => "student_id",
       name: "Student One",
     });
+    await db.insert(users).values({
+      id: "parent_id",
+      name: "Parent One",
+      email: "parent@example.com",
+      passwordHash: "hash",
+      role: "parent",
+      status: "active",
+      createdAt: 1000,
+      updatedAt: 1000,
+    });
+    await db.insert(parentLinks).values({ parentId: "parent_id", studentId: "student_id" });
     await createRatePlan(db, {
       amount: 300000,
       makeId: () => "package_plan_id",
@@ -611,6 +625,9 @@ describe("billing rate plans", () => {
       reference: "bkash-final",
     });
     const summaries = await listTutorInvoices(db);
+    const studentInvoices = await listStudentInvoices(db, "student_id");
+    const parentInvoices = await listParentInvoices(db, "parent_id");
+    const detail = await getInvoiceDetail(db, "invoice_id");
     const paymentRows = await db.select().from(payments).orderBy(payments.paidAt);
     const voided = await voidInvoice(db, {
       id: "invoice_id",
@@ -638,6 +655,42 @@ describe("billing rate plans", () => {
         studentName: "Student One",
       },
     ]);
+    expect(studentInvoices).toMatchObject([
+      {
+        balance: 0,
+        displayStatus: "paid",
+        number: "TL-202607-0001",
+        paidTotal: 300000,
+      },
+    ]);
+    expect(parentInvoices).toMatchObject([
+      {
+        balance: 0,
+        displayStatus: "paid",
+        number: "TL-202607-0001",
+        paidTotal: 300000,
+        studentName: "Student One",
+      },
+    ]);
+    expect(detail).toMatchObject({
+      invoice: {
+        balance: 0,
+        displayStatus: "paid",
+        number: "TL-202607-0001",
+        paidTotal: 300000,
+        studentName: "Student One",
+      },
+      items: [
+        {
+          amount: 300000,
+          description: "Starter package (2 sessions)",
+        },
+      ],
+      payments: [
+        { amount: 100000, method: "cash" },
+        { amount: 200000, method: "bkash" },
+      ],
+    });
     expect(voided.status).toBe("void");
   });
 });

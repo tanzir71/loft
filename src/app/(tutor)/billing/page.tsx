@@ -6,12 +6,14 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { ratePlans, users } from "@/db/schema";
 import { Button } from "@/components/ui/button";
-import { requireTutor } from "@/lib/authz";
+import { requireTutor, requireUser } from "@/lib/authz";
 import {
   archiveRatePlan,
   consumePackageCreditsForAttendedSessions,
   createRatePlan,
   listPackageCredits,
+  listParentInvoices,
+  listStudentInvoices,
   listTutorInvoices,
   markInvoiceSent,
   recordPayment,
@@ -61,6 +63,83 @@ function creditLabel(remaining: number) {
 
 function statusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+type InvoiceSummary = Awaited<ReturnType<typeof listTutorInvoices>>[number];
+
+function outstandingBalance(invoices: InvoiceSummary[]) {
+  return invoices.reduce(
+    (sum, invoice) => sum + (invoice.displayStatus === "void" ? 0 : invoice.balance),
+    0,
+  );
+}
+
+function ReadOnlyBillingView({
+  invoices,
+  title,
+}: {
+  invoices: InvoiceSummary[];
+  title: string;
+}) {
+  return (
+    <main className="mx-auto max-w-3xl p-6">
+      <h1 className="font-display text-3xl italic">Billing</h1>
+      <section className="mt-6 rounded-2xl border bg-card p-6 shadow-soft">
+        <p className="font-mono text-[10px] uppercase text-muted-foreground">{title}</p>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Outstanding balance</h2>
+            <p className="mt-2 font-mono text-3xl">{outstandingBalance(invoices)}</p>
+          </div>
+          <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
+            {invoices.length} invoices
+          </span>
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Invoices</h2>
+          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+            {invoices.length} total
+          </span>
+        </div>
+        {invoices.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-8 text-center shadow-soft">
+            <p className="font-display text-2xl italic">No invoices yet.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {invoices.map((invoice) => (
+              <article className="rounded-2xl border bg-card p-5 shadow-soft" key={invoice.id}>
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">
+                  {invoice.studentName}
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">{invoice.number}</h3>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    {statusLabel(invoice.displayStatus)}
+                  </span>
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    Total {invoice.total}
+                  </span>
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    Paid {invoice.paidTotal}
+                  </span>
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    Balance {invoice.displayStatus === "void" ? 0 : invoice.balance}
+                  </span>
+                </div>
+                <Button asChild className="mt-4" size="sm" variant="outline">
+                  <a href={`/invoices/${invoice.id}`}>View invoice</a>
+                </Button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
 }
 
 async function createRatePlanAction(formData: FormData) {
@@ -173,9 +252,19 @@ async function recordPaymentAction(formData: FormData) {
 }
 
 export default async function BillingPage() {
-  await requireTutor();
-
+  const user = await requireUser();
   const database = getDb();
+
+  if (user.role === "student") {
+    const invoices = await listStudentInvoices(database, user.id);
+    return <ReadOnlyBillingView invoices={invoices} title="Student billing" />;
+  }
+
+  if (user.role === "parent") {
+    const invoices = await listParentInvoices(database, user.id);
+    return <ReadOnlyBillingView invoices={invoices} title="Parent billing" />;
+  }
+
   const [plans, students, packageCredits, invoiceRows] = await Promise.all([
     database.select().from(ratePlans).orderBy(asc(ratePlans.name)),
     database
