@@ -347,6 +347,9 @@ export default async function QuizzesPage({
                         Save quiz
                       </Button>
                     </form>
+                    <Button asChild className="mt-3" size="sm" variant="outline">
+                      <a href={`/quiz/${quiz.id}`}>Student view</a>
+                    </Button>
 
                     <form action={createQuestionAction} className="mt-5 grid gap-3 rounded-xl border bg-background p-4">
                       <input name="courseId" type="hidden" value={selectedCourseId} />

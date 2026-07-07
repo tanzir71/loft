@@ -3,7 +3,15 @@ import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
-import { courses, quizQuestions, quizzes, schema } from "@/db/schema";
+import {
+  courses,
+  enrollments,
+  quizAnswers,
+  quizAttempts,
+  quizQuestions,
+  quizzes,
+  schema,
+} from "@/db/schema";
 
 type AppDb = LibSQLDatabase<typeof schema>;
 type QuestionType = "mcq_single" | "mcq_multi" | "true_false" | "short_answer";
@@ -44,6 +52,41 @@ type UpdateQuestionInput = Omit<QuestionInput, "makeId" | "quizId"> & {
   id: string;
   now?: () => number;
   sortOrder: number;
+};
+
+type StartQuizAttemptInput = {
+  makeId?: () => string;
+  now?: () => number;
+  quizId: string;
+  studentId: string;
+};
+
+type SaveQuizAnswerInput = {
+  answerJson: unknown;
+  attemptId: string;
+  makeId?: () => string;
+  now?: () => number;
+  questionId: string;
+  studentId: string;
+};
+
+type SubmitQuizAttemptInput = {
+  attemptId: string;
+  now?: () => number;
+  studentId: string;
+};
+
+type QuizAttemptFlowInput = {
+  attemptId: string;
+  now?: number;
+  quizId: string;
+  studentId: string;
+};
+
+type StudentQuizOverviewInput = {
+  now?: number;
+  quizId: string;
+  studentId: string;
 };
 
 const quizStatusSchema = z.enum(["draft", "published", "closed"]);
@@ -87,6 +130,37 @@ const singleAnswerSchema = z.object({ correctOptionId: z.string().trim().min(1) 
 const multiAnswerSchema = z.object({ correctOptionIds: z.array(z.string().trim().min(1)).min(1) });
 const trueFalseAnswerSchema = z.object({ value: z.boolean() });
 const shortAnswerSchema = z.object({ acceptedAnswers: z.array(z.string().trim().min(1)).min(1) });
+const singleStudentAnswerSchema = z.object({ selectedOptionId: z.string().trim().min(1) });
+const multiStudentAnswerSchema = z.object({
+  selectedOptionIds: z.array(z.string().trim().min(1)),
+});
+const trueFalseStudentAnswerSchema = z.object({ value: z.boolean() });
+const shortStudentAnswerSchema = z.object({ response: z.string().trim() });
+const startQuizAttemptSchema = z.object({
+  quizId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
+const saveQuizAnswerSchema = z.object({
+  answerJson: z.unknown(),
+  attemptId: z.string().trim().min(1),
+  questionId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
+const submitQuizAttemptSchema = z.object({
+  attemptId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
+const quizAttemptFlowSchema = z.object({
+  attemptId: z.string().trim().min(1),
+  now: z.number().int().optional(),
+  quizId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
+const studentQuizOverviewSchema = z.object({
+  now: z.number().int().optional(),
+  quizId: z.string().trim().min(1),
+  studentId: z.string().trim().min(1),
+});
 function createId() {
   return randomBytes(12).toString("base64url");
 }
@@ -103,11 +177,40 @@ async function requireActiveCourse(database: AppDb, id: string) {
 }
 
 async function requireQuiz(database: AppDb, id: string) {
-  const [quiz] = await database.select({ id: quizzes.id }).from(quizzes).where(eq(quizzes.id, id));
+  const [quiz] = await database.select().from(quizzes).where(eq(quizzes.id, id));
 
   if (!quiz) {
     throw new Error("Quiz not found.");
   }
+
+  return quiz;
+}
+
+async function requireActiveEnrollment(database: AppDb, input: { courseId: string; studentId: string }) {
+  const [enrollment] = await database
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .innerJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(enrollments.courseId, input.courseId),
+        eq(enrollments.studentId, input.studentId),
+        eq(enrollments.status, "active"),
+        eq(courses.status, "active"),
+      ),
+    );
+
+  if (!enrollment) {
+    throw new Error("Enrollment not found.");
+  }
+}
+
+async function requireStudentQuiz(database: AppDb, input: { quizId: string; studentId: string }) {
+  const quiz = await requireQuiz(database, input.quizId);
+  await requireActiveEnrollment(database, {
+    courseId: quiz.courseId,
+    studentId: input.studentId,
+  });
 
   return quiz;
 }
@@ -143,6 +246,76 @@ export function parseQuestionAnswer(type: QuestionType, answerJson: unknown) {
   }
 
   return shortAnswerSchema.parse(answerJson);
+}
+
+export function parseStudentAnswer(type: QuestionType, answerJson: unknown) {
+  if (type === "mcq_single") {
+    return singleStudentAnswerSchema.parse(answerJson);
+  }
+
+  if (type === "mcq_multi") {
+    return multiStudentAnswerSchema.parse(answerJson);
+  }
+
+  if (type === "true_false") {
+    return trueFalseStudentAnswerSchema.parse(answerJson);
+  }
+
+  return shortStudentAnswerSchema.parse(answerJson);
+}
+
+function assertQuizWindow(quiz: typeof quizzes.$inferSelect, now: number) {
+  if (quiz.status !== "published") {
+    throw new Error("Quiz is not open.");
+  }
+
+  if (quiz.openAt !== null && quiz.openAt > now) {
+    throw new Error("Quiz is not open yet.");
+  }
+
+  if (quiz.closeAt !== null && quiz.closeAt < now) {
+    throw new Error("Quiz is closed.");
+  }
+}
+
+function attemptDeadline(quiz: typeof quizzes.$inferSelect, attempt: typeof quizAttempts.$inferSelect) {
+  const deadlines = [];
+
+  if (quiz.closeAt !== null) {
+    deadlines.push(quiz.closeAt);
+  }
+
+  if (quiz.timeLimitMin !== null) {
+    deadlines.push(attempt.startedAt + quiz.timeLimitMin * 60_000);
+  }
+
+  return deadlines.length > 0 ? Math.min(...deadlines) : null;
+}
+
+function remainingSeconds(
+  quiz: typeof quizzes.$inferSelect,
+  attempt: typeof quizAttempts.$inferSelect,
+  now: number,
+) {
+  const deadline = attemptDeadline(quiz, attempt);
+
+  return deadline === null ? null : Math.max(0, Math.floor((deadline - now) / 1000));
+}
+
+function assertAttemptWritable(
+  quiz: typeof quizzes.$inferSelect,
+  attempt: typeof quizAttempts.$inferSelect,
+  now: number,
+) {
+  if (attempt.status !== "in_progress") {
+    throw new Error("Quiz attempt is not in progress.");
+  }
+
+  assertQuizWindow(quiz, now);
+
+  if (remainingSeconds(quiz, attempt, now) === 0) {
+    throw new Error("Quiz timer expired.");
+  }
 }
 
 function validateQuestionPayload(type: QuestionType, optionsJson: unknown, answerJson: unknown) {
@@ -322,4 +495,188 @@ export async function listQuizBuilder(database: AppDb, courseId: string) {
     quiz,
     questions: questionRows.filter((question) => question.quizId === quiz.id),
   }));
+}
+
+export async function startQuizAttempt(database: AppDb, input: StartQuizAttemptInput) {
+  const parsed = startQuizAttemptSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const quiz = await requireStudentQuiz(database, parsed);
+  assertQuizWindow(quiz, now);
+  const attempts = await database
+    .select()
+    .from(quizAttempts)
+    .where(and(eq(quizAttempts.quizId, parsed.quizId), eq(quizAttempts.studentId, parsed.studentId)));
+  const existing = attempts.find((attempt) => attempt.status === "in_progress");
+
+  if (existing) {
+    return existing;
+  }
+
+  if (attempts.length >= quiz.maxAttempts) {
+    throw new Error("Quiz attempt limit reached.");
+  }
+
+  const [attempt] = await database
+    .insert(quizAttempts)
+    .values({
+      id: input.makeId?.() ?? createId(),
+      quizId: parsed.quizId,
+      studentId: parsed.studentId,
+      startedAt: now,
+      submittedAt: null,
+      autoScore: null,
+      finalScore: null,
+      status: "in_progress",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+
+  return attempt;
+}
+
+export async function getStudentQuizOverview(database: AppDb, input: StudentQuizOverviewInput) {
+  const parsed = studentQuizOverviewSchema.parse(input);
+  const now = parsed.now ?? Date.now();
+  const quiz = await requireStudentQuiz(database, parsed);
+  const attempts = await database
+    .select()
+    .from(quizAttempts)
+    .where(and(eq(quizAttempts.quizId, parsed.quizId), eq(quizAttempts.studentId, parsed.studentId)));
+  const inProgressAttempt = attempts.find((attempt) => attempt.status === "in_progress") ?? null;
+  let unavailableReason: string | null = null;
+
+  try {
+    assertQuizWindow(quiz, now);
+    if (!inProgressAttempt && attempts.length >= quiz.maxAttempts) {
+      unavailableReason = "Quiz attempt limit reached.";
+    }
+  } catch (error) {
+    unavailableReason = error instanceof Error ? error.message : "Quiz unavailable.";
+  }
+
+  return {
+    attemptsUsed: attempts.length,
+    inProgressAttempt,
+    quiz,
+    unavailableReason,
+  };
+}
+
+async function requireAttemptContext(
+  database: AppDb,
+  input: { attemptId: string; studentId: string },
+) {
+  const [attempt] = await database
+    .select()
+    .from(quizAttempts)
+    .where(and(eq(quizAttempts.id, input.attemptId), eq(quizAttempts.studentId, input.studentId)));
+
+  if (!attempt) {
+    throw new Error("Quiz attempt not found.");
+  }
+
+  const quiz = await requireStudentQuiz(database, {
+    quizId: attempt.quizId,
+    studentId: input.studentId,
+  });
+
+  return { attempt, quiz };
+}
+
+export async function saveQuizAnswer(database: AppDb, input: SaveQuizAnswerInput) {
+  const parsed = saveQuizAnswerSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const { attempt, quiz } = await requireAttemptContext(database, parsed);
+  assertAttemptWritable(quiz, attempt, now);
+  const [question] = await database
+    .select()
+    .from(quizQuestions)
+    .where(and(eq(quizQuestions.id, parsed.questionId), eq(quizQuestions.quizId, attempt.quizId)));
+
+  if (!question) {
+    throw new Error("Question not found.");
+  }
+
+  const answer = parseStudentAnswer(question.type, parsed.answerJson);
+  const [existing] = await database
+    .select()
+    .from(quizAnswers)
+    .where(and(eq(quizAnswers.attemptId, parsed.attemptId), eq(quizAnswers.questionId, parsed.questionId)));
+
+  if (existing) {
+    const [updated] = await database
+      .update(quizAnswers)
+      .set({ answerJson: answer, updatedAt: now })
+      .where(eq(quizAnswers.id, existing.id))
+      .returning();
+
+    return updated;
+  }
+
+  const [created] = await database
+    .insert(quizAnswers)
+    .values({
+      id: input.makeId?.() ?? createId(),
+      attemptId: parsed.attemptId,
+      questionId: parsed.questionId,
+      answerJson: answer,
+      isCorrect: null,
+      pointsAwarded: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+
+  return created;
+}
+
+export async function submitQuizAttempt(database: AppDb, input: SubmitQuizAttemptInput) {
+  const parsed = submitQuizAttemptSchema.parse(input);
+  const now = input.now?.() ?? Date.now();
+  const { attempt, quiz } = await requireAttemptContext(database, parsed);
+  assertAttemptWritable(quiz, attempt, now);
+  const [submitted] = await database
+    .update(quizAttempts)
+    .set({
+      submittedAt: now,
+      status: "submitted",
+      updatedAt: now,
+    })
+    .where(eq(quizAttempts.id, parsed.attemptId))
+    .returning();
+
+  return submitted;
+}
+
+export async function getQuizAttemptFlow(database: AppDb, input: QuizAttemptFlowInput) {
+  const parsed = quizAttemptFlowSchema.parse(input);
+  const now = parsed.now ?? Date.now();
+  const { attempt, quiz } = await requireAttemptContext(database, parsed);
+
+  if (attempt.quizId !== parsed.quizId) {
+    throw new Error("Quiz attempt mismatch.");
+  }
+
+  const [questionRows, answerRows] = await Promise.all([
+    database
+      .select()
+      .from(quizQuestions)
+      .where(eq(quizQuestions.quizId, parsed.quizId))
+      .orderBy(asc(quizQuestions.sortOrder), asc(quizQuestions.promptMd)),
+    database.select().from(quizAnswers).where(eq(quizAnswers.attemptId, parsed.attemptId)),
+  ]);
+  const answersByQuestion: Record<string, typeof quizAnswers.$inferSelect> = {};
+
+  for (const answer of answerRows) {
+    answersByQuestion[answer.questionId] = answer;
+  }
+
+  return {
+    answersByQuestion,
+    attempt,
+    questions: questionRows,
+    quiz,
+    remainingSeconds: remainingSeconds(quiz, attempt, now),
+  };
 }

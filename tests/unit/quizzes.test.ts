@@ -5,17 +5,22 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { schema } from "@/db/schema";
-import { createCourse } from "@/lib/courses";
+import { createCourse, enrollStudent } from "@/lib/courses";
 import {
   answerSummary,
   createQuiz,
   createQuizQuestion,
+  getQuizAttemptFlow,
   listQuizBuilder,
   parseQuestionAnswer,
+  saveQuizAnswer,
+  startQuizAttempt,
+  submitQuizAttempt,
   updateQuiz,
   updateQuizQuestion,
 } from "@/lib/quizzes";
 import { seedTutor } from "@/lib/seed";
+import { createStudent } from "@/lib/students";
 
 async function applyInitialMigration(client: Client) {
   const migrationDir = path.join(process.cwd(), "drizzle");
@@ -153,5 +158,99 @@ describe("quiz builder", () => {
       "true_false",
       "short_answer",
     ]);
+  });
+
+  it("starts, autosaves, times, submits, and enforces quiz attempt limits", async () => {
+    const { client, db } = await createMigratedDb();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await createStudent(db, {
+      email: "student@example.com",
+      makeId: () => "student_id",
+      name: "Student One",
+    });
+    await createCourse(db, {
+      description: "",
+      makeId: () => "course_id",
+      subject: "Math",
+      title: "Algebra I",
+    });
+    await enrollStudent(db, {
+      courseId: "course_id",
+      makeId: () => "enrollment_id",
+      studentId: "student_id",
+    });
+    await createQuiz(db, {
+      closeAt: now + 3_600_000,
+      courseId: "course_id",
+      makeId: () => "quiz_id",
+      maxAttempts: 1,
+      now: () => now,
+      openAt: now - 60_000,
+      status: "published",
+      timeLimitMin: 20,
+      title: "Attempt quiz",
+    });
+    await createQuizQuestion(db, {
+      answerJson: { correctOptionId: "b" },
+      makeId: () => "question_id",
+      optionsJson: {
+        options: [
+          { id: "a", text: "x = 2" },
+          { id: "b", text: "x = 5" },
+        ],
+      },
+      promptMd: "Solve `x + 3 = 8`.",
+      quizId: "quiz_id",
+      type: "mcq_single",
+    });
+
+    const attempt = await startQuizAttempt(db, {
+      makeId: () => "attempt_id",
+      now: () => now,
+      quizId: "quiz_id",
+      studentId: "student_id",
+    });
+    const saved = await saveQuizAnswer(db, {
+      answerJson: { selectedOptionId: "b" },
+      attemptId: attempt.id,
+      makeId: () => "answer_id",
+      now: () => now + 30_000,
+      questionId: "question_id",
+      studentId: "student_id",
+    });
+    const flow = await getQuizAttemptFlow(db, {
+      attemptId: attempt.id,
+      now: now + 60_000,
+      quizId: "quiz_id",
+      studentId: "student_id",
+    });
+    await submitQuizAttempt(db, {
+      attemptId: attempt.id,
+      now: () => now + 90_000,
+      studentId: "student_id",
+    });
+
+    await expect(
+      startQuizAttempt(db, {
+        now: () => now + 120_000,
+        quizId: "quiz_id",
+        studentId: "student_id",
+      }),
+    ).rejects.toThrow("attempt limit");
+    await expect(
+      saveQuizAnswer(db, {
+        answerJson: { selectedOptionId: "a" },
+        attemptId: attempt.id,
+        questionId: "question_id",
+        studentId: "student_id",
+      }),
+    ).rejects.toThrow("in progress");
+    client.close();
+
+    expect(saved.answerJson).toEqual({ selectedOptionId: "b" });
+    expect(flow.remainingSeconds).toBe(19 * 60);
+    expect(flow.answersByQuestion.question_id).toMatchObject({
+      answerJson: { selectedOptionId: "b" },
+    });
   });
 });
