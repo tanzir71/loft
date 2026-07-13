@@ -9,6 +9,36 @@ TutorLoft is a private tutoring workspace for one tutor, their students, and opt
 
 The public demo uses seeded browser-only data for tutor, student, and parent views. It makes no database mutations and disables outbound email, uploads, AI calls, and payments.
 
+## Architecture
+
+One Next.js app, three roles, and a database that is a local file in development and a hosted libSQL instance in production:
+
+```
+   Tutor          Students         Parents
+     │                │                │
+     └───────────── HTTPS ────────────┘
+                      │
+┌─────────────────── Next.js (Vercel Hobby) ───────────────────┐
+│  Auth.js sessions — role-based access (authz rules            │
+│  unit-tested: content gating, parent visibility)               │
+│                                                                │
+│  Domain surfaces: scheduling · lessons · assignments ·         │
+│  quizzes (auto-grading) · progress reports · invoices          │
+│  (TL-YYYYMM-#### numbering) · automations · AI adapters        │
+│                                                                │
+│  /api/cron (guarded by CRON_SECRET) — reminders & digests      │
+│        │                                                       │
+│        ▼                                                       │
+│  Drizzle → SQLite file (dev: file:./data/dev.db)               │
+│            Turso/libSQL (prod: libsql:// + auth token)          │
+│                                                                │
+│  Optional: Resend (email) · Vercel Blob (file uploads) —        │
+│  both feature-gated by env vars, app works without them         │
+└────────────────────────────────────────────────────────────────┘
+```
+
+The design goal: run the whole product on free/hobby tiers — Vercel Hobby + Turso free tier — with zero required paid services. Optional integrations (email, blob storage) light up only when their env vars exist.
+
 ## Branding
 
 The product name is TutorLoft, written as one word with a capital T and L. The wordmark uses the Instrument Serif italic display style with Loft in the primary accent color. Invoice numbers use the default `TL` prefix, such as `TL-202607-0001`.
