@@ -34,3 +34,5 @@ test-results/
 # Reference material only
 sample_code/
 sample_code - reference only/
+
+.vercel

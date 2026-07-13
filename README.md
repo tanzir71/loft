@@ -2,6 +2,13 @@
 
 TutorLoft is a private tutoring workspace for one tutor, their students, and optional parent accounts. It combines scheduling, lesson materials, assignments, quizzes, progress reports, parent visibility, and invoice tracking in a single Next.js app.
 
+## Website & demo
+
+- 🌐 Landing page: https://tutorloft-workspace.vercel.app/
+- ▶️ Read-only demo: https://tutorloft-workspace.vercel.app/demo
+
+The public demo uses seeded browser-only data for tutor, student, and parent views. It makes no database mutations and disables outbound email, uploads, AI calls, and payments.
+
 ## Branding
 
 The product name is TutorLoft, written as one word with a capital T and L. The wordmark uses the Instrument Serif italic display style with Loft in the primary accent color. Invoice numbers use the default `TL` prefix, such as `TL-202607-0001`.

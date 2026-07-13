@@ -25,7 +25,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tutorloft.app"),
+  metadataBase: new URL("https://tutorloft-workspace.vercel.app"),
   title: {
     default: "TutorLoft",
     template: "%s · TutorLoft",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     description:
       "A calm private tutoring workspace for lessons, assignments, parent visibility, and invoice tracking.",
     type: "website",
-    url: "https://tutorloft.app",
+    url: "https://tutorloft-workspace.vercel.app",
     siteName: "TutorLoft",
   },
 };
