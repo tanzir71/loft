@@ -4,8 +4,8 @@ TutorLoft is a private tutoring workspace for one tutor, their students, and opt
 
 ## Website & demo
 
-- 🌐 Landing page: https://tutorloft-workspace.vercel.app/
-- ▶️ Read-only demo: https://tutorloft-workspace.vercel.app/demo
+- Landing page: https://tutorloft-workspace.vercel.app/
+- Read-only demo: https://tutorloft-workspace.vercel.app/demo
 
 The public demo uses seeded browser-only data for tutor, student, and parent views. It makes no database mutations and disables outbound email, uploads, AI calls, and payments.
 
@@ -97,7 +97,7 @@ Production-only or optional:
 
 ## Verification
 
-Use the same commands Codex uses before marking handoff work complete:
+Run these before considering a change complete:
 
 ```bash
 npm run check
