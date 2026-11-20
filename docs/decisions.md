@@ -8,6 +8,18 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M2 rooms + board v1
+- **Room codes** follow Figma's "Join with code": 6 characters as `K7P-42Q`, from an alphabet without I/L/O/0/1. `normaliseCode` accepts lowercase, spaces or a full `…/r/<code>` link.
+- **Board engine** (`packages/board`) is framework-free: object model, op-log reducer (ops applied in `seq` order = last-writer-wins per field; an update can't change an object's kind), geometry, RDP simplification + quantisation of strokes, and a per-user undo stack built from inverse ops. Ops carry a client `_cid` so the view can apply them optimistically and drop them when the echo arrives.
+- **Layers:** dot grid (CSS, scaled with the view) → pages (DOM sheets) → notes/text (DOM) → ink (canvas, pointer-events off) → cursors. Ink sits on top so people can write over pages and notes.
+- **Eraser** removes whole strokes it touches (object eraser) instead of the legacy pixel eraser: pixel erasing can't be expressed as op-log edits.
+- **Text lock:** while someone edits a note, their presence carries `editing: <id>` and others see a lock with their name instead of an editor (no CRDT).
+- **Capacity on Pages** is decided from presence: humans with `status: "in"` (agents never count). Newcomers wait 0.6 s for presence to settle, then take a seat or join the line ordered by `joinedAt`; a freed seat admits the head of the line. The host is always seated. Covered by a 13-tab Playwright test.
+- **Guests in the preview:** IndexedDB is shared per browser, so `/join` creates a guest user for the tab (`setTabIdentity`). Opening `/r/<code>` directly in the same browser is the host. The share popover links to `#/join?code=…&as=guest` to demo two people.
+- **Share popover:** the design's QR button is replaced by the room code chip for now (no QR encoder dependency yet); WhatsApp and Email links work.
+- **Session ended** offers "Download the board (PNG)" today; PDF export arrives with M4.
+- **Wording:** toasts and buttons avoid gendered pronouns ("Let them speak"), unlike one Figma sample.
+
 ### 2026-11-21 — M1 released
 - v0.1.0 live at `/m1/`. Tag deploys were blocked by the `github-pages` environment (only `main` allowed); added a `v*` tag deployment policy, as the handoff's tag-driven pipeline requires.
 - Lighthouse (CI, live m1): landing 100/100, organisations 100/100, app 98/100 mobile and 100/96 desktop. The PageSpeed Insights keyless quota was exhausted, so Lighthouse runs in `.github/workflows/lighthouse.yml` after each Pages deploy.

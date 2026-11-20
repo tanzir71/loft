@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { callModeFor, seatFor, ROOM_CAPACITY } from "./limits";
 import { fillPaymentLink, formatUSD, parseUSD, prorate } from "./money";
-import { isRoomCode, newId, normaliseCode, roomCode, slugify } from "./ids";
+import { isRoomCode, newId, normaliseCode, roomCode, slugify, sortableId } from "./ids";
 import { dayKey, isDailyDue } from "./time";
 
 describe("limits", () => {
@@ -49,12 +49,19 @@ describe("ids", () => {
   it("makes readable room codes", () => {
     const c = roomCode();
     expect(isRoomCode(c)).toBe(true);
-    expect(normaliseCode(c.toUpperCase().replaceAll("-", " "))).toBe(c);
+    expect(normaliseCode(c.toLowerCase().replace("-", " "))).toBe(c);
+    expect(normaliseCode("https://tanziro.com/spaces/r/k7p-42q")).toBe("K7P-42Q");
+    expect(isRoomCode("K7P-42Q")).toBe(true);
+    expect(isRoomCode("K7P-42O")).toBe(false);
   });
   it("makes unique ids", () => {
     const s = new Set(Array.from({ length: 200 }, () => newId()));
     expect(s.size).toBe(200);
     expect(newId("sp")).toMatch(/^sp_[a-z0-9]{16}$/);
+  });
+  it("makes time-sortable ids, even within one millisecond", () => {
+    const ids = Array.from({ length: 50 }, () => sortableId("m"));
+    expect([...ids].sort()).toEqual(ids);
   });
   it("slugifies", () => {
     expect(slugify("Acme Sprint · Q3!")).toBe("acme-sprint-q3");

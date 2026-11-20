@@ -29,7 +29,7 @@ if (quick) {
     const f = new FormData(e.currentTarget as HTMLFormElement);
     const raw = String(f.get("code") ?? "").trim();
     // Accept a full room link (…/r/<code>) or a bare code.
-    const code = (raw.match(/\/r\/([a-z0-9-]+)/i)?.[1] ?? raw).toLowerCase();
+    const code = (raw.match(/\/r\/([a-z0-9-]+)/i)?.[1] ?? raw).toUpperCase();
     const you = String(f.get("you") ?? "").trim();
     try {
       if (you) localStorage.setItem("loft.guestName", you);

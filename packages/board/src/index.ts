@@ -1,5 +1,9 @@
 /**
- * @loft/board: board engine (op-log model, renderer, tools, connectors, smoothing, diagram-as-code).
- * Ported from legacy/tutorapp.quest/src/components/whiteboard in M2; extended to v2 in M4.
+ * @loft/board: board engine (op-log model, geometry, smoothing). Framework-free; the React view lives in apps/web.
+ * v1 (M2) ported from legacy/tutorapp.quest/src/components/whiteboard; v2 (M4) adds shapes, connectors and diagrams.
  */
-export const BOARD_ENGINE_VERSION = 0;
+export * from "./types";
+export * from "./reduce";
+export * from "./geometry";
+export * from "./smooth";
+export { UndoStack } from "./undo";

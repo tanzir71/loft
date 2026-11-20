@@ -13,9 +13,10 @@ test.describe("Pages smoke", () => {
       const heights = await page.locator(".qcard").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
       expect(new Set(heights).size).toBe(1);
     }
-    await page.getByLabel("Room code or link").fill("abc-def-ghk");
+    await page.getByLabel("Room code or link").fill("k7p-42q");
     await page.getByRole("button", { name: "join" }).click();
-    await expect(page).toHaveURL(/\/app\/#\/join\?code=abc-def-ghk/);
+    await expect(page).toHaveURL(/\/app\/#\/join\?code=K7P-42Q/);
+    await expect(page.getByRole("heading", { name: "Join with a code" })).toBeVisible();
   });
 
   test("organisations page offers email-first buying, no checkout", async ({ page }) => {

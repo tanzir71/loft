@@ -349,11 +349,11 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Lighthouse ≥ 95 performance/accessibility on Pages.
 
 ### M2: Rooms + board v1 (port of tutorapp.quest)
-- [ ] Room by link/code; guest join toggle ON = enter, OFF = host admits ("guest admit toast").
-- [ ] Board v1: pen, eraser, sticky, text, pan/zoom, pages.
-- [ ] Chat minimised pill. Presence avatars. Live cursors (BroadcastChannel on Pages).
-- [ ] Capacity 12 + waiting line ("Room full (phone)"); "Session ended (phone)".
-- [ ] Frames: "Host · Live Room — minimal", "Host · Room (phone)", "Join with code (phone)".
+- [x] Room by link/code; guest join toggle ON = enter, OFF = host admits ("guest admit toast").
+- [x] Board v1: pen, eraser, sticky, text, pan/zoom, pages.
+- [x] Chat minimised pill. Presence avatars. Live cursors (BroadcastChannel on Pages).
+- [x] Capacity 12 + waiting line ("Room full (phone)"); "Session ended (phone)".
+- [x] Frames: "Host · Live Room — minimal", "Host · Room (phone)", "Join with code (phone)".
 
 ### M3: Spaces, stream, hallway, inbox
 - [ ] Spaces with modes (wizard "New space · step 1 mode"); tabs per mode.

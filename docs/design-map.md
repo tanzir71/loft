@@ -22,3 +22,9 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | — organisations band visual [61:2034] | — | `public/img/orgs-band.webp` | M1 |
 | 06 · Landing pages · "Loft · for organisations v2" [65:1669] | `/loft/organisations/` | `apps/landing/organisations/index.html` + `renderOrganisations` | M1 |
 | — hero [65:1703], identity [65:1936], your link [74:2008], documents [65:2165] | — | `public/img/orgs-*.webp` | M1 |
+| 04 · "Host · Live Room — minimal" [40:343] | `/r/:code` | `apps/web/src/room/RoomPage.tsx`, `Board.tsx`, `Chat.tsx`, `room.css` | M2 |
+| 05 · "Host · Room (phone)" [104:202] | `/r/:code` on phones | `RoomPage.tsx` (`.room--phone`) | M2 |
+| 07 · "Join with code (phone)" [110:67] | `/join` | `room/screens.tsx` `JoinForm` | M2 |
+| 05 · "Guest · Join with a link (approval on)" [50:239] | `/r/:code` (waiting) | `screens.tsx` `WaitingForHost` | M2 |
+| 07 · "Room full (phone)" [110:107] | `/r/:code` (line) | `screens.tsx` `RoomFull` | M2 |
+| 07 · "Session ended (phone)" [110:138] | `/r/:code` (ended) | `screens.tsx` `SessionEnded`, `exportPng.ts` | M2 |
