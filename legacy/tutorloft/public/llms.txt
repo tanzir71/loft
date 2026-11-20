@@ -1,0 +1,39 @@
+# TutorLoft
+
+TutorLoft is an open-source, single-tutor workspace for scheduling, course materials, assignments, auto-graded quizzes, gradebook feedback, progress reports, parent visibility, and TL-prefixed invoice tracking.
+
+Website: https://tutorloft-workspace.vercel.app/
+Read-only demo: https://tutorloft-workspace.vercel.app/demo
+Repository: https://github.com/tanzir71/tutorloft
+
+## Public demo
+
+The public /demo route uses static seeded data and role switches for Tutor, Student, and Parent. It is read-only, resets on reload, makes no database mutations, sends no email, uploads no files, processes no payments, and calls no AI provider.
+
+## Local setup
+
+npm install
+copy .env.example .env.local
+npm run db:migrate
+npm run seed
+npm run dev
+
+Required: Node.js, DATABASE_URL, AUTH_SECRET, TUTOR_EMAIL, and TUTOR_PASSWORD. A local SQLite file works for development.
+
+## Vercel setup
+
+1. Create a Turso/libSQL database.
+2. Set DATABASE_URL, DATABASE_AUTH_TOKEN, AUTH_SECRET, TUTOR_EMAIL, TUTOR_PASSWORD, and CRON_SECRET in Vercel.
+3. Run npm run db:migrate against production.
+4. Run npm run seed once against production.
+5. Deploy the Next.js app.
+
+RESEND_API_KEY enables email. BLOB_READ_WRITE_TOKEN enables Vercel Blob uploads. Both are optional. AI settings are configured by the tutor inside the app and are not required for core workflows.
+
+## Product boundaries
+
+- One tutor owner per deployment by design.
+- Students see their own learning records; parent accounts have scoped family visibility.
+- Invoices and payment status are tracked; TutorLoft does not process payments.
+- The deployer owns database credentials, migrations, exports, and backups.
+- Vercel Hobby and Turso free tiers can make a small instance approximately $0/month, subject to current provider limits.
