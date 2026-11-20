@@ -8,6 +8,10 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M1 released
+- v0.1.0 live at `/m1/`. Tag deploys were blocked by the `github-pages` environment (only `main` allowed); added a `v*` tag deployment policy, as the handoff's tag-driven pipeline requires.
+- Lighthouse (CI, live m1): landing 100/100, organisations 100/100, app 98/100 mobile and 100/96 desktop. The PageSpeed Insights keyless quota was exhausted, so Lighthouse runs in `.github/workflows/lighthouse.yml` after each Pages deploy.
+
 ### 2026-11-21 — M1 landing + organisations
 - **Rendering:** both pages are static HTML generated at build time by a Vite plugin from `apps/landing/build/content.mjs` (copy + render functions). No framework on the landing; 2 KB of JS for the quick-start and contact forms. Icons are inlined from `lucide-react`'s icon data at build time.
 - **Conflict (Figma vs handoff):** the landing's organisations band said "swaps in your logo, colours and domain" and listed "your domain, with SSL handled for you". The handoff forbids custom domains, so the copy now reads "logo, colours and name" and "your own link: tanziro.com/spaces/your-name" (matching the organisations page, which already said custom domains aren't offered).

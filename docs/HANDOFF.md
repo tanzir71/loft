@@ -346,7 +346,7 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
   12. footer
 - [x] Build "Loft · for organisations v2": email-first buying, the premium "Aurelian" mode mockups, `mailto:` CTA + plain contact form (form posts to `/spaces/api/v1/contact` in prod; on Pages it opens mailto).
 - [x] Mockup images: export the Figma visuals as WebP (2×) into `apps/landing/public/img/`.
-- [ ] Lighthouse ≥ 95 performance/accessibility on Pages.
+- [x] Lighthouse ≥ 95 performance/accessibility on Pages.
 
 ### M2: Rooms + board v1 (port of tutorapp.quest)
 - [ ] Room by link/code; guest join toggle ON = enter, OFF = host admits ("guest admit toast").
