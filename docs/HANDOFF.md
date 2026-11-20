@@ -328,7 +328,7 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] `packages/ui`: generate `tokens.css` for all 4 modes from Figma variables (hard-code the values into a JSON once; script `npm run tokens` → CSS vars). Self-host woff2 for Barlow Condensed, Inter, JetBrains Mono, Host Grotesk.
 - [x] App shell: desktop side panel (component "App / Side panel"), tablet rail, phone tab bar ("App / Mobile tab bar").
 - [x] Empty states: "Home · first run (desktop)" and its phone version.
-- [ ] `ci.yml` + `pages.yml`. **Release v0.0.0 → Pages live** at `/loft/` with landing placeholder + app shell.
+- [x] `ci.yml` + `pages.yml`. **Release v0.0.0 → Pages live** at `/loft/` with landing placeholder + app shell.
 
 ### M1: Landing + organisations page (static)
 - [ ] Build "Loft · landing v2" exactly. Sections in order:
@@ -496,5 +496,5 @@ Plain HTTP only, so it works on shared hosting:
 
 - [x] Read §0–§13.
 - [x] Confirm `gh auth status` (as tanzir71) and Node ≥ 20.
-- [ ] Do M0 end to end and post the Pages URL.
-- [ ] Propose the M1 task breakdown as GitHub issues (label `m1`) before starting M1.
+- [x] Do M0 end to end and post the Pages URL.
+- [x] Propose the M1 task breakdown as GitHub issues (label `m1`) before starting M1.

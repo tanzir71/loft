@@ -8,6 +8,10 @@ _(none yet)_
 
 ## Log
 
+### 2026-11-21 — M0 released
+- v0.0.0 is live at https://tanzir71.github.io/loft/ (snapshot `/m0/`). The first tag run failed at the gh-pages snapshot step (git identity set before `git init`); fixed on `main` and redeployed with `workflow_dispatch` (milestone 0) instead of moving the tag.
+- M1 broken down into issues #1–#10 (label `m1`).
+
 ### 2026-11-21 — M0 scaffold and pipeline
 - **Toolchain versions:** Vite 7, React 18.3, TypeScript 6.0 (typescript-eslint supports < 6.1), ESLint 9, Vitest 5, Playwright 1.65. Vite 8 / TS 7 were skipped until the lint tooling supports them.
 - **One root tsconfig** (`tsc -p tsconfig.json`, `noEmit`) instead of project references: fewer files, same strictness.
