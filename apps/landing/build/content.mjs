@@ -30,8 +30,9 @@ function eyebrow(text) {
   return `<p class="eyebrow">${mk()}${esc(text)}</p>`;
 }
 
-function img(L, name, w, h, alt, eager = false) {
-  return `<img src="${L.img(name)}" width="${w}" height="${h}" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"'}>`;
+function img(L, name, w, h, alt, eager = false, small = "") {
+  const srcset = small ? ` srcset="${L.img(small)} ${Math.round(w / 2)}w, ${L.img(name)} ${w}w" sizes="(max-width: 767px) 100vw, ${w}px"` : "";
+  return `<img src="${L.img(name)}"${srcset} width="${w}" height="${h}" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"'}>`;
 }
 
 export function nav(L, active = "") {
@@ -233,7 +234,7 @@ function hero(L) {
     <p class="hero__links"><a href="${L.route("/signin")}">have an account? sign in to your spaces →</a><span aria-hidden="true">·</span><span class="muted">tanziro.com/spaces</span></p>
     <p class="fine">no credit card · up to 12 people per room · guests join with a link</p>
   </div>
-  <figure class="hero__visual">${img(L, "hero.webp", 1312, 886, "loft on desktop: Home with today's sessions, spaces and the side panel, plus a client paying an invoice on a phone.", true)}</figure>
+  <figure class="hero__visual">${img(L, "hero.webp", 1312, 886, "loft on desktop: Home with today's sessions, spaces and the side panel, plus a client paying an invoice on a phone.", true, "hero-656.webp")}</figure>
 </section>`;
 }
 
@@ -481,7 +482,7 @@ export function renderOrganisations(L) {
     <div class="hero__actions">${btn("email us to brand loft", mailto(), "dark")}${btn("see what changes", "#what-changes", "muted")}</div>
     <p class="fine">no checkout · we reply with an invoice · branding goes live when it's paid</p>
   </div>
-  <figure class="hero__visual">${img(L, "orgs-hero.webp", 1312, 886, "loft branded as Aurelian, a premium coaching practice: Home on desktop and a pay page on a phone.", true)}</figure>
+  <figure class="hero__visual">${img(L, "orgs-hero.webp", 1312, 886, "loft branded as Aurelian, a premium coaching practice: Home on desktop and a pay page on a phone.", true, "orgs-hero-656.webp")}</figure>
 </section>
 ${ORG_FEATURES.map((f, i) => feature(L, f, i)).join("\n")}
 ${orgWhatChanges()}

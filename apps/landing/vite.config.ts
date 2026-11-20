@@ -24,9 +24,32 @@ function landingContent(): Plugin {
   };
 }
 
+// Inline the (small) stylesheet into each page so nothing blocks first paint.
+function inlineCss(): Plugin {
+  return {
+    name: "loft-inline-css",
+    apply: "build",
+    enforce: "post",
+    generateBundle(_opts, bundle) {
+      const css = Object.values(bundle).filter((f) => f.type === "asset" && f.fileName.endsWith(".css"));
+      for (const file of Object.values(bundle)) {
+        if (file.type !== "asset" || !file.fileName.endsWith(".html")) continue;
+        let html = String(file.source);
+        for (const c of css) {
+          if (c.type !== "asset") continue;
+          const re = new RegExp(`<link rel="stylesheet"[^>]*href="[^"]*${c.fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>`);
+          html = html.replace(re, `<style>${String(c.source)}</style>`);
+        }
+        file.source = html;
+      }
+      for (const c of css) delete bundle[c.fileName];
+    }
+  };
+}
+
 export default defineConfig({
   base: process.env.BASE ?? "/",
-  plugins: [landingContent()],
+  plugins: [landingContent(), inlineCss()],
   build: {
     outDir: "dist",
     target: "es2022",
