@@ -1,0 +1,21 @@
+{
+  "name": "@loft/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@loft/board": "0.0.0",
+    "@loft/core": "0.0.0",
+    "@loft/data": "0.0.0",
+    "@loft/ui": "0.0.0",
+    "lucide-react": "^1.77.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6"
+  }
+}

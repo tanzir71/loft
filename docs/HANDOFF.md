@@ -323,11 +323,11 @@ Drop: next-auth, @vercel/blob, Vercel cron, Turso/libSQL client, the Next app ro
 Each milestone ends with the **Definition of done** in §11. Figma frame names are in quotes.
 
 ### M0: Consolidate, scaffold, pipeline
-- [ ] §5 consolidation with history; repo `tanzir71/loft` pushed.
-- [ ] npm workspaces; TS strict; ESLint; Vitest; Playwright (one smoke test).
-- [ ] `packages/ui`: generate `tokens.css` for all 4 modes from Figma variables (hard-code the values into a JSON once; script `npm run tokens` → CSS vars). Self-host woff2 for Barlow Condensed, Inter, JetBrains Mono, Host Grotesk.
-- [ ] App shell: desktop side panel (component "App / Side panel"), tablet rail, phone tab bar ("App / Mobile tab bar").
-- [ ] Empty states: "Home · first run (desktop)" and its phone version.
+- [x] §5 consolidation with history; repo `tanzir71/loft` pushed.
+- [x] npm workspaces; TS strict; ESLint; Vitest; Playwright (one smoke test).
+- [x] `packages/ui`: generate `tokens.css` for all 4 modes from Figma variables (hard-code the values into a JSON once; script `npm run tokens` → CSS vars). Self-host woff2 for Barlow Condensed, Inter, JetBrains Mono, Host Grotesk.
+- [x] App shell: desktop side panel (component "App / Side panel"), tablet rail, phone tab bar ("App / Mobile tab bar").
+- [x] Empty states: "Home · first run (desktop)" and its phone version.
 - [ ] `ci.yml` + `pages.yml`. **Release v0.0.0 → Pages live** at `/loft/` with landing placeholder + app shell.
 
 ### M1: Landing + organisations page (static)
@@ -494,7 +494,7 @@ Plain HTTP only, so it works on shared hosting:
 
 ## 14. First session checklist for Claude Code
 
-- [ ] Read §0–§13.
-- [ ] Confirm `gh auth status` (as tanzir71) and Node ≥ 20.
+- [x] Read §0–§13.
+- [x] Confirm `gh auth status` (as tanzir71) and Node ≥ 20.
 - [ ] Do M0 end to end and post the Pages URL.
 - [ ] Propose the M1 task breakdown as GitHub issues (label `m1`) before starting M1.

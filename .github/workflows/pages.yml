@@ -1,0 +1,103 @@
+name: Pages
+
+# A milestone tag (v0.N.x → M<N>, v1.x → M12) builds the landing + app with the local adapter,
+# keeps every earlier /m*/ snapshot (stored on the gh-pages branch), and deploys with actions/deploy-pages.
+on:
+  push:
+    tags: ["v0.*", "v1.*"]
+  workflow_dispatch:
+    inputs:
+      milestone:
+        description: "Milestone number to (re)deploy"
+        required: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      milestone: ${{ steps.m.outputs.n }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: m
+        name: Milestone number
+        run: |
+          if [ -n "${{ github.event.inputs.milestone }}" ]; then n="${{ github.event.inputs.milestone }}";
+          else
+            tag="${GITHUB_REF_NAME}"
+            if [[ "$tag" =~ ^v0\.([0-9]+)\. ]]; then n="${BASH_REMATCH[1]}";
+            elif [[ "$tag" =~ ^v1\. ]]; then n=12;
+            else echo "Unrecognised tag $tag" && exit 1; fi
+          fi
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Fetch previous snapshots (gh-pages branch)
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages:gh-pages
+            git worktree add prev gh-pages
+          else
+            mkdir -p prev
+          fi
+      - name: Build and assemble site
+        run: node scripts/build-pages.mjs --milestone ${{ steps.m.outputs.n }} --prev prev --out site
+      - name: Install Chromium
+        run: npx playwright install chromium --only-shell --with-deps
+      - name: Smoke test the assembled site
+        run: npm run e2e
+      - name: Store snapshots on gh-pages
+        run: |
+          cd prev
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ ! -d .git ] && [ ! -f .git ]; then git init -b gh-pages && git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"; fi
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R ../site/. .
+          git add -A
+          git commit -m "pages: M${{ steps.m.outputs.n }} (${GITHUB_REF_NAME})" || echo "nothing to commit"
+          git push origin HEAD:gh-pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  live-smoke:
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium --only-shell --with-deps
+      - name: Smoke test the live site (latest and the new snapshot)
+        run: |
+          for i in 1 2 3 4 5 6; do curl -fsS "https://${{ github.repository_owner }}.github.io/loft/m${{ needs.build.outputs.milestone }}/app/" >/dev/null && break; sleep 10; done
+          PAGES_URL="https://${{ github.repository_owner }}.github.io/loft/" npm run e2e
+          PAGES_URL="https://${{ github.repository_owner }}.github.io/loft/m${{ needs.build.outputs.milestone }}/" npx playwright test -g "landing|app shell"

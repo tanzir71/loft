@@ -1,0 +1,7 @@
+/* Self-hosted latin woff2 (SIL OFL 1.1). Upright only: Loft never uses italics. */
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/barlow-condensed-500.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/barlow-condensed-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/barlow-condensed-700.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("../fonts/inter-var.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 600; font-display: swap; src: url("../fonts/jetbrains-mono-var.woff2") format("woff2"); }
+@font-face { font-family: "Host Grotesk"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("../fonts/host-grotesk-var.woff2") format("woff2"); }

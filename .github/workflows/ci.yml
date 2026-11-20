@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck, lint, unit tests
+        run: npm run check
+      - name: PHP API tests
+        if: hashFiles('api/tests/run.php') != ''
+        run: php api/tests/run.php
+      - name: Build Pages output
+        run: npm run build:pages -- --milestone 0
+      - name: Install Chromium
+        run: npx playwright install chromium --only-shell --with-deps
+      - name: Playwright smoke test against the built Pages output
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 7
