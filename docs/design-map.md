@@ -15,3 +15,10 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 07 · Home · first run (desktop) [111:60] | `/` (no spaces yet) | `apps/web/src/pages/Home.tsx` | M0 |
 | (derived) Home · first run (phone) | `/` on phones | `Home.tsx` + `PageHeader` (header from 05 · Host · Home (phone) [63:55]) | M0 |
 | 05 · Host · More (phone) [104:538] | `/more` | `apps/web/src/pages/More.tsx` | M0 (layout), M3 (content) |
+| 06 · Landing pages · "Loft · landing v2 (tack pattern)" [57:370] | `/loft/` | `apps/landing/index.html` + `build/content.mjs` `renderLanding` | M1 |
+| — hero visual [57:406] | — | `public/img/hero.webp` | M1 |
+| — features 01–11 visuals [58:632, 99:2146, 58:836, 58:919, 58:1047, 58:1149, 60:1167, 60:1330, 60:1543, 60:1796, 60:1871] | — | `public/img/f01-rooms.webp` … `f11-phones.webp` | M1 |
+| — agents · how it works [113:2177] | — | HTML (`agents()` in content.mjs) | M1 |
+| — organisations band visual [61:2034] | — | `public/img/orgs-band.webp` | M1 |
+| 06 · Landing pages · "Loft · for organisations v2" [65:1669] | `/loft/organisations/` | `apps/landing/organisations/index.html` + `renderOrganisations` | M1 |
+| — hero [65:1703], identity [65:1936], your link [74:2008], documents [65:2165] | — | `public/img/orgs-*.webp` | M1 |

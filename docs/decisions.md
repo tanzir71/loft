@@ -4,9 +4,17 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Open questions
 
-_(none yet)_
+1. **2× mockup images.** The Figma MCP export only returns images at 1× (it never upscales), so the landing mockups are 1× WebP and look slightly soft on retina screens. To ship 2×, either export the visuals listed in `docs/design-map.md` from Figma at 2× into `apps/landing/public/img/` (same file names, then `node scripts/to-webp.mjs`), or add a Figma personal access token as a repo secret so a script can call the REST images endpoint with `scale=2`.
 
 ## Log
+
+### 2026-11-21 — M1 landing + organisations
+- **Rendering:** both pages are static HTML generated at build time by a Vite plugin from `apps/landing/build/content.mjs` (copy + render functions). No framework on the landing; 2 KB of JS for the quick-start and contact forms. Icons are inlined from `lucide-react`'s icon data at build time.
+- **Conflict (Figma vs handoff):** the landing's organisations band said "swaps in your logo, colours and domain" and listed "your domain, with SSL handled for you". The handoff forbids custom domains, so the copy now reads "logo, colours and name" and "your own link: tanziro.com/spaces/your-name" (matching the organisations page, which already said custom domains aren't offered).
+- **Quick start:** "start" opens `app/#/r/new?name=&guests=1|0`; "join" accepts a bare code or a full `…/r/<code>` link and opens `app/#/join?code=&name=`. The guest name is remembered in `localStorage` (`loft.guestName`). Rooms themselves arrive in M2.
+- **Contact form** lives on the organisations page under "how buying works" (the Figma note says the same fields work as a plain form). Production posts JSON to `/spaces/api/v1/contact` (M10); Pages opens a filled-in `mailto:`.
+- **Landing fonts:** Host Grotesk + JetBrains Mono are copied into `apps/landing/public/fonts/` (51 KB) so the hero font can be preloaded with a stable URL.
+- **Footer links** `privacy`/`terms` point at in-page anchors until those pages exist; `tack` points at tanziro.com/tack.
 
 ### 2026-11-21 — M0 released
 - v0.0.0 is live at https://tanzir71.github.io/loft/ (snapshot `/m0/`). The first tag run failed at the gh-pages snapshot step (git identity set before `git init`); fixed on `main` and redeployed with `workflow_dispatch` (milestone 0) instead of moving the tag.

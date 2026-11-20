@@ -1,12 +1,29 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Pages smoke", () => {
-  test("landing loads with the preview banner and links to the app", async ({ page }) => {
+  test("landing loads with the preview banner, hero and quick start", async ({ page }, info) => {
     await page.goto("./");
     await expect(page.getByRole("note")).toContainText("Preview build: data stays in this browser.");
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await page.getByRole("link", { name: "Open Loft" }).click();
-    await expect(page).toHaveURL(/\/app\//);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Plan the session");
+    await expect(page.getByRole("heading", { name: /Let Claude or Codex do the prep/ })).toBeVisible();
+    await expect(page.locator(".feat")).toHaveCount(12); // 11 features + organisations band
+    await expect(page.locator(".qcard")).toHaveCount(8);
+    if (info.project.name === "desktop") {
+      // side-by-side FAQ cards share one height
+      const heights = await page.locator(".qcard").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+      expect(new Set(heights).size).toBe(1);
+    }
+    await page.getByLabel("Room code or link").fill("abc-def-ghk");
+    await page.getByRole("button", { name: "join" }).click();
+    await expect(page).toHaveURL(/\/app\/#\/join\?code=abc-def-ghk/);
+  });
+
+  test("organisations page offers email-first buying, no checkout", async ({ page }) => {
+    await page.goto("./organisations/");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Your name on every screen");
+    await expect(page.getByRole("link", { name: /email us to brand loft/ })).toHaveAttribute("href", /^mailto:hello@tanziro\.com/);
+    await expect(page.getByText(/custom domains aren't offered/)).toBeVisible();
+    await expect(page.locator("form#contact")).toBeVisible();
   });
 
   test("app shell shows the first-run Home", async ({ page }, info) => {
@@ -27,13 +44,17 @@ test.describe("Pages smoke", () => {
     }
   });
 
-  test("no italics anywhere in the app shell", async ({ page }) => {
-    await page.goto("./app/");
-    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
-    const italic = await page.evaluate(() =>
-      [...document.querySelectorAll("body *")].filter((el) => getComputedStyle(el).fontStyle === "italic").length
-    );
-    expect(italic).toBe(0);
+  test("no italics and no horizontal scroll", async ({ page }) => {
+    for (const path of ["./", "./organisations/", "./app/"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      const r = await page.evaluate(() => ({
+        italic: [...document.querySelectorAll("body *")].filter((el) => getComputedStyle(el).fontStyle === "italic").length,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+      }));
+      expect(r.italic, path).toBe(0);
+      expect(r.overflow, path).toBeLessThanOrEqual(0);
+    }
   });
 
   test("milestones index lists releases", async ({ page }) => {

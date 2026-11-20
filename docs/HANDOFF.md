@@ -331,7 +331,7 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] `ci.yml` + `pages.yml`. **Release v0.0.0 → Pages live** at `/loft/` with landing placeholder + app shell.
 
 ### M1: Landing + organisations page (static)
-- [ ] Build "Loft · landing v2" exactly. Sections in order:
+- [x] Build "Loft · landing v2" exactly. Sections in order:
   1. nav
   2. hero with **start-a-room / join-with-code** block
   3. hero visual
@@ -344,8 +344,8 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
   10. FAQ (8 equal-height cards)
   11. CTA
   12. footer
-- [ ] Build "Loft · for organisations v2": email-first buying, the premium "Aurelian" mode mockups, `mailto:` CTA + plain contact form (form posts to `/spaces/api/v1/contact` in prod; on Pages it opens mailto).
-- [ ] Mockup images: export the Figma visuals as WebP (2×) into `apps/landing/public/img/`.
+- [x] Build "Loft · for organisations v2": email-first buying, the premium "Aurelian" mode mockups, `mailto:` CTA + plain contact form (form posts to `/spaces/api/v1/contact` in prod; on Pages it opens mailto).
+- [x] Mockup images: export the Figma visuals as WebP (2×) into `apps/landing/public/img/`.
 - [ ] Lighthouse ≥ 95 performance/accessibility on Pages.
 
 ### M2: Rooms + board v1 (port of tutorapp.quest)
