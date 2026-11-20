@@ -61,16 +61,22 @@ jobs:
       - name: Smoke test the assembled site
         run: npm run e2e
       - name: Store snapshots on gh-pages
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
           cd prev
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ ! -d .git ] && [ ! -f .git ]; then git init -b gh-pages && git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"; fi
+          if [ ! -e .git ]; then
+            git init -q -b gh-pages
+            git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          fi
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -R ../site/. .
           git add -A
-          git commit -m "pages: M${{ steps.m.outputs.n }} (${GITHUB_REF_NAME})" || echo "nothing to commit"
-          git push origin HEAD:gh-pages
+          git commit -q -m "pages: M${{ steps.m.outputs.n }} (${GITHUB_REF_NAME})" || echo "nothing to commit"
+          git push origin HEAD:refs/heads/gh-pages
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
