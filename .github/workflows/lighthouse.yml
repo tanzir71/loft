@@ -1,0 +1,27 @@
+name: Lighthouse
+
+# Runs after every Pages deploy (and on demand) against the live milestone snapshot.
+on:
+  workflow_run:
+    workflows: [Pages]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Path under https://<owner>.github.io/loft/ (e.g. m1/)"
+        required: false
+        default: ""
+
+jobs:
+  lighthouse:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Lighthouse ≥ 95 (performance, accessibility)
+        run: |
+          base="https://${{ github.repository_owner }}.github.io/loft/${{ github.event.inputs.path }}"
+          node scripts/lighthouse.mjs "$base" "${base}organisations/" "${base}app/"
