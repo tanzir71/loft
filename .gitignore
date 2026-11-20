@@ -1,0 +1,16 @@
+node_modules/
+dist/
+site/
+.env
+.env.*
+!.env.example
+api/data/
+*.sqlite
+*.sqlite-*
+*.zip
+.DS_Store
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.vite/
