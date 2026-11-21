@@ -66,6 +66,12 @@ function fresh(): Db
     Config::load(TEST_CONFIG);
     unset($GLOBALS['loft_now']);
     $GLOBALS['loft_mail'] = [];
+    // Tests never reach a real provider: requests are logged and get no answer unless a test scripts one.
+    $GLOBALS['loft_http_log'] = [];
+    $GLOBALS['loft_http'] = function (string $method, string $url, array $headers, ?array $body): array {
+        $GLOBALS['loft_http_log'][] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body];
+        return ['status' => 0, 'json' => null];
+    };
     return new Db(':memory:');
 }
 

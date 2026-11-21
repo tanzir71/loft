@@ -134,19 +134,45 @@ function call_settings(Ctx $ctx, string $hostId): array
 /** Never send sealed secrets to the browser: only on/off and the last 4 characters. */
 function call_settings_public(array $s): array
 {
-    foreach (['cloudflare', 'daily', 'jitsi'] as $p) unset($s[$p]['keySealed'], $s[$p]['tokenSealed']);
+    foreach (array_keys(PROVIDER_FIELDS) as $p) {
+        foreach (array_keys((array) ($s[$p] ?? [])) as $k) if (str_ends_with((string) $k, 'Sealed')) unset($s[$p][$k]);
+    }
     $s['usage'] = obj($s['usage'] ?? []);
     return $s;
+}
+
+/**
+ * The secrets each provider takes (all optional, all the org's own):
+ * Cloudflare: TURN key ID + API token, Realtime SFU app ID + app token. Daily: API key.
+ * Jitsi as a Service (8x8): app ID, API key ID and the RSA private key that signs room tokens.
+ */
+const PROVIDER_FIELDS = ['cloudflare' => ['key', 'token', 'appId', 'appToken'], 'daily' => ['key'], 'jitsi' => ['appId', 'key', 'privateKey']];
+
+/** A provider secret, decrypted with the install key (null when not set). */
+function provider_secret(array $s, string $provider, string $field): ?string
+{
+    $sealed = $s[$provider][$field . 'Sealed'] ?? null;
+    return is_string($sealed) && $sealed !== '' ? unseal($sealed) : null;
+}
+
+/** Today's video pool and where usage sits on the ladder (packages/core budgetStep). */
+function call_budget(Ctx $ctx, array $s): array
+{
+    $days = (int) local($ctx->now())->format('t');
+    $pool = (int) floor(((int) ($s['freeMinutes'] ?? 0) + ((int) ($s['budgetCents'] ?? 0)) / UNIT_CENTS_PER_MIN) / max(1, $days));
+    $today = gmdate('Y-m-d', intdiv($ctx->now(), 1000));
+    $used = (float) (((array) ($s['usage'] ?? []))[$today]['videoMinutes'] ?? 0);
+    $step = $pool <= 0 ? 'own-link' : ($used < $pool * 0.8 ? 'full' : ($used < $pool ? 'warn' : ($used < $pool + 10 ? 'audio-only' : 'own-link')));
+    return ['pool' => $pool, 'used' => $used, 'step' => $step, 'today' => $today];
 }
 
 routes()
     ->get('admin/calls', function (Ctx $ctx) {
         $me = require_me($ctx);
         $s = call_settings($ctx, $me['id']);
-        $now = local($ctx->now());
-        $days = (int) $now->format('t');
         $sfu = !empty($s['cloudflare']['on']) || !empty($s['daily']['on']) || !empty($s['jitsi']['on']);
-        $pool = (int) floor(((int) ($s['freeMinutes'] ?? 0) + ((int) $s['budgetCents']) / UNIT_CENTS_PER_MIN) / max(1, $days));
+        $budget = call_budget($ctx, $s);
+        $pool = $budget['pool'];
         $hosted = array_map(fn ($m) => $m['spaceId'], $ctx->db->list('memberships', fn ($m) => $m['userId'] === $me['id'] && $m['role'] === 'host'));
         $members = array_unique(array_map(fn ($m) => $m['userId'], $ctx->db->list('memberships', fn ($m) => in_array($m['spaceId'], $hosted, true) && $m['userId'] !== $me['id'])));
         $since = iso($ctx->now() - 30 * DAY);
@@ -158,12 +184,11 @@ routes()
             $d = gmdate('Y-m-d', intdiv($ctx->now() - $i * DAY, 1000));
             $last14[] = ['day' => $d, 'minutes' => (float) ($usage[$d]['minutes'] ?? 0), 'videoMinutes' => (float) ($usage[$d]['videoMinutes'] ?? 0)];
         }
-        $usedVideo = (float) ($usage[$today]['videoMinutes'] ?? 0);
-        $step = !$sfu ? 'full' : ($pool <= 0 ? 'own-link' : ($usedVideo < $pool * 0.8 ? 'full' : ($usedVideo < $pool ? 'warn' : ($usedVideo < $pool + 10 ? 'audio-only' : 'own-link'))));
+        $step = !$sfu ? 'full' : $budget['step'];
         $month = month_key($ctx->now());
         $spent = 0.0;
         foreach ($usage as $d => $u) if (str_starts_with((string) $d, $month)) $spent += (float) ($u['videoMinutes'] ?? 0);
-        return ['settings' => call_settings_public($s), 'pool' => $sfu ? $pool : null, 'activeMembers' => $active, 'perMember' => $sfu && $active ? (int) round($pool / $active) : null, 'today' => ['minutes' => (float) ($usage[$today]['minutes'] ?? 0), 'videoMinutes' => (float) ($usage[$today]['videoMinutes'] ?? 0)], 'step' => $step, 'last14' => $last14, 'month' => $month, 'spentCents' => (int) round($spent * UNIT_CENTS_PER_MIN)];
+        return ['settings' => call_settings_public($s), 'video' => video_provider($s), 'pool' => $sfu ? $pool : null, 'activeMembers' => $active, 'perMember' => $sfu && $active ? (int) round($pool / $active) : null, 'today' => ['minutes' => (float) ($usage[$today]['minutes'] ?? 0), 'videoMinutes' => (float) ($usage[$today]['videoMinutes'] ?? 0)], 'step' => $step, 'last14' => $last14, 'month' => $month, 'spentCents' => (int) round($spent * UNIT_CENTS_PER_MIN)];
     })
     ->post('admin/calls', function (Ctx $ctx, array $p, array $in) {
         $me = require_me($ctx);
@@ -177,17 +202,18 @@ routes()
         if (is_int($in['budgetCents'] ?? null)) $s['budgetCents'] = max(0, min(1000000, $in['budgetCents']));
         if (is_int($in['freeMinutes'] ?? null)) $s['freeMinutes'] = max(0, min(10000000, $in['freeMinutes']));
         if (is_bool($in['neverCut'] ?? null)) $s['neverCut'] = $in['neverCut'];
-        foreach (['cloudflare', 'daily', 'jitsi'] as $name) {
+        foreach (PROVIDER_FIELDS as $name => $fields) {
             $pv = $in['providers'][$name] ?? null;
             if (!is_array($pv)) continue;
             $cur = (array) ($s[$name] ?? ['on' => false]);
             if (is_bool($pv['on'] ?? null)) $cur['on'] = $pv['on'];
-            foreach (['key' => 'keyLast4', 'token' => 'tokenLast4'] as $field => $last) {
+            foreach ($fields as $field) {
                 $v = is_string($pv[$field] ?? null) ? trim($pv[$field]) : '';
-                if (strlen($v) >= 4) {
-                    $cur[$field . 'Sealed'] = seal($v);
-                    $cur[$last] = substr($v, -4);
-                }
+                if (strlen($v) < 4) continue;
+                if ($field === 'privateKey' && !openssl_pkey_get_private($v)) throw new BadRequest('That private key could not be read. Paste the whole PEM, including the BEGIN and END lines.');
+                $cur[$field . 'Sealed'] = seal($v);
+                $cur[$field . 'Last4'] = $field === 'privateKey' ? 'PEM' : substr($v, -4);
+                if ($name === 'cloudflare' && ($field === 'key' || $field === 'token')) $ctx->db->del('turn_cache', $me['id']);
             }
             $s[$name] = $cur;
         }
@@ -200,8 +226,14 @@ routes()
     ->get('rooms/:id/call-config', function (Ctx $ctx, array $p) {
         require_me($ctx);
         $room = $ctx->db->get('rooms', $p['id']);
-        $s = call_settings($ctx, (string) ($room['createdBy'] ?? ''));
-        return ['iceServers' => [['urls' => 'stun:' . ($s['stun'] ?: DEFAULT_STUN)]], 'ownLink' => $s['ownLink'] ?: null];
+        $host = (string) ($room['createdBy'] ?? '');
+        $s = call_settings($ctx, $host);
+        $ice = [['urls' => 'stun:' . ($s['stun'] ?: DEFAULT_STUN)]];
+        $turn = cf_turn_servers($ctx, $host, $s);
+        if ($turn) $ice[] = $turn;
+        $provider = video_provider($s);
+        $step = $provider ? call_budget($ctx, $s)['step'] : null;
+        return ['iceServers' => $ice, 'ownLink' => $s['ownLink'] ?: null, 'video' => $provider ? ['provider' => $provider, 'step' => $step, 'allowed' => $step === 'full'] : null];
     })
     ->post('rooms/:id/usage', function (Ctx $ctx, array $p, array $in) {
         require_me($ctx);

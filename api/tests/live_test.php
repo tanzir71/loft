@@ -52,5 +52,6 @@ test('calls & budget: keys are sealed and only the last 4 come back; usage feeds
     eq($a['pool'], 250, '(0 free + 3000 / 0.4) / 30 days');
     eq($a['today'], ['minutes' => 2.0, 'videoMinutes' => 1.0]);
     eq($a['step'], 'full');
-    eq(call($db, 'u_a', 'GET', 'rooms/rm1/call-config'), ['iceServers' => [['urls' => 'stun:stun.l.google.com:19302']], 'ownLink' => 'https://meet.example/abc']);
+    // TURN keys are set but Cloudflare doesn't answer: calls carry on with STUN; no SFU app keys, so no video.
+    eq(call($db, 'u_a', 'GET', 'rooms/rm1/call-config'), ['iceServers' => [['urls' => 'stun:stun.l.google.com:19302']], 'ownLink' => 'https://meet.example/abc', 'video' => null]);
 });
