@@ -440,10 +440,12 @@ routes()
         if (!$q) throw new NotFound('Question not found');
         $points = (int) max(0, min($q['points'], round(ck_num($in['points'] ?? null, 0))));
         // A partial mark is still a mark: it counts as graded, and only full marks count as correct.
-        $scores = (array) ($a['scores'] ?? []);
-        $scores[$q['id']] = ['isCorrect' => $points == $q['points'], 'points' => $points];
-        $next = array_merge($a, ['scores' => ck_obj($scores), 'status' => attempt_score(ck_questions($c), $scores)['pending'] ? 'submitted' : 'graded']);
-        $ctx->db->put('check_attempts', $next);
+        // Read-modify-write in one transaction: two marks on the same attempt at once both land.
+        $ctx->db->update('check_attempts', $a['id'], function (array $cur) use ($q, $points, $c) {
+            $scores = (array) ($cur['scores'] ?? []);
+            $scores[$q['id']] = ['isCorrect' => $points == $q['points'], 'points' => $points];
+            return array_merge($cur, ['scores' => ck_obj($scores), 'status' => attempt_score(ck_questions($c), $scores)['pending'] ? 'submitted' : 'graded']);
+        });
         $ctx->changed('check_attempts');
         return ['ok' => true];
     })
