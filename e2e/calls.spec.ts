@@ -62,7 +62,27 @@ test.describe("calls (M11)", () => {
     await expect.poll(async () => host.locator("audio").evaluateAll((els) => els.filter((e) => (e as HTMLAudioElement).srcObject).length), { timeout: 10_000 }).toBe(0);
   });
 
-  test("screen share reaches the other tab; annotations sync; stop clears it", async ({ context }) => {
+  test("screen share reaches the other tab; annotations sync; snapshot to board; stop clears it", async ({ context }) => {
+    // Headless Chromium has no screen to pick, so an animated canvas stands in for the screen picker's
+    // result. Everything after the picker is real: the share connections, the viewer's video, strokes, snapshot.
+    await context.addInitScript(() => {
+      if (!navigator.mediaDevices) return; // about:blank and other frames without media devices
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        const c = document.createElement("canvas");
+        c.width = 1280;
+        c.height = 720;
+        const g = c.getContext("2d")!;
+        let n = 0;
+        setInterval(() => {
+          g.fillStyle = n % 2 ? "#1f3a8a" : "#0f766e";
+          g.fillRect(0, 0, c.width, c.height);
+          g.fillStyle = "#ffffff";
+          g.font = "64px sans-serif";
+          g.fillText(`Slide ${++n}`, 80, 160);
+        }, 100);
+        return c.captureStream(10);
+      };
+    });
     const host = await context.newPage();
     await host.goto("./app/#/r/new?name=Share%20check");
     await expect(host).toHaveURL(/#\/r\/[A-Z2-9]{3}-[A-Z2-9]{3}$/);
@@ -70,20 +90,32 @@ test.describe("calls (M11)", () => {
     const guest = await context.newPage();
     await joinAsGuest(guest, code, "Sumaiya Khan");
     await expect(host.getByLabel("2 in the room")).toBeVisible();
-    const canShare = await host.evaluate(() => "getDisplayMedia" in navigator.mediaDevices);
-    test.skip(!canShare, "no screen capture in this browser");
     await host.getByRole("button", { name: "Share screen" }).click();
-    const started = await host.getByText("You're sharing").isVisible({ timeout: 5000 }).catch(() => false);
-    test.skip(!started, "headless browser refused screen capture");
+    await expect(host.getByText("You're sharing")).toBeVisible();
+    // The guest gets the live video (frames arriving), and the host sees one viewer.
     await expect(guest.getByText("Nusrat is sharing")).toBeVisible();
-    await expect.poll(async () => guest.locator(".screenshare video").evaluate((v) => Boolean((v as HTMLVideoElement).srcObject)), { timeout: 15_000 }).toBe(true);
-    // Annotate on the host; the stroke shows up for the guest.
-    const ink = host.getByLabel("Annotations");
+    await expect.poll(async () => guest.locator(".screenshare video").evaluate((v) => (v as HTMLVideoElement).videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(host.getByText("1 watching")).toBeVisible();
+    // Annotate on the host; the stroke is drawn on the guest's screen too.
+    const ink = host.locator(".screenshare__ink");
     const b = (await ink.boundingBox())!;
     await host.mouse.move(b.x + 100, b.y + 100);
     await host.mouse.down();
-    await host.mouse.move(b.x + 200, b.y + 160, { steps: 6 });
+    await host.mouse.move(b.x + 260, b.y + 180, { steps: 8 });
     await host.mouse.up();
+    const inked = (page: Page) =>
+      page.locator(".screenshare__ink").evaluate((c) => {
+        const cv = c as HTMLCanvasElement;
+        const d = cv.getContext("2d")!.getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i]! > 0) n++;
+        return n;
+      });
+    await expect.poll(() => inked(guest), { timeout: 10_000 }).toBeGreaterThan(50);
+    // Snapshot: the frame plus strokes become a new board page everyone gets.
+    await host.getByRole("button", { name: "Snapshot to board" }).click();
+    await expect(guest.getByRole("application").getByText("Screen snapshot")).toBeAttached({ timeout: 10_000 });
+    // Stop: the overlay closes for the guest.
     await host.getByRole("button", { name: "Stop sharing" }).click();
     await expect(guest.getByText("Nusrat is sharing")).toHaveCount(0);
   });

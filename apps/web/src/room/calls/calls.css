@@ -17,7 +17,7 @@
 .open-prompt__actions { display: flex; gap: 6px; align-items: center; }
 .open-prompt small { color: var(--color-muted-fg); }
 .follow-chip { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 12; display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 14px; font: var(--text-body-s); }
-.screenshare { position: absolute; inset: 0; z-index: 11; background: #12141c; display: flex; align-items: center; justify-content: center; padding: 84px 40px 96px; }
+.screenshare { position: absolute; inset: 0; z-index: 12; background: #12141c; display: flex; align-items: center; justify-content: center; padding: 84px 40px 96px; }
 .screenshare__chip { position: absolute; top: 20px; left: 20px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; font: var(--text-body-s); }
 .screenshare__chip svg { width: 18px; height: 18px; color: var(--color-primary); }
 .screenshare__live { font: var(--text-mono-s); color: var(--color-destructive-ink); background: var(--color-destructive-soft); padding: 2px 8px; border-radius: 999px; }
