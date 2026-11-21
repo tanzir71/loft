@@ -96,5 +96,12 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | POST | `rooms/:id/presence` | heartbeat (5 s), returns peers (TTL 30 s) | M2 / M11 |
 | GET/POST | `signal` | WebRTC signalling by polling | M11 |
 | POST | `files` | upload (sha-256 dedupe) | M3 / M10 |
+| POST | `rooms/:id/presence/leave` · GET `rooms/:id/presence` | leave now (frees the seat) · current peers | M11 |
+| GET/POST | `admin/calls` | org call settings: tier (P2P / SFU provider), STUN/TURN, sealed provider keys (last 4 shown), free minutes, budget, unit price; usage for 14 days and the month | M11 |
+| GET | `rooms/:id/call-config` | ICE servers and the call mode for this room (P2P, stage, audio-only, own link) | M11 |
+| POST | `rooms/:id/usage` | add call minutes `{minutes ≤ 5, video?}` → feeds the daily pool | M11 |
+| POST · GET | `rooms/:id/still` · `rooms/:id/still?tabId=` | upload / fetch the latest screen-share still (WebP, ≤ 1280 px) for viewers whose connection fails | M11 |
+| POST | `a/:token/files` (multipart) | an agent uploads an attachment (≤ 20 MB, optional claimed `taskId`) | M10 |
+| GET | `owner/backup` | owner only: a zip of `data/` with a consistent copy of the database (`VACUUM INTO`), uploads and config | M12 |
 
 This table grows with every milestone.

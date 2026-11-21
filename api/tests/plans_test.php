@@ -145,6 +145,19 @@ test('plans: attach & prepare is idempotent (room, pages, agenda, reminder), det
     eq($db->get('plans', $p['id'])['sessionId'], null);
 });
 
+test('plans: a session room opened again after it ended gets a new room with its own pages', function () {
+    $db = fresh();
+    $GLOBALS['loft_now'] = ms('2026-11-20T09:00:00Z');
+    fixture($db);
+    put($db, 'sessions', pln_test_session('se_1', '2026-11-24T10:00:00.000Z', ['title' => 'Lesson 7']));
+    $p = call($db, 'u_host', 'POST', 'spaces/sp_1/plans', ['title' => 'Vectors', 'from' => 'template:lesson']);
+    $first = call($db, 'u_host', 'POST', "plans/{$p['id']}/attach", ['sessionId' => 'se_1'])['prepared']['roomId'];
+    call($db, 'u_host', 'POST', "rooms/$first/end");
+    $room = call($db, 'u_host', 'POST', 'sessions/se_1/room');
+    ok($room['id'] !== $first, 'a new room');
+    eq(array_values(array_unique(array_map(fn ($o) => $o['kind'], $db->opsSince($room['id'], 0)))), ['add'], 'pages are added, not updated in a room that never had them');
+});
+
 test('plans: the room rail, host notes stay with the host, attendance from presence', function () {
     $db = fresh();
     $GLOBALS['loft_now'] = ms('2026-11-24T09:55:00Z');

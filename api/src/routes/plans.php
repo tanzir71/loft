@@ -368,7 +368,7 @@ routes()
             $hosts = $ctx->db->list('memberships', fn ($m) => $m['spaceId'] === $s['spaceId'] && $m['role'] === 'host');
             $host = (string) ($hosts[0]['userId'] ?? $me['id']);
             if ($plan) {
-                $prepared = pln_prepare($ctx, $plan, array_merge($s, ['prepared' => array_merge($prep, ['roomId' => null])]), $host);
+                $prepared = pln_prepare($ctx, $plan, array_merge($s, ['prepared' => array_merge($prep, ['roomId' => null, 'pages' => []])]), $host); // a new room starts with no pages
                 $ctx->db->patch('sessions', $s['id'], ['prepared' => $prepared]);
                 $room = $ctx->db->get('rooms', (string) $prepared['roomId']);
             } else {

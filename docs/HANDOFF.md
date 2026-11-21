@@ -396,9 +396,9 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] On Pages: a **simulated agent run** (scripted drafts) so the flow is demoable. Write `docs/agent-link.md` (§12).
 
 ### M10: PHP backend + production on Namecheap
-- [ ] `api/` with every endpoint the app uses (`docs/api.md`), `HttpAdapter`, migrations, install wizard, email sign-in links, uploads, daily task, owner console, branding toggle + expiry, contact form, `.ics` feeds and invites, booking iCal busy blocks.
-- [ ] **Agent link protocol live** (§12) with rate limits and audit log.
-- [ ] Deploy:
+- [x] `api/` with every endpoint the app uses (`docs/api.md`), `HttpAdapter`, migrations, install wizard, email sign-in links, uploads, daily task, owner console, branding toggle + expiry, contact form, `.ics` feeds and invites, booking iCal busy blocks.
+- [x] **Agent link protocol live** (§12) with rate limits and audit log.
+- [x] Deploy:
   - build artefact `loft-prod.zip` (landing → `/loft`, SPA → `/spaces`, `api/` → `/spaces/api`, `data/` outside the web root) attached to the GitHub release
   - `docs/deploy-namecheap.md` with cPanel steps
   - optional GitHub Action using FTP/SFTP secrets **only if the owner adds them**.

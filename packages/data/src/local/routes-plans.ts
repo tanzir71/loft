@@ -289,7 +289,7 @@ routes
       const plan = s.planId ? await ctx.db.get<PlanRow>("plans", s.planId) : null;
       const host = (await ctx.db.list<MemberRow>("memberships", (m) => m.spaceId === s.spaceId && m.role === "host"))[0]?.userId ?? me.id;
       if (plan) {
-        const prepared = await prepare(ctx, plan, { ...s, prepared: { ...(s.prepared ?? {}), roomId: undefined } }, host);
+        const prepared = await prepare(ctx, plan, { ...s, prepared: { ...(s.prepared ?? {}), roomId: undefined, pages: {} } }, host); // a new room starts with no pages
         await ctx.db.patch<SessionRow>("sessions", s.id, { prepared });
         room = await ctx.db.get<RoomRow>("rooms", prepared.roomId!);
       } else {

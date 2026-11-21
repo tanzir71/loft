@@ -63,6 +63,9 @@ The server does a few things the preview only simulates:
 
 - **Email** goes out with `send_mail()` (invoices and reminders with `via.email`, sign-in links, calendar invites with `.ics` attachments). In tests and with `mail_mode = log` it is written to `data/mail.log`.
 - **Guests** get a session cookie (`start_session`) so a guest tab stays the same person.
+- **Transactions**: use `$ctx->db->tx(fn () => …)` (depth-tracked, nested calls join the outer one) or `$ctx->db->update()` for read-modify-write; never a raw `BEGIN` (PDO can't see it on SQLite). Claims, daily jobs, nudge delivery, rate buckets, answers and grades are atomic.
+- **Calendar**: one email per recipient with one single-event `.ics` per affected session (`sch_send_invites`, ORGANIZER = the host); busy feeds are cached on the availability row (`busyFetchedIcs`, `busyFetchedAt`, retried every 15 min, public IPs only); `plan_template_blocks($key)` replaces the TS template closures.
+- **Agent uploads**: `POST a/:token/files` (multipart, ≤ 20 MB); claims, drafts, reports, questions and uploads are written to the audit log as `agent.*`.
 - **Agent links** read the seat from the `User-Agent` and `X-Agent-Name` headers (the front controller puts them in `$in['agent']`) and errors use real HTTP status codes.
 
 ## Tests

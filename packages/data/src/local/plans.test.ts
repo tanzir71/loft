@@ -52,6 +52,24 @@ describe("plans", () => {
     await expect(a.mutate("plans/pl_lesson7/attach", { sessionId: (await a.query<Plan>("plans/pl_lesson6")).sessionId })).rejects.toThrow(/already has a plan/);
   });
 
+  it("a session room opened again after it ended gets a new room with its own pages", async () => {
+    const a = tab();
+    const p = await a.query<Plan>("plans/pl_lesson7");
+    const target = p.sessions!.find((s) => !s.planId)!;
+    const r1 = await a.mutate<{ prepared: { roomId: string } }>(`plans/${p.id}/attach`, { sessionId: target.id });
+    await a.mutate(`rooms/${r1.prepared.roomId}/end`, {});
+    const room = await a.mutate<{ id: string }>(`sessions/${target.id}/room`, {});
+    expect(room.id).not.toBe(r1.prepared.roomId);
+    const ac = new AbortController();
+    let ops: { kind: string }[] = [];
+    for await (const batch of a.sync(room.id, 0, ac.signal)) {
+      ops = batch;
+      ac.abort();
+      break;
+    }
+    expect(ops.map((o) => o.kind)).toEqual(["add"]); // the board page is added, not "updated" in a room that never had it
+  });
+
   it("keeps host notes away from members in the room", async () => {
     const a = tab();
     const p = await a.query<Plan>("plans/pl_lesson6");
