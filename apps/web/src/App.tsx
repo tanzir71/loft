@@ -1,40 +1,69 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { Route, Routes } from "react-router-dom";
 import { AppShell } from "./shell/AppShell";
 import { Home } from "./pages/Home";
 import { More } from "./pages/More";
 import { NotFound } from "./pages/Soon";
-import { JoinPage, NewRoom, RoomPage } from "./room/RoomPage";
 import { NewSpace } from "./pages/NewSpace";
 import { SpacePage } from "./pages/Space";
 import { ChatsPage, DmPage } from "./pages/Hallway";
 import { InboxPage } from "./pages/Inbox";
+import { Loading } from "./components/bits";
 import "./pages/m3.css";
-import { CalendarPage } from "./pages/Calendar";
-import { AvailabilityPage, BookingPage, ManagePage } from "./pages/Booking";
 import "./pages/m5.css";
-import { PlanEditor } from "./pages/Plans";
-import { WrapUpPage } from "./pages/WrapUp";
 import "./pages/m6.css";
 import "./room/room.css";
-import { MoneyLog, MoneyOverview, MoneyPackages, MoneyPayments, MoneyReminders } from "./pages/money/Money";
-import { InvoiceDetail, InvoicePrint, MoneyInvoices } from "./pages/money/Invoices";
-import { PayPage, PayPrint } from "./pages/money/Pay";
 import "./pages/money/money.css";
-import { InsightsPage } from "./pages/insights/Insights";
-import { CheckPage } from "./pages/checks/Checks";
-import { TakeCheck } from "./pages/checks/TakeCheck";
 import "./pages/insights/insights.css";
-import { AgentsPage, AgentsReadPage, ReviewPage } from "./pages/agents/Agents";
 import "./pages/agents/agents.css";
-import { InstallPage, SignInPage } from "./pages/system/Auth";
-import { OwnerPage } from "./pages/system/Owner";
-import { BrandPage } from "./pages/system/Brand";
-import { SettingsPage } from "./pages/system/Settings";
-import { AdminPage } from "./pages/system/Admin";
 import "./pages/system/system.css";
+
+// Heavy screens load on demand so the first page stays light on phones (Lighthouse gate, M1/M12).
+function page<M, K extends keyof M>(load: () => Promise<M>, name: K) {
+  return lazy(async () => ({ default: (await load())[name] as unknown as ComponentType<Record<string, unknown>> }));
+}
+const room = () => import("./room/RoomPage");
+const RoomPage = page(room, "RoomPage");
+const NewRoom = page(room, "NewRoom");
+const JoinPage = page(room, "JoinPage");
+const CalendarPage = page(() => import("./pages/Calendar"), "CalendarPage");
+const booking = () => import("./pages/Booking");
+const AvailabilityPage = page(booking, "AvailabilityPage");
+const BookingPage = page(booking, "BookingPage");
+const ManagePage = page(booking, "ManagePage");
+const PlanEditor = page(() => import("./pages/Plans"), "PlanEditor");
+const WrapUpPage = page(() => import("./pages/WrapUp"), "WrapUpPage");
+const money = () => import("./pages/money/Money");
+const MoneyOverview = page(money, "MoneyOverview");
+const MoneyLog = page(money, "MoneyLog");
+const MoneyPackages = page(money, "MoneyPackages");
+const MoneyPayments = page(money, "MoneyPayments");
+const MoneyReminders = page(money, "MoneyReminders");
+const invoices = () => import("./pages/money/Invoices");
+const MoneyInvoices = page(invoices, "MoneyInvoices");
+const InvoiceDetail = page(invoices, "InvoiceDetail");
+const InvoicePrint = page(invoices, "InvoicePrint");
+const pay = () => import("./pages/money/Pay");
+const PayPage = page(pay, "PayPage");
+const PayPrint = page(pay, "PayPrint");
+const InsightsPage = page(() => import("./pages/insights/Insights"), "InsightsPage");
+const CheckPage = page(() => import("./pages/checks/Checks"), "CheckPage");
+const TakeCheck = page(() => import("./pages/checks/TakeCheck"), "TakeCheck");
+const agents = () => import("./pages/agents/Agents");
+const AgentsPage = page(agents, "AgentsPage");
+const AgentsReadPage = page(agents, "AgentsReadPage");
+const ReviewPage = page(agents, "ReviewPage");
+const auth = () => import("./pages/system/Auth");
+const SignInPage = page(auth, "SignInPage");
+const InstallPage = page(auth, "InstallPage");
+const OwnerPage = page(() => import("./pages/system/Owner"), "OwnerPage");
+const BrandPage = page(() => import("./pages/system/Brand"), "BrandPage");
+const SettingsPage = page(() => import("./pages/system/Settings"), "SettingsPage");
+const AdminPage = page(() => import("./pages/system/Admin"), "AdminPage");
 
 export function App() {
   return (
+    <Suspense fallback={<Loading />}>
     <Routes>
       <Route path="r/new" element={<NewRoom />} />
       <Route path="r/:code" element={<RoomPage />} />
@@ -80,5 +109,6 @@ export function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }

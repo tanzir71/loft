@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { IconRail, PreviewBanner, SidePanel, TabBar, type DmLink, type LiveRoomLink, type SpaceLink } from "@loft/ui";
 import type { User } from "@loft/core";
@@ -10,6 +10,7 @@ import { applyTheme, THEME_MODES, type ThemeMode } from "@loft/ui";
 import { mainNav } from "./nav";
 import { RouterLink } from "./RouterLink";
 import { StartSheet } from "./StartSheet";
+import { Loading } from "../components/bits";
 
 export interface NavData {
   me: User;
@@ -85,7 +86,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </>
         )}
         <main className="app__main" id="main">
-          {children ?? <Outlet />}
+          <Suspense fallback={<Loading />}>{children ?? <Outlet />}</Suspense>
         </main>
       </div>
       {bp === "phone" && <TabBar current={pathname} Link={RouterLink} chats={counts.chats} inbox={counts.inbox} onNew={() => setStart(true)} />}

@@ -8,6 +8,7 @@ Every milestone is a tagged release with a frozen GitHub Pages snapshot at `http
 - Accessibility: a contrast test checks 13 text/background pairs at WCAG AA in all four brand modes. It caught Aurelian's muted text (4.10:1), which is now 4.67:1. The board works from the keyboard: Tab / Shift+Tab step through objects, arrow keys pan when nothing is selected, and + / − zoom. Every control has a visible focus ring, now including the search box, the chat box and the board's find bar.
 - End-to-end tests for the two main loops: create a room → a guest joins → board → end → recap, and schedule a session → attach a plan → teach in its room → wrap-up → invoice → the payer says paid → the host confirms.
 - Database writes that read and then change a row run in one transaction (answers, grades, claims, rate buckets, daily jobs, nudges), so requests arriving together never overwrite each other.
+- Faster first load on phones: the room, calendar, plans, money, checks, insights, agents and admin screens load when you open them. The first download is 452 KB instead of 805 KB (141 KB gzipped instead of 239 KB).
 
 ## v0.11.0 — M11: Live features over PHP (2026-11-21)
 - Rooms over plain HTTP: the board op-log syncs every 1.5 s, presence every 5 s (30 s expiry, leaving frees the seat at once) and WebRTC signalling through `/signal`. No WebSocket server.

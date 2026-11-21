@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate, useParams } from "react-router-dom";
 import { Bell, ChevronLeft, CircleCheck, Copy, FileText, History, ListChecks, Play, Send, Settings, Upload, UserPlus } from "lucide-react";
 import { Avatar, Badge, Button } from "@loft/ui";
@@ -6,10 +6,12 @@ import { formatTime, SPACE_MODES, tabLabel, type ModeConfig, type SpaceMode, typ
 import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint } from "../lib/media";
 import { ErrorState, Loading, relTime, whenLabel } from "../components/bits";
-import { PlansTab } from "./Plans";
-import { BillingSetup } from "./money/Billing";
-import { GradesTab } from "./checks/Checks";
-import { PrepTab } from "./agents/Prep";
+
+// Host tabs load on demand (they pull in plans, money, checks and agents).
+const PlansTab = lazy(async () => ({ default: (await import("./Plans")).PlansTab }));
+const BillingSetup = lazy(async () => ({ default: (await import("./money/Billing")).BillingSetup }));
+const GradesTab = lazy(async () => ({ default: (await import("./checks/Checks")).GradesTab }));
+const PrepTab = lazy(async () => ({ default: (await import("./agents/Prep")).PrepTab }));
 
 interface SpaceView {
   id: string; slug: string; name: string; sub: string; code: string; colour: string; mode: SpaceMode;
@@ -114,13 +116,13 @@ export function SpacePage() {
         ) : current === "people" ? (
           <People space={s} />
         ) : current === "plans" ? (
-          <PlansTab spaceId={s.id} />
+          <Suspense fallback={<Loading />}><PlansTab spaceId={s.id} /></Suspense>
         ) : current === "billing" ? (
-          <BillingSetup spaceId={s.id} />
+          <Suspense fallback={<Loading />}><BillingSetup spaceId={s.id} /></Suspense>
         ) : current === "grades" ? (
-          <GradesTab spaceId={s.id} />
+          <Suspense fallback={<Loading />}><GradesTab spaceId={s.id} /></Suspense>
         ) : current === "prep" ? (
-          <PrepTab spaceId={s.id} slug={s.slug} />
+          <Suspense fallback={<Loading />}><PrepTab spaceId={s.id} slug={s.slug} /></Suspense>
         ) : (
           <section className="empty">
             <h2 className="empty__title">{labelOf(current)} arrives in {LATER[current as SpaceTab] ?? "a later milestone"}</h2>
