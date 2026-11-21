@@ -43,3 +43,8 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 04 · "Board v2 · phone (shapes sheet open)" [79:2456] | `/r/:code` on phones | `RoomPage.tsx` (`phoneTools`), `.room--phone .shapes-flyout` | M4 |
 | 04 · "Board feature map" [81:4015] · diagram as code | `/r/:code` → More → Diagram as code | `BoardPanels.tsx` `DiagramPanel`, `packages/board/src/diagram.ts` | M4 |
 | — PDF/slides import, PNG/PDF export | `/r/:code` → Upload / More | `room/board/pdfImport.ts`, `room/board/render.ts`, `packages/board/src/pdf.ts` | M4 |
+| 06 · S1 "Calendar (desktop)" [95:4906], "S1 · phone · calendar agenda" [100:3771] | `/calendar` | `pages/Calendar.tsx` (`WeekGrid`, `MonthGrid`, `Agenda`, `Requests`) | M5 |
+| 06 · S2 "New session / series (desktop)" [95:5263], phone [100:3891] | `/calendar` → New session | `Calendar.tsx` `NewSessionSheet` | M5 |
+| 06 · S3 "Availability + booking types (desktop)" [97:3307], phone [100:3978] | `/calendar/availability` | `pages/Booking.tsx` `AvailabilityPage` | M5 |
+| 06 · S4 "Public booking page (desktop)" [97:3704], phone [100:4066] | `/book/:handle` | `Booking.tsx` `BookingPage` | M5 |
+| 06 · S5 "Reschedule + booking requests (desktop)" [98:3538], phone [100:4125] | `/calendar` rail, `/review`, `/manage/:token` | `Calendar.tsx` `Requests`, `Booking.tsx` `ManagePage` | M5 |

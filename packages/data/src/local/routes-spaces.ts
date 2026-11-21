@@ -4,6 +4,7 @@ import { newId, roomCode, ROOM_CAPACITY, slugify, sortableId, spaceCode, SPACE_M
 import { ForbiddenError, NotFoundError } from "../types";
 import type { Row } from "./db";
 import { requireMe, routes, str, type LocalCtx } from "./routes";
+import { pendingRequests } from "./routes-schedule";
 
 interface SpaceRow extends Row { mode: SpaceMode; code: string; name: string; sub?: string; slug: string; colour: string; createdBy: string; createdAt: string }
 interface MemberRow extends Row { spaceId: string; userId: string; role: string; lastReadAt: string }
@@ -102,6 +103,11 @@ async function reviewItems(ctx: LocalCtx, meId: string) {
     const space = post ? await ctx.db.get<SpaceRow>("spaces", post.spaceId) : undefined;
     if (!post || !space) continue;
     items.push({ id: `handin:${postId}`, kind: "handin", title: `${list.length} hand-in${list.length === 1 ? "" : "s"} to review`, sub: `${post.title} · ${space.name}`, action: "Review", link: `/s/${space.slug}/work` });
+  }
+  for (const r of await pendingRequests(ctx, meId)) {
+    const when = new Date(r.from).toLocaleString("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const to = r.to ? new Date(r.to).toLocaleString("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    items.push({ id: `req:${r.id}`, kind: r.kind === "booking" ? "booking" : "move", title: r.kind === "booking" ? `New booking · ${r.title.split(" · ")[0]}` : r.kind === "move" ? `${r.who.split(" ")[0]} asks to move ${r.title}` : `${r.who.split(" ")[0]} asks to cancel ${r.title}`, sub: r.kind === "booking" ? `${r.who} · ${when}` : `${when}${to ? ` → ${to}` : ""}${r.late ? " · late" : ""}`, action: "Approve", link: "/calendar?requests=1" });
   }
   const knocks = await ctx.db.list<NoteRow>("notifications", (n) => n.userId === meId && n.kind === "knock" && !n.readAt);
   for (const k of knocks) items.push({ id: `knock:${k.id}`, kind: "knock", title: k.title, sub: k.sub, action: "Join", link: k.link });

@@ -368,12 +368,12 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Frames: "Board v2 · flowchart + connectors (desktop)", "Board v2 · tools spec", "Board v2 · phone".
 
 ### M5: Scheduling (row C)
-- [ ] S1 Calendar (week/day/month) incl. Calendar in side panel.
-- [ ] S2 New session / series with clash check.
-- [ ] S3 Availability + booking types.
-- [ ] S4 Public booking page.
-- [ ] S5 Reschedule + booking requests.
-- [ ] `.ics` generation in TS (Pages download) and PHP (M10).
+- [x] S1 Calendar (week/day/month) incl. Calendar in side panel.
+- [x] S2 New session / series with clash check.
+- [x] S3 Availability + booking types.
+- [x] S4 Public booking page.
+- [x] S5 Reschedule + booking requests.
+- [x] `.ics` generation in TS (Pages download) and PHP (M10).
 
 ### M6: Plans (row A)
 - [ ] P1 Library, P2 New plan (blank/template/file; AI hidden on Pages), P3 Block editor (timeline bar), P4 Attach & prepare, P5 Host-only plan rail in room, P6 Wrap-up.

@@ -8,6 +8,16 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M5 scheduling
+- **Time zones** use only `Intl` (no date library): `zonedToUtc` converts a wall time in a zone to UTC and re-checks the offset so DST transitions land correctly (tested for London and New York). Sessions are stored as UTC ISO strings.
+- **Series** are materialised as rows linked by `seriesId` (max 200 per series); moves and cancels ask "this / this and following / all".
+- **Free slots** = availability ranges in the host's zone, minus sessions (not cancelled) and busy blocks, each widened by the buffer; then minimum notice, per-day cap and horizon. Steps are 30 minutes.
+- **Busy calendar:** the PHP API (M10) fetches the pasted iCal URL at most every 15 minutes. Browsers can't fetch calendar feeds cross-origin, so the Pages preview accepts pasted `.ics` text instead. The parser handles single events and simple weekly RRULEs (BYDAY, COUNT, UNTIL, INTERVAL) and treats TZID times as UTC (busy only, never written back).
+- **Calendar feed:** production serves `GET /ics/<token>.ics` (M10). The preview offers a downloadable snapshot of the same feed.
+- **Bookings** create a session (`requested` with manual approval, otherwise `scheduled`). The slot is re-validated on submit, and a filled honeypot field returns a fake success. The manage link token needs no login.
+- **Requests:** a move on a group session becomes a one-off copy for that member; on a 1:1 space the session itself moves. A member's cancel on a group session is recorded as an attendance exception (used by billing in M7). Pending requests expire at the original start time. The late-change window defaults to 24 h until billing settings (M7) set it per space.
+- **Calendar shading** draws the host's weekly hours on the viewer's local grid (the host is the viewer here).
+
 ### 2026-11-21 — M4 board v2
 - **Rendering layers:** pages and sections (DOM) → highlighter, shapes and connectors (world-space SVG) → shape labels, connector labels, notes and text (DOM, so text wraps and edits natively) → pen ink (SVG, on top) → selection, guides and handles. Live strokes update one SVG path imperatively. (The M2 canvas ink layer was replaced.)
 - **Smoothing** stores raw points plus a `smoothing` value per stroke and renders the perfect-freehand outline, so the slider can change later; pressure comes from `PointerEvent.pressure` for pens only.

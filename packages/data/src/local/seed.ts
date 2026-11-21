@@ -2,7 +2,7 @@ import { newId, sortableId } from "@loft/core";
 import type { LocalDb } from "./db";
 
 /** Bump when demo data changes; the local adapter wipes and re-seeds a browser whose data is older. */
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 export const DEMO_HOST_ID = "u_nusrat";
 
@@ -115,9 +115,47 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
     ["acme-pricing", "Steering review", 3, 10, 0],
     ["physics-a", "Kinematics II", 1, 16, 0]
   ];
+  const sessionIds: Record<string, string> = {};
   for (const [slug, title, d, h, m] of sessions) {
-    await db.put("sessions", { id: newId("se"), spaceId: spaceIds[slug], title, startsAt: at(now, d, h, m), minutes: 60, room: "loft", status: "scheduled" });
+    const id = newId("se");
+    sessionIds[title] = id;
+    await db.put("sessions", { id, spaceId: spaceIds[slug], title, startsAt: at(now, d, h, m), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
   }
+  // A weekly series (Mon/Wed 16:00) for the course, materialised as rows.
+  const seriesId = newId("sr");
+  await db.put("series", { id: seriesId, spaceId: spaceIds["physics-a"], rule: { days: [1, 3], time: "16:00", minutes: 60 }, createdAt: iso });
+  for (let d = -7; d <= 28; d++) {
+    const day = new Date(now);
+    day.setDate(day.getDate() + d);
+    if (day.getDay() !== 1 && day.getDay() !== 3) continue;
+    await db.put("sessions", { id: newId("se"), spaceId: spaceIds["physics-a"], seriesId, title: "Physics · Section A", startsAt: at(now, d, 16), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
+  }
+
+  // Availability + booking types (Figma 06 · S3) and a booking page at /book/nusrat (S4).
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  await db.put("availability", {
+    id: DEMO_HOST_ID,
+    tz,
+    weekly: { 1: [{ start: "10:00", end: "13:00" }], 2: [{ start: "10:00", end: "13:00" }], 3: [{ start: "14:00", end: "17:00" }], 4: [{ start: "10:00", end: "13:00" }], 5: [{ start: "10:00", end: "14:00" }] },
+    rules: { bufferMin: 15, noticeHours: 12, maxPerDay: 4, horizonDays: 30 },
+    handle: "nusrat",
+    bio: "Pricing and product strategy for small teams",
+    feedToken: newId(),
+    busyIcs: ""
+  });
+  await db.put("booking_types", { id: "bt_discovery", userId: DEMO_HOST_ID, name: "Discovery call", minutes: 30, priceCents: 0, destSpaceId: null, approval: "manual", blurb: "A short call to see if we're a good fit. You'll get a calendar invite and a room link by email." });
+  await db.put("booking_types", { id: "bt_strategy", userId: DEMO_HOST_ID, name: "Strategy session", minutes: 60, priceCents: 15000, destSpaceId: spaceIds["acme-pricing"], approval: "auto", blurb: "A working session on your pricing or launch plan." });
+  await db.put("booking_types", { id: "bt_intro", userId: DEMO_HOST_ID, name: "Workshop intro", minutes: 45, priceCents: 0, destSpaceId: spaceIds["acme-sprint"], approval: "auto", blurb: "Plan a design sprint with your team." });
+
+  // A pending move request (S5) and a booking waiting for approval.
+  const steering = sessionIds["Steering review"];
+  if (steering) {
+    const proposed = new Date(at(now, 4, 11));
+    await db.put("change_requests", { id: "rq_demo", sessionId: steering, memberId: "u_rafi", kind: "move", proposedStartsAt: proposed.toISOString(), note: "I'm travelling Monday morning.", status: "pending", createdAt: ago(now, 90) });
+  }
+  const bookingSession = newId("se");
+  await db.put("sessions", { id: bookingSession, spaceId: spaceIds["acme-pricing"], title: "Discovery call · Rina Saha", startsAt: at(now, 2, 10, 30), minutes: 30, room: "loft", status: "requested", sequence: 0, bookingId: "bk_demo" });
+  await db.put("bookings", { id: "bk_demo", typeId: "bt_discovery", hostId: DEMO_HOST_ID, sessionId: bookingSession, guestName: "Rina Saha", guestEmail: "rina@example.com", note: "We're launching a snack range and want to test prices.", status: "requested", manageToken: "demo-manage-token", createdAt: ago(now, 60) });
 
   // Notifications (Figma 07 · Notifications panel).
   const note = async (kind: string, title: string, sub: string, link: string, minutesAgo: number, read = false) =>

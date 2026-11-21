@@ -21,6 +21,14 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | POST | `dms/:userId/messages` · `dms/:userId/read` · `dms/:userId/room` | send · mark read · start a room / knock (`{knock: true}`) | M3 |
 | GET | `notifications` · POST `notifications/read-all` · `notifications/:id/read` | notifications | M3 |
 | GET | `review` | To review items (hand-ins, knocks, must-reads to confirm) | M3 |
+| GET | `calendar?from&to` | sessions (viewer-filtered), pending requests, availability, feed token, booking handle | M5 |
+| POST | `sessions` | one session `{startsAt}` or a weekly series `{series: {days, time, tz, from, count|until}}`; `dryRun` returns clashes; `skip[]` drops dates | M5 |
+| POST | `sessions/:id/move` · `sessions/:id/cancel` | host only; `{scope: this|following|all}`; bumps SEQUENCE | M5 |
+| GET | `sessions/:id/ics` · `feed` (prod: `/ics/<token>.ics`) | invite / private feed | M5 |
+| GET/POST | `availability` · POST `booking-types` · `booking-types/:id/delete` | hours, rules, busy iCal, booking types | M5 |
+| GET | `book/:handle` · `book/:handle/slots?type=` · POST `book/:handle` | public booking page (no auth, honeypot `website`) | M5 |
+| GET | `manage/:token` · POST `manage/:token/cancel` · `manage/:token/move` | no-login manage link | M5 |
+| POST | `sessions/:id/requests` · GET `requests` · POST `requests/:id` | member asks to move/cancel · host's pending list with checks · `{decision}` | M5 |
 | POST | `auth/link` | email a 15-minute single-use sign-in link | M10 |
 | POST | `auth/signout` | end the session | M10 |
 | POST | `rooms` | create a room `{name?, guestJoin?, spaceId?}` → room with `code` | M2 |

@@ -2,6 +2,14 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.5.0 — M5: Scheduling (2026-11-21)
+- Calendar with week, day and month views (agenda on phones): sessions in space colours, bookable hours shaded, booked calls and requests in lighter or dashed fills, a now line, drag to move (host) with "this / following / all" for series.
+- New session or weekly series in one form, with a live clash check against your sessions and busy times and "skip date" for clashes.
+- Availability (weekly hours, buffer, notice, max per day, horizon), busy times from a pasted iCal feed, and booking types (length, USD price or free, destination space, auto or manual approval).
+- Public booking page at `/book/<handle>`: pick a type, a day and a time in your own time zone; approval or instant; honeypot; a no-login manage link to reschedule or cancel.
+- Requests (moves, cancels, bookings) with "you're free / clash / late change" checks; approve or decline in one tap, and a decline suggests the next free times.
+- `.ics` for every session (stable UID, SEQUENCE+1 on updates, METHOD:REQUEST/CANCEL) and a downloadable calendar feed; the legacy TutorLoft ICS test is ported.
+
 ## v0.4.0 — M4: Board v2 (2026-11-21)
 - Flowchart shapes (process, rounded, start/end, decision, input/output, database, document, ellipse) with labels, fills, resize and four anchors each.
 - Connectors: straight, elbow (≤2 bends) and curved (Bézier, 0.4 × distance controls); arrow/dot caps, dash, colour and labels; they re-route when shapes move. Quick-create arrows add a connected copy of a shape.
