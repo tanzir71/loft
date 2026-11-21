@@ -9,6 +9,7 @@ import { ErrorState, Loading, relTime, whenLabel } from "../components/bits";
 import { PlansTab } from "./Plans";
 import { BillingSetup } from "./money/Billing";
 import { GradesTab } from "./checks/Checks";
+import { PrepTab } from "./agents/Prep";
 
 interface SpaceView {
   id: string; slug: string; name: string; sub: string; code: string; colour: string; mode: SpaceMode;
@@ -43,14 +44,16 @@ export function SpacePage() {
   if (error) return <ErrorState what="this space" onRetry={reload} />;
   if (!s) return <Loading label="Loading space" />;
   // Every space has a Plans tab for hosts (the workshop's "Agenda" tab is its plans).
-  type Tab = SpaceTab | "plans";
+  type Tab = SpaceTab | "plans" | "prep";
   let tabs: Tab[] = s.modeConfig.tabs.map((t) => (t === "agenda" ? "plans" : t));
   if (s.isHost && !tabs.includes("plans")) tabs.splice(Math.max(0, tabs.indexOf("chat") + 1), 0, "plans");
   // Billing is the host's (Figma 06 · I1): every paid mode gets the tab; members never see it.
   if (s.isHost && s.mode !== "team" && !tabs.includes("billing")) tabs.push("billing");
-  if (!s.isHost) tabs = tabs.filter((t) => t !== "plans" && t !== "billing");
+  // Prep (Figma 06 · A2): the agent queue for this space, hosts only.
+  if (s.isHost) tabs.splice(Math.max(0, tabs.indexOf("plans") + 1), 0, "prep");
+  if (!s.isHost) tabs = tabs.filter((t) => t !== "plans" && t !== "billing" && t !== "prep");
   const current = (tabs.includes(tab as Tab) ? tab : tabs[0]) as Tab;
-  const labelOf = (t: Tab) => (t === "plans" ? (s.mode === "workshop" ? "Agenda" : "Plans") : tabLabel(s.mode, t));
+  const labelOf = (t: Tab) => (t === "plans" ? (s.mode === "workshop" ? "Agenda" : "Plans") : t === "prep" ? "Prep" : tabLabel(s.mode, t));
   const startRoom = async () => {
     const r = await adapter.mutate<{ code: string }>("rooms", { name: s.name, spaceId: s.id });
     nav(`/r/${r.code}`);
@@ -71,7 +74,7 @@ export function SpacePage() {
         {!phone && <button type="button" className="lf-icon-btn" aria-label="Space settings" title="Space settings arrive with Admin (M10)"><Settings aria-hidden="true" /></button>}
         <Button size="sm" icon={<Play aria-hidden="true" />} onClick={() => void startRoom()}>{phone ? "Room" : "Start room"}</Button>
       </header>
-      <div className={`space-body${current === "billing" ? " space-body--wide" : ""}`}>
+      <div className={`space-body${current === "billing" || current === "prep" ? " space-body--wide" : ""}`}>
         {current === "stream" && (
           <div className={`space-banner sc-${s.colour}`}>
             <h2>{s.name}</h2>
@@ -116,6 +119,8 @@ export function SpacePage() {
           <BillingSetup spaceId={s.id} />
         ) : current === "grades" ? (
           <GradesTab spaceId={s.id} />
+        ) : current === "prep" ? (
+          <PrepTab spaceId={s.id} slug={s.slug} />
         ) : (
           <section className="empty">
             <h2 className="empty__title">{labelOf(current)} arrives in {LATER[current as SpaceTab] ?? "a later milestone"}</h2>

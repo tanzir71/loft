@@ -231,6 +231,9 @@
 .bconn-label input { width: 120px; border: 0; outline: none; font: inherit; background: none; text-align: center; }
 .bsection { position: absolute; border-radius: 16px; background: rgb(255 255 255 / 0.65); border: 1px solid var(--color-border); }
 .bsection.is-selected { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.bsection.is-draft-section { border: 1.5px dashed var(--color-primary); background: rgb(255 255 255 / 0.4); }
+.bsection.is-draft-section .bsection__title { background: var(--color-primary-soft); color: var(--color-primary-ink); }
+.bsection__draft { font: var(--text-caption); font-weight: 400; }
 .bsection__title { position: absolute; left: 12px; top: 12px; padding: 4px 10px; border-radius: 8px; background: var(--color-muted); font: var(--text-label); color: var(--color-ink-2); cursor: default; }
 .bsection__title--edit { border: 1px solid var(--color-primary); outline: none; width: 220px; }
 .bdiagram { position: absolute; border: 1.5px dashed var(--color-border); border-radius: 14px; pointer-events: none; }

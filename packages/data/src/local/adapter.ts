@@ -11,6 +11,7 @@ import "./routes-plans";
 import "./routes-money";
 import "./routes-insights";
 import "./routes-checks";
+import "./routes-agents";
 import { seed, SEED_VERSION } from "./seed";
 
 export interface LocalAdapterOptions {
@@ -78,7 +79,8 @@ export class LocalAdapter implements DataAdapter {
       db,
       meId,
       now: this.now,
-      changed: (...tables) => this.bus.post({ type: "changed", tables })
+      changed: (...tables) => this.bus.post({ type: "changed", tables }),
+      opsChanged: (roomId) => this.bus.post({ type: "ops", roomId })
     };
   }
 

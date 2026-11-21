@@ -11,6 +11,8 @@ export interface LocalCtx {
   now: () => Date;
   /** Tell every tab which tables changed. */
   changed: (...tables: string[]) => void;
+  /** Wake rooms that are syncing this op-log (routes that append ops, e.g. accepted agent drafts). */
+  opsChanged?: (roomId: string) => void;
 }
 
 async function requireMe(ctx: LocalCtx): Promise<User & Row> {

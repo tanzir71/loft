@@ -8,6 +8,16 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M9 agents
+- **Protocol lives in the data layer.** The agent-link endpoints (`a/<token>`, `/next.json`, `/claim`, `/context/<id>`, `/drafts`, `/report`, `/ask`, `/changes`) are routes in the local adapter with the same rules the PHP server will enforce (seats, approval, revocation, 60/min token bucket, expiry, pause, ≤500 ops, ≤2 agents per room, redaction). Errors come back as `{error, status}`. `docs/agent-link.md` is the spec.
+- **Seats** are keyed by runtime + name (User-Agent + `X-Agent-Name`). Workspace links need the host's approval for new seats; space and room links approve on first contact (build rules). Revoking puts the seat's working tasks back in the queue.
+- **Drafts.** Every agent write is a draft row. Board drafts are op batches flagged `draft` and authored `agent:<name>`; hosts see them merged onto the board as a dashed layer with "draft by <agent>" on sections, an activity panel, "Review N drafts" and "Pause agents". Accept re-issues the ops into the room's op-log as the host without the flag; plans attach to the session (as an "AI draft" plan), posts go to the stream, checks arrive as check drafts, invoice drafts run Money's draft builder (never sends). Reject deletes with a reason the agent reads in `next.md`; "Ask for changes" re-queues the task with the note as feedback.
+- **Board drafts need a room.** A task tied to a session uses the session's prepared room (created on first use), so the draft layer appears where the session will happen.
+- **Agent time** comes from `report.minutes` per seat (Agents page, this week) and per task; it is never billed.
+- **Links on Pages.** The preview has no server, so the displayed link uses the production form (`tanziro.com/spaces/a/<token>`) with a note that real agents connect once the PHP server is installed (M10). "Run the demo agent" drives the same endpoints from the browser with a scripted agent (`claude (demo)` on the space link), with pauses so the flow is visible.
+- **Live sessions.** Drafts are always on the draft layer, so "Let agents edit during live sessions" is stored on the link now and enforced for direct live edits when live features arrive (M11).
+- **Copy without pronouns** again: "codex · building the board", "moved on to the next task".
+
 ### 2026-11-21 — M8 insights, checks, states
 - **Who Insights covers.** Members and payers of the host's non-team spaces (learners and clients). Co-hosts and team spaces (colleagues) are left out. Last seen updates on any request (throttled to 5 min); a new "login" is a visit that starts after 30 min away. "In a room" = presence status busy or an open attendance event.
 - **At-risk rule** (any of): not seen for 7+ days, missed 2+ sessions in a row, attendance under 75% over 3+ sessions, under half of due work on time (2+ due), or an overdue fee. Reasons are shown, never a score. Attendance counts attended / (attended + absent + no-show + late cancel); excused is left out. Deltas compare with the previous window of the same length.

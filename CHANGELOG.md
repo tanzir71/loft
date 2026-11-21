@@ -2,6 +2,15 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.9.0 — M9: Agents (2026-11-21)
+- Agents page: one link (workspace, a space or a room) plus one line to hand prep to any agent; who's on your links (approve, revoke), what agents are working on, questions that need you (answer with a tap), drafts ready for you, and agent time this week.
+- Prep tab in every space: the next session's prep status, ready / in progress / needs you / queued, templates (agenda, board from a brief, N-question check, recap, client-call agenda, invoice drafts) and a New prep task sheet with brief, attachments, ready-by time and agent.
+- The agent link protocol (capabilities v1): next.md that starts with what an agent can do, claim, redacted context, drafts (plan, board ops, post, check, invoice draft), report, ask, changes; seats, approval, 60 requests a minute, pause, 30-day expiry. Documented in docs/agent-link.md.
+- A draft layer in the room: agent board drafts show dashed with "draft by <agent>", only to the host, with an activity panel, Review and Pause agents.
+- Ready for you: review each draft with a preview, accept all or some, reject with a reason the agent sees, or ask for changes.
+- What agents read: the exact next.md / next.json for a link.
+- Run the demo agent on the preview: a scripted agent works through a queued task with the same endpoints.
+
 ## v0.8.0 — M8: Insights, checks, states (2026-11-21)
 - Insights: active members, attendance, homework on time and session length with change vs the previous period; a People table with last seen, last login, attendance, homework, fees and at-risk reasons; filters for At risk and Not seen 7 days; CSV export; a phone layout.
 - Nudges: one-tap Nudge for anyone at risk (in-app, or open in WhatsApp), automatic nudges (deadline, missed 2 sessions in a row, fee overdue + 3 days, files not opened) run on the first visit of the day, and custom nudges to a group now or at a set time, with "this week" sent / opened / acted on.

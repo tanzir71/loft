@@ -624,7 +624,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board(p, ref) 
         })}
         {shown.map((o) =>
           o.kind !== "section" ? null : (
-            <div key={o.id} data-obj={o.id} className={`bsection${isSel(o.id) ? " is-selected" : ""}`} style={{ left: o.x, top: o.y, width: o.w, height: o.h }}>
+            <div key={o.id} data-obj={o.id} className={`bsection${isSel(o.id) ? " is-selected" : ""}${o.draft ? " is-draft-section" : ""}`} style={{ left: o.x, top: o.y, width: o.w, height: o.h }}>
               {editing === o.id ? (
                 <input
                   className="bsection__title bsection__title--edit"
@@ -643,7 +643,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board(p, ref) 
                   }}
                 />
               ) : (
-                <span className="bsection__title" onDoubleClick={() => setEditing(o.id)}>{o.title}</span>
+                <span className="bsection__title" onDoubleClick={() => setEditing(o.id)}>{o.title}{o.draft && o.by?.startsWith("agent:") && <small className="bsection__draft"> · draft by {o.by.slice(6)}</small>}</span>
               )}
             </div>
           )

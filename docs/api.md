@@ -61,6 +61,15 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | POST | `attempts/:id/answer` · `/integrity` · `/submit` | autosave `{questionId, answer}` · tinyproctor snapshot · submit → auto-graded score | M8 |
 | GET | `checks/:id/results` · POST `attempts/:id/grade` | attempts with scores and integrity review, not started, per-question rates, short answers to mark · `{questionId, points}` | M8 |
 | GET | `spaces/:id/grades` | gradebook columns (tasks, checks) and rows with averages | M8 |
+| GET | `agents` | links, seats (state, time this week), working, needs you, ready, activity, built-in capabilities | M9 |
+| POST | `agents/links` · `agents/links/:id` · `agents/pause` | get-or-create a link `{scope, scopeId}` · `{paused?, liveEdits?, rotate?}` · pause/resume all | M9 |
+| POST | `agents/seats/:id` | `{action: approve|revoke|rename, name?}` | M9 |
+| GET | `agents/read?link=` | the next.md / next.json an agent on that link reads | M9 |
+| GET/POST | `spaces/:id/prep` | prep queue (next session, ready, working, needs you, queued), templates, seats · queue a task `{template, sessionId?, brief, attachments, readyBy, who?, post?}` | M9 |
+| POST | `prep/:id/answer` | answer an agent's question (re-queues with feedback) | M9 |
+| GET/POST | `prep/:id/review` | drafts with previews and the report · `{accept[], reject[], reason?, changes?}` | M9 |
+| GET | `rooms/:id/agent` | host only: pending board draft ops, activity, working agent, review task | M9 |
+| GET/POST | `a/:token` · `a/:token/next.json` · `/claim` · `/context/:id` · `/drafts` · `/report` · `/ask` · `/changes` | the agent link protocol (see `docs/agent-link.md`) | M9 (local) · M10 (PHP) |
 | POST | `auth/link` | email a 15-minute single-use sign-in link | M10 |
 | POST | `auth/signout` | end the session | M10 |
 | POST | `rooms` | create a room `{name?, guestJoin?, spaceId?}` → room with `code` | M2 |

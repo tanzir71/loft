@@ -24,6 +24,8 @@ import { InsightsPage } from "./pages/insights/Insights";
 import { CheckPage } from "./pages/checks/Checks";
 import { TakeCheck } from "./pages/checks/TakeCheck";
 import "./pages/insights/insights.css";
+import { AgentsPage, AgentsReadPage, ReviewPage } from "./pages/agents/Agents";
+import "./pages/agents/agents.css";
 
 export function App() {
   return (
@@ -53,7 +55,9 @@ export function App() {
         <Route path="money/reminders" element={<MoneyReminders />} />
         <Route path="insights" element={<InsightsPage />} />
         <Route path="checks/:id" element={<CheckPage />} />
-        <Route path="agents" element={<Soon title="Agents" milestone="M9" blurb="One link and one line. Agents prepare drafts; you review and accept." />} />
+        <Route path="agents" element={<AgentsPage />} />
+        <Route path="agents/read" element={<AgentsReadPage />} />
+        <Route path="agents/review/:taskId" element={<ReviewPage />} />
         <Route path="chats" element={<ChatsPage />} />
         <Route path="inbox" element={<InboxPage initial="review" />} />
         <Route path="spaces/new" element={<NewSpace />} />

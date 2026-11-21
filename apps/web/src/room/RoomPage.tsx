@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Grid2x2, Hand, Link2, Mail, MessageCircle, MousePointer2, Pencil, Plus, Redo2, RefreshCw, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Bot, ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Eye, Grid2x2, Hand, Link2, Mail, MessageCircle, MousePointer2, Pause, Pencil, Plus, Redo2, RefreshCw, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { Avatar, Button, PreviewBanner } from "@loft/ui";
 import { normaliseCode, type User } from "@loft/core";
-import { bounds, pageAt, sortedPages, PAGE_GAP, type BoardOp, type ConnectorObj, type Page, type ShapeKind, type StickyColour } from "@loft/board";
+import { applyOp, bounds, pageAt, sortedPages, PAGE_GAP, type BoardOp, type ConnectorObj, type Page, type ShapeKind, type StickyColour } from "@loft/board";
 import type { LocalAdapter } from "@loft/data";
 import { useAdapter, useQuery } from "../lib/data";
+import { relTime } from "../components/bits";
 import { useBreakpoint, useOnline } from "../lib/media";
 import { IS_PREVIEW } from "../lib/env";
 import { Board, type BoardHandle, type Tool } from "./Board";
@@ -169,6 +170,9 @@ export function RoomPage() {
   }, [seat]);
 
   const { state, commit, undo, redo } = useBoard(seat === "in" ? (room?.id ?? null) : null, me?.id ?? "anon");
+  // Agent draft layer (Figma 06 · A4): pending board drafts, dashed, visible to the host only.
+  const { data: agentLayer } = useQuery<{ ops: BoardOp[]; pending: number; activity: { at: string; text: string }[]; working: { title: string; seat: string } | null; taskId: string | null; paused: boolean }>(isHost && room ? `rooms/${room.id}/agent` : null);
+  const boardState = useMemo(() => (agentLayer?.ops.length ? agentLayer.ops.reduce((s2, op) => applyOp(s2, op), state) : state), [agentLayer, state]);
   // Attendance from presence (joined/left), used by the wrap-up.
   useEffect(() => {
     if (seat !== "in" || !room) return;
@@ -346,7 +350,7 @@ export function RoomPage() {
       <div className="room__stage">
         <Board
           ref={boardRef}
-          state={state}
+          state={boardState}
           commit={commit}
           tool={tool}
           pen={{ colour: penColour, size: phone ? 3 : 3.5, smoothing, highlighter, recognise }}
@@ -436,6 +440,23 @@ export function RoomPage() {
 
         {room.sessionId && <div className="room__rail"><PlanRail sessionId={room.sessionId} compact={phone} onGoToPage={(id) => boardRef.current?.goToPage(id)} /></div>}
         {share && <SharePopover room={room} isHost={isHost} onClose={() => setShare(false)} phone={phone} onEnd={async () => adapter.mutate(`rooms/${room.id}/end`)} />}
+
+        {isHost && agentLayer && (agentLayer.pending > 0 || agentLayer.working) && (
+          <div className="room__agent" data-board-ui="">
+            <div className="island room__agent-bar">
+              <Bot aria-hidden="true" />
+              <span>{agentLayer.working ? `${agentLayer.working.seat} · ${agentLayer.working.title.toLowerCase()}` : "agent drafts waiting"}</span>
+              {agentLayer.taskId && agentLayer.pending > 0 && <Link className="lf-btn lf-btn--primary lf-btn--sm" to={`/agents/review/${agentLayer.taskId}`}><Eye aria-hidden="true" />Review {agentLayer.pending} draft{agentLayer.pending === 1 ? "" : "s"}</Link>}
+            </div>
+            {!phone && agentLayer.activity.length > 0 && (
+              <div className="island room__agent-log">
+                <div className="room__agent-head"><b>Agent activity</b><Button size="sm" variant="secondary" icon={<Pause aria-hidden="true" />} onClick={() => void adapter.mutate("agents/pause", { paused: !agentLayer.paused })}>{agentLayer.paused ? "Resume agents" : "Pause agents"}</Button></div>
+                <ul role="list">{agentLayer.activity.slice(0, 4).map((a, i) => <li key={i}><Bot aria-hidden="true" /><span>{a.text}</span><small>{relTime(a.at)}</small></li>)}</ul>
+              </div>
+            )}
+          </div>
+        )}
+        {isHost && agentLayer && agentLayer.ops.length > 0 && <p className="island room__draft-legend" data-board-ui=""><span aria-hidden="true" />dashed = draft, only you can see it until you accept</p>}
 
         {/* Figma 07 states: reconnecting (the board keeps working locally) and room full · host view */}
         {(!online || (isHost && waitingPeers.length > 0)) && (

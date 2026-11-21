@@ -66,3 +66,10 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 04 · "Host · Insights + nudges" [46:1044], 05 · "Host · Insights (phone)" [107:551] | `/insights` | `pages/insights/Insights.tsx` (`AutoNudges`, `CustomNudge`, `NudgeSheet`) | M8 |
 | — quick checks (built from the Insights/Money visual language; no dedicated frame) | `/s/:slug/grades`, `/checks/:id`, `/checks/:id/take` | `pages/checks/Checks.tsx` (`GradesTab`, `Gradebook`, `CheckPage`, `Builder`, `Results`), `pages/checks/TakeCheck.tsx` | M8 |
 | 07 · "States · offline, reconnecting, loading, errors" [111:550] | shell, room, every page | `shell/AppShell.tsx` (offline), `room/RoomPage.tsx` (reconnecting, room full · host), `components/bits.tsx` (`ErrorState`, `Loading`), `money/Invoices.tsx` (send failure) | M8 |
+| 06 · A1 "Agents (desktop)" [115:13], phone [118:1189] | `/agents` | `pages/agents/Agents.tsx` `AgentsPage`, `lib/demoAgent.ts` | M9 |
+| 06 · A2 "Prep queue in a space (desktop)" [116:287] | `/s/:slug/prep` | `pages/agents/Prep.tsx` `PrepTab` | M9 |
+| 06 · A3 "New prep task (desktop)" [116:749] | Prep → New prep task | `Prep.tsx` `NewPrepSheet` | M9 |
+| 06 · A4 "Agent drafting in the room (desktop)" [117:921] | `/r/:code` (host) | `room/RoomPage.tsx` (draft layer, activity, legend), `room/Board.tsx` (draft sections) | M9 |
+| 06 · A5 "Ready for you · review (desktop)" [117:1097], phone [118:1322] | `/agents/review/:taskId` | `Agents.tsx` `ReviewPage`, `DraftPreview` | M9 |
+| 06 · A6 "What agents read (next.md)" [115:442] | `/agents/read` | `Agents.tsx` `AgentsReadPage`, `packages/core/src/agents.ts` `nextMarkdown` | M9 |
+| 06 · "Agents · build rules" [117:1392] | protocol | `packages/data/src/local/routes-agents.ts`, `docs/agent-link.md` | M9 |

@@ -1,10 +1,10 @@
-import { DEFAULT_REMINDER_SUBJECT, DEFAULT_REMINDER_TEXT, DEFAULT_REMINDERS, monthKey, newId, prevMonthKey, sortableId, type AttendanceStatus } from "@loft/core";
+import { DEFAULT_REMINDER_SUBJECT, DEFAULT_REMINDER_TEXT, DEFAULT_REMINDERS, demoDrafts, LINK_DAYS, monthKey, newId, prevMonthKey, sortableId, type AttendanceStatus } from "@loft/core";
 import type { LocalDb } from "./db";
 import type { LocalCtx } from "./routes";
 import { buildDrafts, confirmPayment, recordAttendance, sellPackage, sendInvoice, type InvoiceRow, type MoneySettings } from "./routes-money";
 
 /** Bump when demo data changes; the local adapter wipes and re-seeds a browser whose data is older. */
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 8;
 
 export const DEMO_HOST_ID = "u_nusrat";
 
@@ -223,6 +223,66 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
 
   await seedMoney(db, now, spaceIds, physicsSessions, past.id);
   await seedChecks(db, now, phy);
+  await seedAgents(db, now, spaceIds, sessionIds);
+}
+
+/** Agents demo (Figma 06 · A1–A5): two links, three seats, a prep queue and drafts on the room's draft layer. */
+async function seedAgents(db: LocalDb, now: Date, spaceIds: Record<string, string>, sessionIds: Record<string, string>) {
+  const t = now.getTime();
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const sprint = spaceIds["acme-sprint"]!;
+  const sessionId = sessionIds["Sprint · Decide"]!;
+  const session = await db.get<Record<string, unknown> & { id: string; startsAt: string; title: string }>("sessions", sessionId);
+  // The session's room, with one page, so board drafts have somewhere to land.
+  const roomId = "rm_sprint_decide";
+  await db.put("rooms", { id: roomId, spaceId: sprint, sessionId, slug: "spr-dcd", code: "SPR-DCD", name: "Sprint · Decide", capacity: 12, guestJoin: false, createdBy: DEMO_HOST_ID, createdAt: iso(t - DAY), endedAt: null });
+  await db.appendOps(roomId, [{ actor: DEMO_HOST_ID, ts: t - DAY, kind: "add", payload: { page: { id: "pg_decide", title: "Decide board", order: 1, x: 0, y: 0, w: 1200, h: 750, bg: null } } }] as never);
+  if (session) await db.put("sessions", { ...session, prepared: { roomId } });
+  const exp = iso(t + LINK_DAYS * DAY - 2 * DAY);
+  await db.put("agent_links", { id: "al_workspace", hostId: DEMO_HOST_ID, scope: "workspace", scopeId: null, token: "w7Rk2mXq9Lp4Tz8Vb3Nc", expiresAt: exp, paused: false, liveEdits: false, createdAt: iso(t - 9 * DAY) });
+  await db.put("agent_links", { id: "al_sprint", hostId: DEMO_HOST_ID, scope: "space", scopeId: sprint, token: "s9k2mQx7Hd4Rw8Pf1Lc6", expiresAt: exp, paused: false, liveEdits: false, createdAt: iso(t - 5 * DAY) });
+  let order = 0;
+  const seat = (id: string, linkId: string, name: string, runtime: string, version: string, seatNo: number, status: string, seenMin: number) =>
+    db.put("agent_seats", { id, linkId, hostId: DEMO_HOST_ID, name, runtime, version, seatNo, status, createdAt: iso(t - 5 * DAY + order++ * 60_000), lastSeenAt: iso(t - seenMin * 60_000), bucket: null });
+  await seat("seat_codex", "al_sprint", "codex", "codex-cli", "0.9", 1, "approved", 2);
+  await seat("seat_claude", "al_workspace", "claude", "claude-code", "1.0", 1, "approved", 12);
+  await seat("seat_codex2", "al_sprint", "codex (laptop)", "codex-cli", "0.9", 2, "pending", 1);
+  const task = (id: string, template: string, title: string, status: string, seatId: string | null, extra: Record<string, unknown> = {}) =>
+    db.put("prep_tasks", { id, hostId: DEMO_HOST_ID, spaceId: sprint, sessionId, roomId: null, template, title, brief: "", attachments: [], readyBy: session ? iso(Date.parse(session.startsAt) - 2 * 3600_000) : null, who: null, post: false, status, seatId, claimedAt: seatId ? iso(t - 3 * 3600_000) : null, doneAt: status === "ready" ? iso(t - 3600_000) : null, minutes: 0, report: "", question: null, feedback: null, createdAt: iso(t - 2 * DAY), ...extra });
+  const draft = (taskId: string, seatId: string, d: { kind: string; title: string; sub: string; payload: Record<string, unknown> }, minsAgo: number) =>
+    db.put("agent_drafts", { id: newId("dr"), taskId, hostId: DEMO_HOST_ID, seatId, ...d, status: "pending", reason: null, createdAt: iso(t - minsAgo * 60_000) });
+  const ev = (taskId: string | null, seatId: string | null, kind: string, text: string, minsAgo: number, minutes = 0) =>
+    db.put("agent_events", { id: sortableId("ae"), hostId: DEMO_HOST_ID, taskId, seatId, linkId: null, kind, text, minutes, at: iso(t - minsAgo * 60_000) });
+
+  const brief = "Three sections: Map (customer journey), Decide (price options with dot voting), Storyboard (6 frames). Use the numbers from the Q3 panel.";
+  await task("pt_board", "board_brief", "Board from the brief", "working", "seat_codex", { brief, attachments: ["brief.pdf", "q3-panel.csv"], roomId, minutes: 38 });
+  const board = demoDrafts("board_brief", { title: session?.title ?? "Sprint · Decide", brief, minutes: 90, anchor: { x: 40, y: 60 } }).filter((d) => d.kind === "board_ops");
+  for (const [i, d] of board.entries()) {
+    const ops = (d.payload.ops as { kind: string; payload: { obj: Record<string, unknown> } }[]).map((o) => ({ ...o, payload: { obj: { ...o.payload.obj, by: "agent:codex" } } }));
+    await draft("pt_board", "seat_codex", { ...d, payload: { ops } }, 3 - i);
+  }
+  await ev("pt_board", "seat_codex", "claim", "claimed Board from the brief", 40);
+  await ev("pt_board", "seat_codex", "draft", "added section 'Map' + 4 stickies", 2);
+  await ev("pt_board", "seat_codex", "draft", "added section 'Decide' + 3 options", 1);
+  await ev("pt_board", "seat_codex", "progress", "seeded votes from the Q3 panel", 1, 38);
+  await ev("pt_board", "seat_codex", "draft", "adding storyboard frames 6/6", 0);
+
+  await task("pt_check", "check", "5-question check on pricing basics", "ready", "seat_codex", { brief: "5 questions, multiple choice", minutes: 12, report: "Five multiple-choice questions on elasticity, test design and stop rules." });
+  for (const d of demoDrafts("check", { title: "Pricing basics", brief: "5 questions", minutes: 10, anchor: { x: 0, y: 0 } })) await draft("pt_check", "seat_codex", d, 70);
+  await ev("pt_check", "seat_codex", "done", "finished 5-question check on pricing basics", 65, 12);
+
+  await task("pt_recap", "recap", "Recap from Day 3", "ready", "seat_claude", { minutes: 9, report: "Recap from yesterday's board and plan." });
+  for (const d of demoDrafts("recap", { title: "Day 3", brief: "", minutes: 60, anchor: { x: 0, y: 0 } })) await draft("pt_recap", "seat_claude", d, 50);
+  await ev("pt_recap", "seat_claude", "done", "finished Recap from Day 3", 48, 9);
+
+  await task("pt_agenda", "agenda", `Agenda for ${session?.title ?? "the next session"}`, "needs_you", "seat_claude", { minutes: 14, question: { text: "Should the vote be dot-voting (3 dots each) or one vote per person?", options: ["3 dots each", "one vote each"], answer: null, at: iso(t - 12 * 60_000) } });
+  await ev("pt_agenda", "seat_claude", "ask", "asked: dot-voting or one vote per person?", 12, 14);
+
+  await task("pt_client", "client_agenda", "Client-call agenda from the last 3 recaps", "queued", null, { readyBy: iso(t + 4 * DAY), sessionId: null });
+  await task("pt_invoices", "invoice_drafts", "Draft this month's invoices for Acme", "queued", null, { brief: "Flag anything odd. Never send.", sessionId: null, readyBy: iso(t + 9 * DAY) });
+  // Agent time this week (recorded separately; never billed to clients).
+  await ev(null, "seat_codex", "progress", "earlier this week", 60 * 24 * 2, 170);
+  await ev(null, "seat_claude", "progress", "earlier this week", 60 * 24 * 3, 107);
 }
 
 /** Quick checks and nudges (Figma 04 · Insights + nudges): one closed check with results, one open. */

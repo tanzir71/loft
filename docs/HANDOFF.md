@@ -389,11 +389,11 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] All system states on page 07 (offline, reconnecting, skeletons, errors with a way out).
 
 ### M9: Agents (UI complete; real protocol arrives in M10)
-- [ ] Agents page: agent link with scope, one-line prompt, seats (approve/revoke), "needs you" questions, "what agents read" preview.
-- [ ] Prep queue per space + new prep task (templates: agenda for a session, board from a brief/PDF, N-question check, recap from today's board, invoice drafts with anomalies flagged, client-call agenda from last 3 recaps).
-- [ ] Draft layer on the board (dashed, "draft · by claude"), agent cursor + presence chip, "Pause agents".
-- [ ] "Ready for you" review: accept all / per item / ask for changes.
-- [ ] On Pages: a **simulated agent run** (scripted drafts) so the flow is demoable. Write `docs/agent-link.md` (§12).
+- [x] Agents page: agent link with scope, one-line prompt, seats (approve/revoke), "needs you" questions, "what agents read" preview.
+- [x] Prep queue per space + new prep task (templates: agenda for a session, board from a brief/PDF, N-question check, recap from today's board, invoice drafts with anomalies flagged, client-call agenda from last 3 recaps).
+- [x] Draft layer on the board (dashed, "draft · by claude"), agent cursor + presence chip, "Pause agents".
+- [x] "Ready for you" review: accept all / per item / ask for changes.
+- [x] On Pages: a **simulated agent run** (scripted drafts) so the flow is demoable. Write `docs/agent-link.md` (§12).
 
 ### M10: PHP backend + production on Namecheap
 - [ ] `api/` with every endpoint the app uses (`docs/api.md`), `HttpAdapter`, migrations, install wizard, email sign-in links, uploads, daily task, owner console, branding toggle + expiry, contact form, `.ics` feeds and invites, booking iCal busy blocks.
