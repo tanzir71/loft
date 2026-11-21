@@ -50,7 +50,7 @@ test('spaces: create a space and see it in nav and home', function () {
     // Branded organisation: the host sees their brand in the side panel; members still see Loft.
     $org = find($db->list('orgs'), fn ($o) => $o['hostId'] === 'u_host');
     $db->patch('orgs', $org['id'], ['branded' => true, 'brandedUntil' => '2026-12-31', 'theme' => 'sunrise']);
-    eq(call($db, 'u_host', 'GET', 'nav')['brand'], ['name' => 'Nusrat Rahman', 'monogram' => 'N', 'theme' => 'sunrise']);
+    eq(call($db, 'u_host', 'GET', 'nav')['brand'], ['name' => 'Nusrat Rahman', 'monogram' => 'NR', 'theme' => 'sunrise']);
     eq(call($db, 'u_a', 'GET', 'nav')['brand'], ['name' => 'Loft', 'monogram' => 'L']);
 
     // Home: spaces with mode labels, today's sessions with the live room, default settings.

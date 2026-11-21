@@ -11,12 +11,12 @@ const SIGNAL_TTL_MS = 60000;
 
 function live_tables(Db $db): void
 {
-    static $done = false;
-    if ($done) return;
+    static $done = null;
+    if ($done === $db->pdo) return;
     $db->pdo->exec('CREATE TABLE IF NOT EXISTS presence (room_id TEXT NOT NULL, tab_id TEXT NOT NULL, user_id TEXT NOT NULL, state TEXT NOT NULL, last_seen INTEGER NOT NULL, PRIMARY KEY (room_id, tab_id))');
     $db->pdo->exec('CREATE TABLE IF NOT EXISTS signals (seq INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, sender TEXT NOT NULL, recipient TEXT, msg TEXT NOT NULL, at INTEGER NOT NULL)');
     $db->pdo->exec('CREATE INDEX IF NOT EXISTS signals_room ON signals (room_id, seq)');
-    $done = true;
+    $done = $db->pdo;
 }
 
 /** @return list<array<string, mixed>> live peers in a room (expired rows pruned). */
@@ -163,7 +163,7 @@ routes()
         $month = month_key($ctx->now());
         $spent = 0.0;
         foreach ($usage as $d => $u) if (str_starts_with((string) $d, $month)) $spent += (float) ($u['videoMinutes'] ?? 0);
-        return ['settings' => call_settings_public($s), 'pool' => $sfu ? $pool : null, 'activeMembers' => $active, 'perMember' => $sfu && $active ? (int) round($pool / $active) : null, 'today' => $usage[$today] ?? ['minutes' => 0, 'videoMinutes' => 0], 'step' => $step, 'last14' => $last14, 'month' => $month, 'spentCents' => (int) round($spent * UNIT_CENTS_PER_MIN)];
+        return ['settings' => call_settings_public($s), 'pool' => $sfu ? $pool : null, 'activeMembers' => $active, 'perMember' => $sfu && $active ? (int) round($pool / $active) : null, 'today' => ['minutes' => (float) ($usage[$today]['minutes'] ?? 0), 'videoMinutes' => (float) ($usage[$today]['videoMinutes'] ?? 0)], 'step' => $step, 'last14' => $last14, 'month' => $month, 'spentCents' => (int) round($spent * UNIT_CENTS_PER_MIN)];
     })
     ->post('admin/calls', function (Ctx $ctx, array $p, array $in) {
         $me = require_me($ctx);
