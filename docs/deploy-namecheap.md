@@ -65,9 +65,10 @@ Agents fetch `https://<your-domain>/spaces/a/<token>`. `public_html/spaces/.htac
 
 The owner switches branding on per organisation in `/spaces/#/owner` with a paid-until date. Branding stays active until paid-until + 14 days. The organisation's admin then publishes their name, colours and address in Brand studio. No checkout, no custom domains: the branded link is `https://<your-domain>/spaces/<org-slug>`.
 
-## 8. Backups and updates
+## 8. Backups, restore and updates
 
-- **Back up** `~/loft-app/data/` (database, uploads, `config.php`). A daily cPanel backup or a download of that folder is enough.
+- **Back up**: the owner console (`/spaces/#/owner` → Backups → Download backup) gives a zip of `data/` with a consistent copy of the database (`VACUUM INTO`, safe while people are using Loft), every upload and `config.php`. A daily cPanel backup of `~/loft-app/data/` works too.
+- **Restore**: rename `~/loft-app/data` to `data-old`, upload the backup zip to `~/loft-app/` and extract it (it creates `data/`), open Loft, then delete `data-old`. Keep `config.php` from the backup: it holds the key that decrypts stored provider keys.
 - **Update**: upload the new `loft-prod.zip` and extract it over the old files. `data/` is never touched; database migrations run automatically on the next request.
 
 ## 9. Optional: deploy from GitHub

@@ -106,3 +106,14 @@ test('ops over HTTP need a signed-in user and an open room', function () {
     eq($out[0]['actor'], 'u_a', 'actor comes from the session');
     eq(count(call($db, 'u_b', 'GET', 'rooms/rm1/ops', ['since' => 0])), 1);
 });
+
+test('backup: the owner downloads a consistent copy of data/ (database, uploads, config)', function () {
+    $db = fresh();
+    fixture($db);
+    Config::load(TEST_CONFIG + ['owner_user_id' => 'u_host']);
+    throws(fn () => call($db, 'u_a', 'GET', 'owner/backup'), '/Only the owner/', Forbidden::class);
+    $out = call($db, 'u_host', 'GET', 'owner/backup');
+    ok($out instanceof FileOut, 'a file download');
+    ok(filesize($out->path) > 0, 'not empty');
+    contains($out->name, 'loft-backup-');
+});

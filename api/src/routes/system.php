@@ -265,6 +265,39 @@ routes()
         $ctx->changed('orgs', 'notifications', 'nav');
         return $next + ['active' => branding_active($next, $ctx->now())];
     })
+    // ---- backups: the whole data/ folder (a consistent copy of the database + uploads + config) ----
+    ->get('owner/backup', function (Ctx $ctx) {
+        $me = require_owner($ctx);
+        $dir = data_dir();
+        $tmp = sys_get_temp_dir() . '/loft-backup-' . bin2hex(random_bytes(4));
+        mkdir($tmp, 0700, true);
+        // VACUUM INTO writes a consistent snapshot even while others are writing (WAL mode).
+        $snap = "$tmp/loft.sqlite";
+        $ctx->db->pdo->exec('VACUUM INTO ' . $ctx->db->pdo->quote($snap));
+        $name = 'loft-backup-' . gmdate('Y-m-d-His') . '.zip';
+        $out = "$tmp/$name";
+        if (class_exists(\ZipArchive::class)) {
+            $zip = new \ZipArchive();
+            $zip->open($out, \ZipArchive::CREATE);
+            $zip->addFile($snap, 'data/loft.sqlite');
+            if (is_file("$dir/config.php")) $zip->addFile("$dir/config.php", 'data/config.php');
+            foreach (glob("$dir/files/*") ?: [] as $f) $zip->addFile($f, 'data/files/' . basename($f));
+            $zip->close();
+        } else {
+            $name = str_replace('.zip', '.tar', $name);
+            $out = "$tmp/$name";
+            $tar = new \PharData($out);
+            $tar->addFile($snap, 'data/loft.sqlite');
+            if (is_file("$dir/config.php")) $tar->addFile("$dir/config.php", 'data/config.php');
+            foreach (glob("$dir/files/*") ?: [] as $f) $tar->addFile($f, 'data/files/' . basename($f));
+        }
+        $ctx->db->audit($me['id'], 'backup', ['file' => $name]);
+        register_shutdown_function(function () use ($tmp) {
+            array_map('unlink', glob("$tmp/*") ?: []);
+            @rmdir($tmp);
+        });
+        return new FileOut($out, str_ends_with($name, '.zip') ? 'application/zip' : 'application/x-tar', $name);
+    })
     // ---- the host's brand (Brand studio): set up while off, publish once branding is on ----
     ->get('brand', function (Ctx $ctx) {
         $me = require_me($ctx);

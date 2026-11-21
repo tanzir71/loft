@@ -277,6 +277,32 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board(p, ref) 
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         commitMove(selected, e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0, e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0);
+      } else if (!(e.target as HTMLElement)?.closest?.('[role="application"]')) {
+        return;
+      } else if (e.key === "Tab") {
+        // Keyboard users step through objects in reading order; at either end focus leaves the board.
+        const order = Object.values(p.state.objects)
+          .filter((o) => !o.id.includes(":") && o.kind !== "stroke")
+          .map((o) => ({ id: o.id, b: bounds(o) }))
+          .sort((a, b) => Math.round(a.b.y / 40) - Math.round(b.b.y / 40) || a.b.x - b.b.x)
+          .map((x) => x.id);
+        const at = selected.length === 1 ? order.indexOf(selected[0]!) : -1;
+        const next = e.shiftKey ? (at < 0 ? order.length - 1 : at - 1) : at + 1;
+        if (next >= 0 && next < order.length) {
+          e.preventDefault();
+          const id = order[next]!;
+          setSelected([id]);
+          const b = bounds(p.state.objects[id]!);
+          setView(fitRect({ x: b.x - 240, y: b.y - 240, w: b.w + 480, h: b.h + 480 }, size, 64));
+        } else setSelected([]);
+      } else if (e.key.startsWith("Arrow")) {
+        // Nothing selected: arrows pan the board (Shift = faster).
+        e.preventDefault();
+        const d = e.shiftKey ? 240 : 60;
+        setView((v) => ({ ...v, x: v.x + (e.key === "ArrowLeft" ? d : e.key === "ArrowRight" ? -d : 0), y: v.y + (e.key === "ArrowUp" ? d : e.key === "ArrowDown" ? -d : 0) }));
+      } else if (e.key === "+" || e.key === "=" || e.key === "-") {
+        e.preventDefault();
+        setView((v) => zoomAt(v, { x: size.w / 2, y: size.h / 2 }, e.key === "-" ? 1 / 1.2 : 1.2));
       }
     };
     const up = (e: KeyboardEvent) => e.code === "Space" && setSpaceDown(false);

@@ -91,3 +91,4 @@
 .usage-chart__bar { flex: 1; background: var(--color-primary); border-radius: 3px 3px 0 0; min-height: 2px; }
 .usage-chart__bar.is-high { background: var(--color-warning); }
 .usage-chart__cap { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px solid var(--color-destructive); }
+.restore-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font: var(--text-body-m); }

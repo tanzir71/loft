@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Clock, History, Inbox, Lock, Search, Users, X } from "lucide-react";
+import { Calendar, Clock, Database, Download, History, Inbox, Lock, Search, Users, X } from "lucide-react";
 import { Badge, Button } from "@loft/ui";
 import { useAdapter, useQuery } from "../../lib/data";
-import { IS_PREVIEW } from "../../lib/env";
+import { ADAPTER, IS_PREVIEW } from "../../lib/env";
 import { useBreakpoint } from "../../lib/media";
 import { ErrorState, Loading } from "../../components/bits";
 
@@ -21,7 +21,7 @@ const addDays = (d: string | null, months: number) => {
 export function OwnerPage() {
   const phone = useBreakpoint() === "phone";
   const { data, error, reload } = useQuery<OwnerData>("owner");
-  const [tab, setTab] = useState<"orgs" | "requests" | "log">("orgs");
+  const [tab, setTab] = useState<"orgs" | "requests" | "log" | "backups">("orgs");
   const [filter, setFilter] = useState<"all" | "branded" | "asked" | "ending">("all");
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<string | null>(null);
@@ -39,13 +39,14 @@ export function OwnerPage() {
             <button type="button" className={tab === "orgs" ? "is-on" : ""} onClick={() => setTab("orgs")}><Users aria-hidden="true" />Organisations</button>
             <button type="button" className={tab === "requests" ? "is-on" : ""} onClick={() => setTab("requests")}><Inbox aria-hidden="true" />Requests{data.contacts.length + data.orgs.filter((o) => o.askedByEmail).length > 0 && <span className="lf-count lf-count--primary">{data.contacts.length + data.orgs.filter((o) => o.askedByEmail).length}</span>}</button>
             <button type="button" className={tab === "log" ? "is-on" : ""} onClick={() => setTab("log")}><History aria-hidden="true" />Change log</button>
+            <button type="button" className={tab === "backups" ? "is-on" : ""} onClick={() => setTab("backups")}><Database aria-hidden="true" />Backups</button>
           </nav>
           <p className="owner__foot">Only you see this. Everything else is configured by each organisation in its own admin.</p>
         </aside>
       )}
       <main className="owner__main">
         <header className="money-top owner__top">
-          <h1>{tab === "orgs" ? "Organisations" : tab === "requests" ? "Requests" : "Change log"}</h1>
+          <h1>{tab === "orgs" ? "Organisations" : tab === "requests" ? "Requests" : tab === "log" ? "Change log" : "Backups"}</h1>
           <span className="money-top__spacer" />
           {tab === "orgs" && <span className="money-input owner__search"><Search aria-hidden="true" style={{ width: 16, height: 16 }} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or admin email" aria-label="Search organisations" /></span>}
         </header>
@@ -84,6 +85,23 @@ export function OwnerPage() {
               {data.orgs.filter((o) => o.askedByEmail).map((o) => <div key={o.id} className="inv-row card-like"><span className="inv-row__main"><b>{o.name}</b><small>{o.hostEmail} · asked for branding</small></span><Button size="sm" variant="secondary" onClick={() => { setTab("orgs"); setSel(o.id); }}>Open</Button></div>)}
               {data.contacts.map((c) => <div key={c.id} className="inv-row card-like"><span className="inv-row__main"><b>{c.organisation}</b><small>{c.email} · {c.people || "?"} people · {c.period || "?"} · {new Date(c.createdAt).toLocaleDateString("en-GB")}</small></span></div>)}
               {!data.contacts.length && !data.orgs.some((o) => o.askedByEmail) && <p className="muted-note">No requests yet. The organisations page on the landing site sends them here.</p>}
+            </section>
+          )}
+          {tab === "backups" && (
+            <section className="card-box" style={{ maxWidth: 640 }}>
+              <h2>Download a backup</h2>
+              <p className="muted-note" style={{ padding: 0 }}>A zip of the data/ folder: a consistent copy of the database (taken while Loft keeps running), every uploaded file and config.php with the encryption key. Keep it somewhere private.</p>
+              {ADAPTER === "http" ? (
+                <a className="lf-btn lf-btn--primary" href={`${import.meta.env.VITE_API_BASE ?? "/spaces/api/v1"}/owner/backup`} download><Download aria-hidden="true" />Download backup</a>
+              ) : (
+                <p className="banner-box banner-box--muted">Preview: there's no server here. On your server this downloads data/ as a zip.</p>
+              )}
+              <h3>Restore</h3>
+              <ol className="restore-steps">
+                <li>In cPanel → File Manager, rename <code>loft-app/data</code> to <code>data-old</code>.</li>
+                <li>Upload the backup zip to <code>loft-app/</code> and extract it: it creates <code>data/</code> with <code>loft.sqlite</code>, <code>files/</code> and <code>config.php</code>.</li>
+                <li>Open Loft. If everything is there, delete <code>data-old</code>.</li>
+              </ol>
             </section>
           )}
           {tab === "log" && (
