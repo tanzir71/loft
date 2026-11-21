@@ -7,7 +7,7 @@
 .sc-slate { --sc: var(--color-space-slate); }
 .sc-teal { --sc: var(--color-space-teal); }
 
-.space-tile { display: inline-grid; place-items: center; flex: none; border-radius: 6px; background: var(--sc, var(--color-primary)); color: var(--color-primary-glow); font: 500 11px/1 var(--font-mono); }
+.space-tile { display: inline-grid; place-items: center; flex: none; border-radius: 6px; background: var(--sc, var(--color-primary)); color: var(--color-white); font: 500 11px/1 var(--font-mono); }
 .space-tile--sm { min-width: 26px; height: 22px; padding: 0 3px; font-size: 10px; }
 .space-tile--md { min-width: 32px; height: 32px; }
 .space-tile--lg { width: 52px; height: 52px; border-radius: 10px; font: 600 15px/1 var(--font-body); color: var(--color-white); }

@@ -16,6 +16,7 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 - **Knock / start a room from a DM** creates a room (guest join off), posts an invite card in the DM and notifies the other person. Demo people in the preview don't answer; a note says so.
 - **Search** in the desktop top bar matches spaces and people (files search arrives with the PHP backend).
 - **Sessions table** is seeded early so Home's "Today" is real; scheduling UI arrives in M5.
+- **Contrast over Figma colours (Lighthouse a11y):** count pills and the LIVE badge use `destructive-ink` (#b62020, 6.4:1 with white) instead of `destructive` (#ef4343, 3.8:1); space code tiles use white text instead of `primary-glow` on teal/amber/red (≈3.6:1). Side panel add buttons, Knock and pen swatches are now at least 24 px (WCAG 2.2 target size).
 - Seed timestamps are relative to "now" so unread counts and "Today" behave at any hour.
 
 ### 2026-11-21 — M2 rooms + board v1
