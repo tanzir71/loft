@@ -1,20 +1,24 @@
-import { newId, sortableId } from "@loft/core";
+import { DEFAULT_REMINDER_SUBJECT, DEFAULT_REMINDER_TEXT, DEFAULT_REMINDERS, monthKey, newId, prevMonthKey, sortableId, type AttendanceStatus } from "@loft/core";
 import type { LocalDb } from "./db";
+import type { LocalCtx } from "./routes";
+import { buildDrafts, confirmPayment, recordAttendance, sellPackage, sendInvoice, type InvoiceRow, type MoneySettings } from "./routes-money";
 
 /** Bump when demo data changes; the local adapter wipes and re-seeds a browser whose data is older. */
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 export const DEMO_HOST_ID = "u_nusrat";
 
+// Demo phone numbers are fictional (+880 1700 0000xx) and only used to build wa.me links.
 const PEOPLE = [
-  { id: "u_leena", name: "Leena Chowdhury", status: "available", title: "Co-host · Acme pricing" },
-  { id: "u_farhan", name: "Farhan Ahmed", status: "away", title: "Product lead" },
-  { id: "u_shirin", name: "Shirin Karim", status: "available", title: "Acme finance" },
-  { id: "u_ayaan", name: "Ayaan Karim", status: "busy", title: "In a room" },
-  { id: "u_mitu", name: "Mitu Das", status: "offline", title: "Designer" },
-  { id: "u_rafi", name: "Rafi Hasan", status: "available", title: "Analyst" },
-  { id: "u_sumaiya", name: "Sumaiya Khan", status: "away", title: "Learner" },
-  { id: "u_tania", name: "Tania Roy", status: "offline", title: "Northwind ops" }
+  { id: "u_leena", name: "Leena Chowdhury", status: "available", title: "Co-host · Acme pricing", phone: "" },
+  { id: "u_farhan", name: "Farhan Ahmed", status: "away", title: "Product lead", phone: "" },
+  { id: "u_shirin", name: "Shirin Karim", status: "available", title: "Acme finance · parent", phone: "+880 1700 000001" },
+  { id: "u_ayaan", name: "Ayaan Karim", status: "busy", title: "In a room", phone: "" },
+  { id: "u_mitu", name: "Mitu Das", status: "offline", title: "Designer", phone: "" },
+  { id: "u_rafi", name: "Rafi Hasan", status: "available", title: "Analyst", phone: "" },
+  { id: "u_sumaiya", name: "Sumaiya Khan", status: "away", title: "Learner", phone: "+880 1700 000002" },
+  { id: "u_tania", name: "Tania Roy", status: "offline", title: "Northwind ops", phone: "+880 1700 000003" },
+  { id: "u_dipa", name: "Dipa Saha", status: "offline", title: "Learner", phone: "" }
 ] as const;
 
 interface SeedSpace {
@@ -34,8 +38,17 @@ const SPACES: SeedSpace[] = [
   { slug: "product-weekly", name: "Product team", sub: "Internal · Team", mode: "team", code: "PRD", colour: "amber", members: [["u_farhan", "member"], ["u_mitu", "member"], ["u_leena", "member"]] },
   { slug: "acme-sprint", name: "Design sprint", sub: "Acme Foods · Workshop", mode: "workshop", code: "ACM", colour: "red", members: [["u_shirin", "member"], ["u_rafi", "member"], ["u_farhan", "member"]] },
   { slug: "studio-team", name: "Studio team", sub: "Internal · Team", mode: "team", code: "TEA", colour: "slate", members: [["u_mitu", "member"], ["u_leena", "member"]] },
-  { slug: "physics-a", name: "HSC Physics", sub: "Section A · Course", mode: "course", code: "PHY", colour: "teal", members: [["u_ayaan", "member"], ["u_sumaiya", "member"]] }
+  { slug: "physics-a", name: "HSC Physics", sub: "Section A · Course", mode: "course", code: "PHY", colour: "teal", members: [["u_ayaan", "member"], ["u_sumaiya", "member"], ["u_dipa", "member"]] }
 ];
+
+// Billing per space (Figma 06 · I1). Physics bills each learner; client spaces bill the client once per session.
+const BILLING: Record<string, Record<string, unknown>> = {
+  "physics-a": { model: "per_session", unitPriceCents: 1500, per: "member", payers: { u_ayaan: "u_shirin", u_sumaiya: "u_sumaiya" } },
+  "acme-pricing": { model: "per_hour", unitPriceCents: 15000, per: "session", payers: { "*": "u_shirin" } },
+  "acme-sprint": { model: "per_session", unitPriceCents: 30000, per: "session", payers: { "*": "u_shirin" } },
+  "northwind-retainer": { model: "monthly", unitPriceCents: 120000, per: "session", payers: { "*": "u_tania" } }
+};
+const DAY = 86_400_000;
 
 const ago = (base: Date, minutes: number) => new Date(base.getTime() - minutes * 60_000).toISOString();
 
@@ -63,14 +76,14 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await seedHost(db, now);
   if (opts.empty) return;
   const iso = now.toISOString();
-  for (const p of PEOPLE) await db.put("users", { id: p.id, name: p.name, email: `${p.id.slice(2)}@example.com`, tz: "UTC", status: p.status, title: p.title, createdAt: iso });
+  for (const p of PEOPLE) await db.put("users", { id: p.id, name: p.name, email: `${p.id.slice(2)}@example.com`, phone: p.phone, tz: "UTC", status: p.status, title: p.title, createdAt: iso });
 
   const spaceIds: Record<string, string> = {};
   for (const [i, s] of SPACES.entries()) {
     const id = `sp_${s.slug.replace(/-/g, "_")}`;
     spaceIds[s.slug] = id;
     // Staggered so the side panel keeps this order.
-    await db.put("spaces", { id, orgId: null, mode: s.mode, code: s.code, name: s.name, sub: s.sub, slug: s.slug, colour: s.colour, roomSlug: s.slug, createdAt: ago(now, 60 * 24 * 30 - i), createdBy: DEMO_HOST_ID });
+    await db.put("spaces", { id, orgId: null, mode: s.mode, code: s.code, name: s.name, sub: s.sub, slug: s.slug, colour: s.colour, roomSlug: s.slug, createdAt: ago(now, 60 * 24 * 30 - i), createdBy: DEMO_HOST_ID, ...(BILLING[s.slug] ? { billing: BILLING[s.slug] } : {}) });
     await db.put("memberships", { id: `${id}:${DEMO_HOST_ID}`, spaceId: id, userId: DEMO_HOST_ID, role: "host", lastReadAt: ago(now, 60 * 24) });
     for (const [uid, role] of s.members) await db.put("memberships", { id: `${id}:${uid}`, spaceId: id, userId: uid, role, lastReadAt: iso });
   }
@@ -123,11 +136,15 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
     if (title === "Steering review") steeringId = id;
     await db.put("sessions", { id, spaceId: spaceIds[slug], title, startsAt: at(now, d, h, m), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
   }
-  // A weekly series (Mon/Wed 16:00) for the course, materialised as rows.
+  // A weekly series (Mon/Wed 16:00) for the course, materialised as rows from the start of last month.
   const seriesId = newId("sr");
   const physicsSessions: { id: string; startsAt: string }[] = [];
   await db.put("series", { id: seriesId, spaceId: spaceIds["physics-a"], rule: { days: [1, 3], time: "16:00", minutes: 60 }, createdAt: iso });
-  for (let d = -7; d <= 28; d++) {
+  const today0 = new Date(now);
+  today0.setHours(0, 0, 0, 0);
+  const firstPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const dStart = -Math.round((today0.getTime() - firstPrev.getTime()) / DAY);
+  for (let d = dStart; d <= 28; d++) {
     const day = new Date(now);
     day.setDate(day.getDate() + d);
     if (day.getDay() !== 1 && day.getDay() !== 3) continue;
@@ -136,17 +153,14 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
     await db.put("sessions", { id: sid, spaceId: spaceIds["physics-a"], seriesId, title: "Physics · Section A", startsAt: at(now, d, 16), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
   }
 
-  // Billing prices per space (full billing setup arrives in M7).
-  for (const [slug, cents] of [["physics-a", 1500], ["acme-pricing", 15000], ["northwind-retainer", 12000]] as const) {
-    const sp = await db.get<{ id: string }>("spaces", spaceIds[slug]!);
-    if (sp) await db.put("spaces", { ...sp, billing: { mode: "per_session", unitPriceCents: cents } });
-  }
-
   // Plans (Figma 06 · row A): Lesson 6 attached to the next Physics session, Lesson 7 a draft,
   // last week's lesson taught-but-not-wrapped (shows "Wrap-up pending").
   const blk = (id: string, title: string, type: string, minutes: number, memberText: string, hostNotes = "", visible = true) => ({ id, title, type, minutes, memberText, hostNotes, resources: type === "board" ? [{ kind: "board", label: "Board · blank grid" }] : [], visible });
   const next = physicsSessions.find((x) => Date.parse(x.startsAt) > now.getTime());
-  const past = [...physicsSessions].reverse().find((x) => Date.parse(x.startsAt) + 3600_000 < now.getTime());
+  // The lesson waiting for its wrap-up is an extra session that ended 2 h ago, so it is always inside
+  // the 24 h window before auto-wrap (the Mon/Wed series alone would make this depend on the weekday).
+  const past = { id: newId("se"), startsAt: new Date(now.getTime() - 3 * 3600_000).toISOString() };
+  await db.put("sessions", { id: past.id, spaceId: spaceIds["physics-a"], title: "Physics · extra session", startsAt: past.startsAt, minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
   const lesson6 = [
     blk("b1", "Check-in", "talk", 5, "What did you notice about last week's homework?"),
     blk("b2", "Predict", "board", 10, "Which launch angle lands furthest? Write your guess on the board before we test.", "Expect 45°. Ask Rafi first; he guessed 60° last week."),
@@ -158,7 +172,7 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await db.put("plans", { id: "pl_lesson6", spaceId: spaceIds["physics-a"], title: "Lesson 6 · Projectiles lab", minutes: 60, objective: "Predict range from launch angle", tags: ["Predict range from launch angle", "Test a prediction with data"], unit: "Unit 3", order: 1, status: "draft", blocks: lesson6, sessionId: next?.id ?? null, version: 3, createdAt: ago(now, 60 * 30), updatedAt: ago(now, 2) });
   if (next) await db.put("sessions", { ...(await db.get<Record<string, unknown> & { id: string }>("sessions", next.id))!, planId: "pl_lesson6" });
   await db.put("plans", { id: "pl_lesson7", spaceId: spaceIds["physics-a"], title: "Lesson 7 · Energy and work", minutes: 60, objective: "Relate work done to energy change", tags: ["Work–energy theorem"], unit: "Unit 3", order: 2, status: "draft", blocks: [blk("c1", "Warm-up", "talk", 5, "Lift a book: where did the energy go?"), blk("c2", "Derive W = Fd", "board", 15, "Together on the board")], sessionId: null, version: 1, createdAt: ago(now, 60 * 20), updatedAt: ago(now, 60 * 20) });
-  if (past) {
+  {
     await db.put("plans", { id: "pl_lesson5", spaceId: spaceIds["physics-a"], title: "Lesson 5 · Vectors", minutes: 60, objective: "Resolve vectors into components", tags: ["Resolve vectors"], unit: "Unit 3", order: 0, status: "draft", blocks: [blk("a1", "Check-in", "talk", 10, "Quick recap"), blk("a2", "Components", "board", 30, "Resolve forces on a slope"), blk("a3", "Practice", "activity", 15, "Worksheet 6"), blk("a4", "Set homework", "handout", 5, "Worksheet 6 p2")], sessionId: past.id, version: 2, createdAt: ago(now, 60 * 24 * 9), updatedAt: ago(now, 60 * 24 * 8) });
     await db.put("sessions", { ...(await db.get<Record<string, unknown> & { id: string }>("sessions", past.id))!, planId: "pl_lesson5" });
     const roomId = `rm_past_${past.id}`;
@@ -204,4 +218,128 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await note("handin", "Rafi handed in Price test plan", "Acme pricing", "/s/acme-pricing/work", 120, false);
   await note("message", "Leena: Perfect, cut part 3 in half.", "Direct message", "/dm/u_leena", 30, false);
   await note("ack", "2 of 4 have seen the steering review move", "Acme pricing · must-read", "/s/acme-pricing", 600, true);
+
+  await seedMoney(db, now, spaceIds, physicsSessions, past.id);
+}
+
+/**
+ * Money demo (Figma 06 · row B), written through the same code paths the app uses: a paid package,
+ * last month's invoices (one the payer says is paid, one partly paid and overdue), and this month's
+ * unbilled log rows ready for "Draft invoices".
+ */
+async function seedMoney(db: LocalDb, now: Date, spaceIds: Record<string, string>, physics: { id: string; startsAt: string }[], pendingId: string | undefined) {
+  const t = now.getTime();
+  const ctxAt = (ms: number): LocalCtx => ({ db, meId: DEMO_HOST_ID, now: () => new Date(ms), changed: () => {} });
+  const fresh = async (id: string) => (await db.get<InvoiceRow>("invoices", id))!;
+  const settings: MoneySettings = {
+    id: DEMO_HOST_ID,
+    prefix: "LF",
+    nextNumber: 410,
+    footer: "Thank you! Bank transfer: DBBL · 1234 5678 9012 · reference {ref}",
+    brandLine: "Consulting & tutoring · Dhaka",
+    paymentLink: { mode: "same", link: "https://pay.example.com/nusrat", template: "", perPayer: {} },
+    reminders: { steps: DEFAULT_REMINDERS, subject: DEFAULT_REMINDER_SUBJECT, text: DEFAULT_REMINDER_TEXT },
+    packages: { renew: true, renewAt: 2, expire: true, expireDays: 60, warnDays: 7, excusedCredit: true },
+    pausedPayers: [],
+    lastAutoRun: "",
+    lastDaily: ""
+  };
+  await db.put("money_settings", settings);
+  await db.put("settings", { ...((await db.get("settings", DEMO_HOST_ID)) ?? { id: DEMO_HOST_ID }), paymentLink: settings.paymentLink.link });
+  const issued: string[] = [];
+  const via = { email: true, whatsapp: true, inapp: true };
+  const send = async (ms: number, inv: InvoiceRow) => {
+    issued.push(await sendInvoice(ctxAt(ms), inv, issued, via));
+  };
+  const phy = spaceIds["physics-a"]!;
+  const prev = prevMonthKey(monthKey(now));
+  const prev2 = prevMonthKey(prev);
+
+  // A 16-session package for Sumaiya, paid before last month began.
+  const { inv: pkgInv } = await sellPackage(ctxAt(t - 55 * DAY), DEMO_HOST_ID, { spaceId: phy, memberId: "u_sumaiya", size: 16, priceCents: 22000 });
+  await send(t - 55 * DAY, pkgInv);
+  await confirmPayment(ctxAt(t - 53 * DAY), await fresh(pkgInv.id), 22000, null, "Bank transfer");
+
+  // Northwind's retainer two months ago: sent and paid.
+  for (const d of await buildDrafts(ctxAt(t - 45 * DAY), DEMO_HOST_ID, prev2, { auto: true })) {
+    await send(t - 45 * DAY, d);
+    await confirmPayment(ctxAt(t - 40 * DAY), await fresh(d.id), d.totalCents, null, "Bank transfer");
+  }
+
+  // Physics sessions since the start of last month (the latest one is still waiting for its wrap-up).
+  const firstThis = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let dipaN = 0;
+  for (const [i, s] of physics.entries()) {
+    const start = Date.parse(s.startsAt);
+    if (start + 3600_000 > t || s.id === pendingId) continue;
+    const rows: { memberId: string; minutes: number; status: AttendanceStatus }[] = [
+      { memberId: "u_ayaan", minutes: 55 + ((i * 7) % 8), status: "attended" },
+      { memberId: "u_sumaiya", minutes: i === 3 ? 0 : 52 + ((i * 5) % 9), status: i === 3 ? "absent" : "attended" }
+    ];
+    if (start >= firstThis) {
+      const st: AttendanceStatus = dipaN === 1 ? "late_cancel" : dipaN === 2 ? "excused" : "attended";
+      rows.push({ memberId: "u_dipa", minutes: st === "attended" ? 50 + dipaN : 0, status: st });
+      dipaN++;
+    }
+    const sess = await db.get<Record<string, unknown> & { id: string }>("sessions", s.id);
+    if (sess) await db.put("sessions", { ...sess, wrapped: true });
+    await recordAttendance(ctxAt(start + 3600_000), { id: s.id, spaceId: phy, startsAt: s.startsAt, minutes: 60, title: "Physics · Section A" }, rows);
+  }
+
+  // Two consulting sessions with Acme (billed per hour, once per session).
+  const acme = spaceIds["acme-pricing"]!;
+  for (const [title, d, h, minutes] of [["Pricing workshop · day 1", -8, 10, 120], ["Pricing workshop · day 2", -1, 14, 90]] as const) {
+    const day = new Date(now);
+    day.setDate(day.getDate() + d);
+    day.setHours(h, 0, 0, 0);
+    const id = newId("se");
+    await db.put("sessions", { id, spaceId: acme, title, startsAt: day.toISOString(), minutes, room: "loft", status: "scheduled", sequence: 0, wrapped: true });
+    await recordAttendance(ctxAt(day.getTime() + minutes * 60_000), { id, spaceId: acme, startsAt: day.toISOString(), minutes, title }, ["u_farhan", "u_rafi", "u_leena"].map((m) => ({ memberId: m, minutes, status: "attended" as const })));
+  }
+
+  // Last month's invoices, sent 13 days ago (due 6 days ago).
+  const sentAt = t - 13 * DAY;
+  const drafts = await buildDrafts(ctxAt(sentAt - 5 * 60_000), DEMO_HOST_ID, prev, { auto: true });
+  for (const d of drafts) await send(sentAt, d);
+  for (const d of drafts) {
+    const inv = await fresh(d.id);
+    if (inv.payerId === "u_shirin") {
+      const claimAt = new Date(t - 2 * 3600_000).toISOString();
+      inv.viewCount = 2;
+      inv.viewedAt = new Date(t - DAY).toISOString();
+      inv.claims = [{ id: "cl_demo", at: claimAt, amountCents: inv.totalCents, method: "Card · payment link", reference: "#1093", note: "Paid by card this morning. Receipt #1093.", status: "open" }];
+      inv.comments = [
+        { id: "cm_1", lineIdx: 0, userId: "u_shirin", name: "Shirin Karim", body: "Does this include the extra Saturday session?", at: new Date(t - 3 * DAY).toISOString(), fromPayer: true },
+        { id: "cm_2", lineIdx: 0, userId: DEMO_HOST_ID, name: "Nusrat Rahman", body: "No, that one was free. The recap link has the board from that day.", at: new Date(t - 3 * DAY + 3600_000).toISOString(), fromPayer: false }
+      ];
+      const due = Date.parse(inv.dueAt!);
+      inv.remindersSent = [-3, 0, 3];
+      inv.activity = [
+        ...inv.activity,
+        { kind: "reminder", at: new Date(due - 3 * DAY).toISOString(), text: "Reminder · in-app + email" },
+        { kind: "reminder", at: new Date(due).toISOString(), text: "Reminder · in-app" },
+        { kind: "reminder", at: new Date(due + 3 * DAY).toISOString(), text: "Reminder · in-app + email · WhatsApp sent by you" },
+        { kind: "viewed", at: inv.viewedAt, text: "Viewed twice" },
+        { kind: "claimed", at: claimAt, text: "Payer says paid · Card · payment link · #1093" }
+      ].sort((a, b) => a.at.localeCompare(b.at));
+      await db.put("invoices", inv);
+      await db.put("notifications", { id: sortableId("nt"), userId: DEMO_HOST_ID, kind: "payment", title: `Shirin Karim says ${inv.number} is paid`, sub: "Card · payment link · #1093", link: `/money/payments?invoice=${inv.id}`, createdAt: claimAt, readAt: null });
+    } else if (inv.payerId === "u_tania") {
+      await confirmPayment(ctxAt(t - 5 * DAY), inv, 80000, null, "Bank transfer");
+      const next = await fresh(inv.id);
+      const due = Date.parse(next.dueAt!);
+      next.remindersSent = [-3, 0, 3];
+      next.waPending = 3;
+      next.viewCount = 1;
+      next.viewedAt = new Date(sentAt + DAY).toISOString();
+      next.activity = [
+        ...next.activity,
+        { kind: "reminder", at: new Date(due - 3 * DAY).toISOString(), text: "Reminder · in-app + email" },
+        { kind: "reminder", at: new Date(due).toISOString(), text: "Reminder · in-app" },
+        { kind: "reminder", at: new Date(due + 3 * DAY).toISOString(), text: "Reminder · in-app + email · WhatsApp to send" }
+      ].sort((a, b) => a.at.localeCompare(b.at));
+      await db.put("invoices", next);
+    }
+  }
+  await db.put("money_settings", { ...(await db.get<MoneySettings>("money_settings", DEMO_HOST_ID))!, lastAutoRun: prev });
 }

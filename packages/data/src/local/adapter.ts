@@ -8,6 +8,7 @@ import { routes, type LocalCtx } from "./routes";
 import "./routes-spaces";
 import "./routes-schedule";
 import "./routes-plans";
+import "./routes-money";
 import { seed, SEED_VERSION } from "./seed";
 
 export interface LocalAdapterOptions {

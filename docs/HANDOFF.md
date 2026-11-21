@@ -380,8 +380,8 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Wrap-up writes `session_log` rows (the hinge into billing).
 
 ### M7: Money (row B)
-- [ ] I1 Billing setup, I2 Session log, I3 Invoice run, I4 Invoice detail (printable A4/Letter HTML), I5 Packages & credits, I6 Confirm a payment, I7 Reminders & overdue.
-- [ ] Payer pay page (phone) with "I've paid" claim. Default payment link (same / `{amount}` template / per payer).
+- [x] I1 Billing setup, I2 Session log, I3 Invoice run, I4 Invoice detail (printable A4/Letter HTML), I5 Packages & credits, I6 Confirm a payment, I7 Reminders & overdue.
+- [x] Payer pay page (phone) with "I've paid" claim. Default payment link (same / `{amount}` template / per payer).
 
 ### M8: Insights, checks, states
 - [ ] Insights (last seen/login, attendance, on-time, at-risk) + automatic and custom nudges.

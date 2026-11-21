@@ -7,6 +7,7 @@ import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint } from "../lib/media";
 import { ErrorState, Loading, relTime, whenLabel } from "../components/bits";
 import { PlansTab } from "./Plans";
+import { BillingSetup } from "./money/Billing";
 
 interface SpaceView {
   id: string; slug: string; name: string; sub: string; code: string; colour: string; mode: SpaceMode;
@@ -20,7 +21,7 @@ interface PostView {
   mySubmission: { status: string } | null;
 }
 
-const LATER: Partial<Record<SpaceTab, string>> = { billing: "M7", agenda: "M6", votes: "M4", grades: "M8", sessions: "M5", notes: "M6" };
+const LATER: Partial<Record<SpaceTab, string>> = { agenda: "M6", votes: "M4", grades: "M8", sessions: "M5", notes: "M6" };
 
 /** Figma 04 · "Host · Space — Stream (hybrid)" and 05 · "Host · Space stream (phone)". */
 export function SpacePage() {
@@ -44,7 +45,9 @@ export function SpacePage() {
   type Tab = SpaceTab | "plans";
   let tabs: Tab[] = s.modeConfig.tabs.map((t) => (t === "agenda" ? "plans" : t));
   if (s.isHost && !tabs.includes("plans")) tabs.splice(Math.max(0, tabs.indexOf("chat") + 1), 0, "plans");
-  if (!s.isHost) tabs = tabs.filter((t) => t !== "plans");
+  // Billing is the host's (Figma 06 · I1): every paid mode gets the tab; members never see it.
+  if (s.isHost && s.mode !== "team" && !tabs.includes("billing")) tabs.push("billing");
+  if (!s.isHost) tabs = tabs.filter((t) => t !== "plans" && t !== "billing");
   const current = (tabs.includes(tab as Tab) ? tab : tabs[0]) as Tab;
   const labelOf = (t: Tab) => (t === "plans" ? (s.mode === "workshop" ? "Agenda" : "Plans") : tabLabel(s.mode, t));
   const startRoom = async () => {
@@ -67,7 +70,7 @@ export function SpacePage() {
         {!phone && <button type="button" className="lf-icon-btn" aria-label="Space settings" title="Space settings arrive with Admin (M10)"><Settings aria-hidden="true" /></button>}
         <Button size="sm" icon={<Play aria-hidden="true" />} onClick={() => void startRoom()}>{phone ? "Room" : "Start room"}</Button>
       </header>
-      <div className="space-body">
+      <div className={`space-body${current === "billing" ? " space-body--wide" : ""}`}>
         {current === "stream" && (
           <div className={`space-banner sc-${s.colour}`}>
             <h2>{s.name}</h2>
@@ -108,6 +111,8 @@ export function SpacePage() {
           <People space={s} />
         ) : current === "plans" ? (
           <PlansTab spaceId={s.id} />
+        ) : current === "billing" ? (
+          <BillingSetup spaceId={s.id} />
         ) : (
           <section className="empty">
             <h2 className="empty__title">{labelOf(current)} arrives in {LATER[current as SpaceTab] ?? "a later milestone"}</h2>

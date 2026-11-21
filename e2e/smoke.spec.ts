@@ -45,7 +45,8 @@ test.describe("Pages smoke", () => {
       await expect(side.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
       await expect(side.getByRole("link", { name: /acme-pricing/ })).toBeVisible();
       await side.getByRole("link", { name: "Money" }).click();
-      await expect(page.getByRole("heading", { name: /Money arrives in M7/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Money", exact: true })).toBeVisible();
+      await expect(page.getByText("Not invoiced yet")).toBeVisible();
     }
   });
 

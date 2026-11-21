@@ -2,6 +2,16 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.7.0 — M7: Money (2026-11-21)
+- Billing setup per space (hosts): per session, per hour (prorated to the cent), monthly, package or free; bill each member or the client once per session; who pays for whom (siblings on one invoice); late cancel, no-show and excused policy; monthly / after each session / when a package runs out; due days, next number and footer; a per-space payment link override.
+- Session log: every wrap-up row with payer, minutes, status and amount; change a status and it re-prices from the policy (excused → $0 + a makeup credit); invoiced rows are locked; rows with no payer are highlighted; CSV export.
+- Invoice runs: drafts are made automatically on the first visit on/after the 1st (or now, from the log), one per payer, with makeup credits applied. "Needs attention" for members with no payer, with an Add payer sheet. Send assigns LF-numbers, freezes the lines, notifies the payer in-app and gives one-tap WhatsApp links (WhatsApp is never sent for you).
+- Invoice detail: every line links to its session and recap; Draft → Sent → Viewed → Payer says paid → Paid / Partly paid / Overdue / Void; activity, questions per line, edit lines (revision -B), discounts and fees, copy pay link, resend, void, and a printable A4/Letter page.
+- Packages & credits: sell a package (credits start when it's paid), a ledger of purchases, uses and makeup credits, renewal drafts at a threshold, credit expiry.
+- Confirm a payment: claims from payers with their note and reference, confirm with a receipt (RC-numbers), part payments, "Can't find it · ask" by DM, "Not received" with a reason (reminders resume), or mark paid without a claim.
+- Reminders & overdue: −3 / 0 / +3 / +10 (final) days with per-step channels and an editable message; claims and pauses stop them; overdue payers with "Send nudge now" and Pause.
+- The payer's pay page (phone-first, no sign-in): the invoice, the host's own payment link, "I've paid", questions, receipts and a PDF view. Money never touches Loft.
+
 ## v0.6.0 — M6: Plans (2026-11-21)
 - Plans tab for hosts in every space (the workshop's "Agenda"): plans grouped by unit with coverage bars, Draft → Ready → Taught status, reordering, and a warning with a one-click template for unplanned upcoming sessions.
 - New plan from blank, a template (lesson, workshop, sprint day, client session, retro) or a PDF (one block per page). Draft with AI stays hidden until an organisation adds its own key.

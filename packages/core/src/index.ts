@@ -7,3 +7,4 @@ export * from "./spaces";
 export * from "./ics";
 export * from "./schedule";
 export * from "./plans";
+export * from "./billing";

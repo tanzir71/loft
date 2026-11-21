@@ -16,6 +16,10 @@ import { PlanEditor } from "./pages/Plans";
 import { WrapUpPage } from "./pages/WrapUp";
 import "./pages/m6.css";
 import "./room/room.css";
+import { MoneyLog, MoneyOverview, MoneyPackages, MoneyPayments, MoneyReminders } from "./pages/money/Money";
+import { InvoiceDetail, InvoicePrint, MoneyInvoices } from "./pages/money/Invoices";
+import { PayPage, PayPrint } from "./pages/money/Pay";
+import "./pages/money/money.css";
 
 export function App() {
   return (
@@ -25,6 +29,9 @@ export function App() {
       <Route path="join" element={<JoinPage />} />
       <Route path="book/:handle" element={<BookingPage />} />
       <Route path="manage/:token" element={<ManagePage />} />
+      <Route path="pay/:token" element={<PayPage />} />
+      <Route path="pay/:token/print" element={<PayPrint />} />
+      <Route path="print/invoice/:id" element={<InvoicePrint />} />
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
         <Route path="calendar" element={<CalendarPage />} />
@@ -32,7 +39,13 @@ export function App() {
         <Route path="plans/:id" element={<PlanEditor />} />
         <Route path="wrapup/:sessionId" element={<WrapUpPage />} />
         <Route path="review" element={<InboxPage initial="review" />} />
-        <Route path="money" element={<Soon title="Money" milestone="M7" blurb="Session log, invoice runs where every line links to its session, payment links and “I've paid” claims." />} />
+        <Route path="money" element={<MoneyOverview />} />
+        <Route path="money/log" element={<MoneyLog />} />
+        <Route path="money/invoices" element={<MoneyInvoices />} />
+        <Route path="money/invoices/:id" element={<InvoiceDetail />} />
+        <Route path="money/packages" element={<MoneyPackages />} />
+        <Route path="money/payments" element={<MoneyPayments />} />
+        <Route path="money/reminders" element={<MoneyReminders />} />
         <Route path="insights" element={<Soon title="Insights" milestone="M8" blurb="Last seen, attendance, on-time and at-risk, with automatic and custom nudges." />} />
         <Route path="agents" element={<Soon title="Agents" milestone="M9" blurb="One link and one line. Agents prepare drafts; you review and accept." />} />
         <Route path="chats" element={<ChatsPage />} />

@@ -54,3 +54,12 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 06 · P4 "Attach & prepare (desktop)" [82:1088], phone [90:2913] | `/plans/:id` → Attach | `Plans.tsx` `AttachSheet` | M6 |
 | 06 · P5 "Run in the room (desktop)" [84:1117], phone [91:2712] | `/r/:code` (session room) | `room/PlanRail.tsx` | M6 |
 | 06 · P6 "Wrap-up (desktop)" [84:1288], phone [91:2767] | `/wrapup/:sessionId` | `pages/WrapUp.tsx` | M6 |
+| 06 · I1 "Billing setup (desktop)" [85:1216], phone [91:2868] | `/s/:slug/billing` (hosts) | `pages/money/Billing.tsx` `BillingSetup`, `PaymentLinkSheet` | M7 |
+| 06 · I2 "Session log (desktop)" [85:1625], phone [91:2957] | `/money/log` | `pages/money/Money.tsx` `MoneyLog` | M7 |
+| 06 · I3 "Invoice run (desktop)" [86:1648], phone [101:3856] | `/money/invoices` | `pages/money/Invoices.tsx` `MoneyInvoices`, `DraftPreview`, `AddPayerSheet` | M7 |
+| 06 · I4 "Invoice detail (desktop)" [86:2043], phone [101:3927] | `/money/invoices/:id`, `/print/invoice/:id` | `Invoices.tsx` `InvoiceDetail`, `InvoiceDoc`, `LineEditor`, `PrintFrame` | M7 |
+| 06 · I5 "Packages & credits (desktop)" [88:2053], phone [101:4001] | `/money/packages` | `Money.tsx` `MoneyPackages` | M7 |
+| 06 · I6 "Confirm a payment (desktop)" [88:2419], phone [101:4082] | `/money/payments` | `Money.tsx` `MoneyPayments` | M7 |
+| 06 · I7 "Reminders & overdue (desktop)" [88:2715], phone [101:4129] | `/money/reminders` | `Money.tsx` `MoneyReminders` | M7 |
+| — (built from I4's invoice card) payer pay page | `/pay/:token`, `/pay/:token/print` | `pages/money/Pay.tsx` | M7 |
+| — Money overview (KPIs + To do) | `/money` | `Money.tsx` `MoneyOverview` | M7 |

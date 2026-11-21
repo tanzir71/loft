@@ -6,6 +6,7 @@ import type { Row } from "./db";
 import { requireMe, routes, str, type LocalCtx } from "./routes";
 import { pendingRequests } from "./routes-schedule";
 import { autoWrapStale, wrapupsPending } from "./routes-plans";
+import { moneyDaily, moneyReviewItems } from "./routes-money";
 
 /** Deliver reminders whose time has come (no cron: the first request after deliverAt does it). */
 async function deliverDue(ctx: LocalCtx) {
@@ -119,6 +120,7 @@ async function reviewItems(ctx: LocalCtx, meId: string) {
   for (const s of await wrapupsPending(ctx, meId)) {
     items.push({ id: `wrap:${s.id}`, kind: "wrapup", title: `Wrap-up pending · ${s.title}`, sub: new Date(s.startsAt).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }), action: "Finish", link: `/wrapup/${s.id}` });
   }
+  items.push(...(await moneyReviewItems(ctx, meId)));
   for (const r of await pendingRequests(ctx, meId)) {
     const when = new Date(r.from).toLocaleString("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     const to = r.to ? new Date(r.to).toLocaleString("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
@@ -157,6 +159,7 @@ routes
     const me = await requireMe(ctx);
     await deliverDue(ctx);
     await autoWrapStale(ctx, me.id);
+    await moneyDaily(ctx, me.id);
     const spaces = await mySpaces(ctx, me.id);
     const rooms = await ctx.db.list<Row & { name: string; code: string; endedAt: string | null; createdAt: string }>("rooms", (r) => !r.endedAt && Date.parse(r.createdAt) > ctx.now().getTime() - 12 * 3600_000);
     const dms = await dmList(ctx, me.id);

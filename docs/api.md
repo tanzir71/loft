@@ -37,6 +37,21 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | GET/POST | `sessions/:id/plan` · `sessions/:id/rail` | rail data (host notes only for hosts) · save rail state | M6 |
 | POST | `rooms/:id/attendance` | `{event: join|leave}` | M6 |
 | GET/POST | `sessions/:id/wrapup` | prefill · write session_log, recap, homework, carry-over | M6 |
+| GET/POST | `spaces/:id/billing` | host only: model, price, per member/session, payers, policy, schedule, due days, link override · `settings: {footer, nextNumber}` | M7 |
+| POST | `spaces/:id/billing/payer` | `{memberId, payerId}`: map a payer, move unbilled rows, rebuild drafts | M7 |
+| GET | `money/overview?month=` | KPIs, To do (claims, drafts, WhatsApp to send), recent invoices; runs the daily money task | M7 |
+| GET | `money/log?month=` · POST `money/log/:id` | session log rows with payer, package and invoice · re-price `{status, minutes?}` (403 when invoiced) | M7 |
+| POST | `money/run` | `{month}` draft one invoice per payer from unbilled rows | M7 |
+| GET | `money/invoices` | `ready`, `attention`, `sent` (derived status, balance, next reminder) | M7 |
+| GET | `invoices/:id` | detail: lines with their sessions, activity, claims, payments, questions, payer, pay link | M7 |
+| POST | `invoices/send` | `{ids, email?, whatsapp?, inapp?}` number, freeze rows, set due date, notify payer | M7 |
+| POST | `invoices/:id/lines` · `/revise` · `/void` · `/resend` · `/comments` | edit a draft · revision `-B` · void (rows back to the log) or delete a draft · resend/nudge · reply | M7 |
+| GET | `money/claims` | open "I've paid" claims, unpaid invoices, confirmed this month | M7 |
+| POST | `invoices/:id/confirm` · `/reject` · `/ask` | confirm `{claimId?, amountCents?}` → receipt `RC-…` (part payments allowed) · reject `{claimId, reason}` · DM the payer | M7 |
+| GET/POST | `money/packages` | packages with ledger, makeup credits, rules · sell `{spaceId, memberId, size, priceCents}` → draft | M7 |
+| GET/POST | `money/settings` | prefix, next number, footer, payment link `{mode, link, template, perPayer}`, reminders, package rules | M7 |
+| GET | `money/reminders` · POST `money/payers/:id/pause` | steps, message, overdue + queued WhatsApp · `{paused}` | M7 |
+| GET | `pay/:token` · POST `pay/:token/claim` · `pay/:token/comments` | public pay page (no sign-in) · "I've paid" `{amountCents, method, reference, note}` · question on a line | M7 |
 | POST | `auth/link` | email a 15-minute single-use sign-in link | M10 |
 | POST | `auth/signout` | end the session | M10 |
 | POST | `rooms` | create a room `{name?, guestJoin?, spaceId?}` → room with `code` | M2 |

@@ -9,7 +9,6 @@ import {
   newId,
   roomCode,
   ROOM_CAPACITY,
-  sessionLogLines,
   sortableId,
   TEMPLATES,
   type AttendanceStatus,
@@ -21,6 +20,7 @@ import {
 import { ForbiddenError, NotFoundError } from "../types";
 import type { Row } from "./db";
 import { requireMe, routes, str, type LocalCtx } from "./routes";
+import { billingFor, recordAttendance } from "./routes-money";
 
 interface PlanRow extends Row { spaceId: string; title: string; minutes: number; objective: string; tags: string[]; unit: string; order: number; status: PlanStatus; aiDraft?: boolean; blocks: PlanBlock[]; sessionId: string | null; version: number; createdAt: string; updatedAt: string }
 interface SessionRow extends Row { spaceId: string; title: string; startsAt: string; minutes: number; status: string; planId?: string | null; rail?: { current: number; startedAt: string | null; extensions: Record<string, number> } | null; wrapped?: boolean; prepared?: { roomId?: string; pages?: Record<string, string>; agendaPostId?: string; reminderId?: string } }
@@ -43,8 +43,10 @@ async function planOr404(ctx: LocalCtx, id: string) {
   return p;
 }
 
-function policyFor(space: SpaceRow | undefined): BillingPolicy {
-  return { unitPriceCents: space?.billing?.unitPriceCents ?? DEFAULT_POLICY.unitPriceCents, billable: (space?.billing?.billable as AttendanceStatus[] | undefined) ?? DEFAULT_POLICY.billable };
+function policyFor(space: SpaceRow | undefined): BillingPolicy & { model: string; per: string } {
+  if (!space) return { ...DEFAULT_POLICY, model: "per_session", per: "member" };
+  const b = billingFor(space as never);
+  return { unitPriceCents: b.unitPriceCents, billable: b.model === "free" ? [] : b.billable, model: b.model, per: b.per };
 }
 
 /** Ensure the session has a room, then create/update one board page per Board/Hand-out block (idempotent). */
@@ -104,11 +106,7 @@ async function attendanceMinutes(ctx: LocalCtx, sessionId: string): Promise<Reco
 }
 
 async function writeLogLines(ctx: LocalCtx, s: SessionRow, rows: { memberId: string; minutes: number; status: AttendanceStatus }[]) {
-  const space = await ctx.db.get<SpaceRow>("spaces", s.spaceId);
-  const members = new Map((await ctx.db.list<MemberRow>("memberships", (m) => m.spaceId === s.spaceId)).map((m) => [m.userId, m]));
-  for (const line of sessionLogLines(rows, policyFor(space))) {
-    await ctx.db.put("session_log", { id: `${s.id}:${line.memberId}`, sessionId: s.id, spaceId: s.spaceId, memberId: line.memberId, payerId: members.get(line.memberId)?.payerUserId ?? line.memberId, minutes: line.minutes, status: line.status, billable: line.billable, unitPriceCents: line.unitPriceCents, amountCents: line.amountCents, invoiceId: null, at: s.startsAt });
-  }
+  return recordAttendance(ctx, s, rows);
 }
 
 /** If the host never wraps up, billable lines are still written from presence with default statuses after 24 h. */
@@ -335,7 +333,7 @@ routes
     const plan = s.planId ? await ctx.db.get<PlanRow>("plans", s.planId) : null;
     const outcomes = (input.outcomes ?? {}) as Record<string, "done" | "partly" | "skipped">;
     const rows = (Array.isArray(input.attendance) ? input.attendance : []) as { memberId: string; minutes: number; status: AttendanceStatus }[];
-    await writeLogLines(ctx, s, rows);
+    const written = await writeLogLines(ctx, s, rows);
     if (plan && input.markTaught !== false) await ctx.db.patch<PlanRow>("plans", plan.id, { status: "taught" });
     // Carry partly/skipped blocks into the next plan, or keep them in a tray.
     const carried = plan ? carryOver(outcomes, plan.blocks, new Set(Array.isArray(input.carry) ? (input.carry as string[]) : [])) : [];
@@ -352,6 +350,6 @@ routes
     if (hw?.title) await ctx.db.put("posts", { id: sortableId("po"), spaceId: s.spaceId, kind: "task", title: str(hw.title, 160), body: "", mustRead: false, dueAt: str(hw.dueAt, 40) || new Date(ctx.now().getTime() + 2 * 86_400_000).toISOString(), createdBy: me.id, createdAt: now(ctx), attachments: [] });
     await ctx.db.patch<SessionRow>("sessions", s.id, { wrapped: true });
     ctx.changed("posts", "plans", "sessions", "session_log");
-    const billable = sessionLogLines(rows, policyFor(await ctx.db.get<SpaceRow>("spaces", s.spaceId))).filter((l) => l.billable);
-    return { ok: true, lines: rows.length, billable: billable.length, totalCents: billable.reduce((n, l) => n + l.amountCents, 0), carried: carried.length };
+    const billable = written.filter((l) => l.billable);
+    return { ok: true, lines: written.length, billable: billable.length, totalCents: billable.reduce((n, l) => n + l.amountCents, 0), packaged: billable.filter((l) => l.packageId).length, carried: carried.length };
   });
