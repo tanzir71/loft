@@ -81,5 +81,6 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 04 · "Org admin (self-serve) · Calls & budget" [47:1611] | `/admin` | `pages/system/Admin.tsx`; `api/src/routes/live.php` `admin/calls` | M11 |
 | 04 · "Host · Live Room — minimal" [40:343] (call controls) | `/r/:code` | `room/calls/useCall.ts`, `room/calls/CallUI.tsx` (audio pill, hands, stage, follow chip, open-together prompt), `room/RoomPage.tsx` | M11 |
 | 04 · "Room · screen share (desktop)" [103:2291], "… · phone viewer" [103:2417], "… · build rules" [103:2492] | `/r/:code` | `room/calls/CallUI.tsx` `ShareOverlay` (annotations, snapshot to board, stills fallback), `useCall.ts` | M11 |
+| — video (built from the Live Room call pill and islands; no dedicated frame) | `/r/:code` | `room/calls/CallUI.tsx` (`VideoPill`, `VideoPanel`), `room/calls/useVideo.ts`, `room/calls/sfu.ts`; Admin → Calls & budget provider cards | v1.1.0 |
 | 04 · "Host · Live Room — minimal" [40:343] (keyboard) | `/r/:code` | `room/Board.tsx` (Tab/Shift+Tab through objects, arrow-key pan, +/− zoom) | M12 |
 | 04 · "Owner · Organisations + branding switch" [76:3660] (Backups tab) | `/owner` → Backups | `pages/system/Owner.tsx`; `api/src/routes/system.php` `owner/backup` | M12 |

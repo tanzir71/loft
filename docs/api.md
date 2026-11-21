@@ -98,10 +98,13 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | POST | `files` | upload (sha-256 dedupe) | M3 / M10 |
 | POST | `rooms/:id/presence/leave` · GET `rooms/:id/presence` | leave now (frees the seat) · current peers | M11 |
 | GET/POST | `admin/calls` | org call settings: tier (P2P / SFU provider), STUN/TURN, sealed provider keys (last 4 shown), free minutes, budget, unit price; usage for 14 days and the month | M11 |
-| GET | `rooms/:id/call-config` | ICE servers and the call mode for this room (P2P, stage, audio-only, own link) | M11 |
+| GET | `rooms/:id/call-config` | ICE servers (STUN, plus Cloudflare TURN when set), the host's own link, and `video: {provider, step, allowed}` or null | M11 · v1.1.0 |
 | POST | `rooms/:id/usage` | add call minutes `{minutes ≤ 5, video?}` → feeds the daily pool | M11 |
 | POST · GET | `rooms/:id/still` · `rooms/:id/still?tabId=` | upload / fetch the latest screen-share still (WebP, ≤ 1280 px) for viewers whose connection fails | M11 |
 | POST | `a/:token/files` (multipart) | an agent uploads an attachment (≤ 20 MB, optional claimed `taskId`) | M10 |
+| POST | `rooms/:id/video/join` | start video with the org's provider (you must be in the room; only at the "full" budget step) → Cloudflare `{sessionId, iceServers}`, or Daily / Jitsi `{url}` | v1.1.0 |
+| POST | `rooms/:id/video/cf` | Cloudflare Realtime negotiation for your own session: `{sessionId, op: tracks/new \| renegotiate \| tracks/close, body}`, relayed with the org's app token | v1.1.0 |
+| POST | `rooms/:id/video/leave` | forget your video session | v1.1.0 |
 | GET | `owner/backup` | owner only: a zip of `data/` with a consistent copy of the database (`VACUUM INTO`), uploads and config | M12 |
 
 This table grows with every milestone.

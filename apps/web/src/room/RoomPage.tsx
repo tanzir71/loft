@@ -20,7 +20,8 @@ import { useBoard } from "./useBoard";
 import { PlanRail } from "./PlanRail";
 import { usePresence } from "./usePresence";
 import { useCall } from "./calls/useCall";
-import { AudioPill, FollowChip, HandToasts, OpenPrompt, RemoteAudio, ShareOverlay } from "./calls/CallUI";
+import { useVideo, type VideoConfig } from "./calls/useVideo";
+import { AudioPill, FollowChip, HandToasts, OpenPrompt, RemoteAudio, ShareOverlay, VideoPanel, VideoPill } from "./calls/CallUI";
 import "./calls/calls.css";
 
 export interface RoomRes {
@@ -148,8 +149,10 @@ export function RoomPage() {
       : null;
   const { peers, update } = usePresence(room?.id ?? null, presenceMe);
   // Calls, screen share, open together and follow-me (M11). Media goes peer to peer, never through the server.
-  const { data: callCfg } = useQuery<{ iceServers: RTCIceServer[]; ownLink: string | null }>(room && seat === "in" ? `rooms/${room.id}/call-config` : null);
+  const { data: callCfg } = useQuery<{ iceServers: RTCIceServer[]; ownLink: string | null; video: VideoConfig | null }>(room && seat === "in" ? `rooms/${room.id}/call-config` : null);
   const call = useCall({ adapter, roomId: room && seat === "in" && !room.endedAt ? room.id : null, tabId: adapter.tabId, me: { userId: me?.id ?? "", name: me?.name ?? "" }, isHost, presence: { update }, peers, iceServers: callCfg?.iceServers });
+  // Video with the org's own keys (Cloudflare SFU cameras, or the Daily / Jitsi call); only when the org set it up.
+  const video = useVideo({ adapter, roomId: room && seat === "in" && !room.endedAt ? room.id : null, config: callCfg?.video, peers, presence: { update }, leaveAudio: () => call.leave() });
   const lastView = useRef(0);
 
   useEffect(() => {
@@ -506,7 +509,10 @@ export function RoomPage() {
         <div className="room__calls" data-board-ui="" aria-live="polite">
           {isHost && <HandToasts call={call} peers={peers} />}
           <AudioPill call={call} inCallCount={peers.filter((p) => p.inCall).length} isHost={isHost} ownLink={callCfg?.ownLink ?? null} />
+          <VideoPill video={video} config={callCfg?.video} />
         </div>
+        <VideoPanel video={video} />
+        {video.error && <p className="island call-error" role="alert" data-board-ui="">{video.error}<button type="button" className="lf-icon-btn" aria-label="Dismiss" onClick={() => video.setError(null)}><X aria-hidden="true" /></button></p>}
 
         {/* bottom-left: guest admit toasts */}
         {isHost && admissions.length > 0 && (

@@ -65,13 +65,23 @@ Agents fetch `https://<your-domain>/spaces/a/<token>`. `public_html/spaces/.htac
 
 The owner switches branding on per organisation in `/spaces/#/owner` with a paid-until date. Branding stays active until paid-until + 14 days. The organisation's admin then publishes their name, colours and address in Brand studio. No checkout, no custom domains: the branded link is `https://<your-domain>/spaces/<org-slug>`.
 
-## 8. Backups, restore and updates
+## 8. Optional: video with your own keys
+
+Calls work with nothing set up: P2P audio, stage mode and your own Meet/Zoom link. To add video, each organisation's admin opens `/spaces/#/admin` → **Calls & budget**, switches on one provider, pastes its keys and sets a monthly budget (or free minutes):
+
+- **Cloudflare Realtime**: an SFU app (App ID + App token) for cameras, and optionally a TURN key (Key ID + API token) for people on blocked networks.
+- **Daily**: an API key. Loft creates a private Daily room per Loft room and a token per person.
+- **Jitsi as a Service (8×8)**: the App ID, the API key ID and the private key (PEM). Loft signs room tokens on your server.
+
+Keys are encrypted with the key in `config.php` and never sent to browsers. The server reaches `rtc.live.cloudflare.com` and `api.daily.co` over HTTPS with PHP's `curl` extension. New video stops for the day at 80% of the daily pool; a call that's already live is never cut.
+
+## 9. Backups, restore and updates
 
 - **Back up**: the owner console (`/spaces/#/owner` → Backups → Download backup) gives a zip of `data/` with a consistent copy of the database (`VACUUM INTO`, safe while people are using Loft), every upload and `config.php`. A daily cPanel backup of `~/loft-app/data/` works too.
 - **Restore**: rename `~/loft-app/data` to `data-old`, upload the backup zip to `~/loft-app/` and extract it (it creates `data/`), open Loft, then delete `data-old`. Keep `config.php` from the backup: it holds the key that decrypts stored provider keys.
 - **Update**: upload the new `loft-prod.zip` and extract it over the old files. `data/` is never touched; database migrations run automatically on the next request.
 
-## 9. Optional: deploy from GitHub
+## 10. Optional: deploy from GitHub
 
 Only if you add FTP/SFTP secrets to the repository (`FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`). Without them nothing is deployed automatically. Uploading the zip by hand is the supported path.
 

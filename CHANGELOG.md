@@ -2,6 +2,13 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v1.1.0 — M11: Video with your own keys (2026-11-21)
+- Video in rooms with the organisation's own provider, set up in Admin → Calls & budget. With Cloudflare Realtime, everyone's camera shows as tiles beside the board and audio stays on P2P or stage. With Daily or Jitsi as a Service (8×8), the provider's call opens in a panel and carries the audio.
+- Cloudflare TURN: add a TURN key and every call (P2P audio included) gets relay servers for people on blocked networks.
+- Keys stay on your server, encrypted; browsers only get short-lived sessions, tokens or links. A Jitsi private key that can't be read is refused when you save it.
+- The daily budget applies: new video stops for the day at 80% of the pool, and a call that's already live is never cut. The Video button says why when it's paused.
+- Screen share is now covered by the browser tests. Running them showed the board's toolbar covering the share toolbar (Pen, Clear, Snapshot to board, Open together couldn't be clicked); fixed.
+
 ## v1.0.0 — M12: Hardening + mobile polish (2026-11-21)
 - Capacity and rate limits are checked in CI against a real PHP server (`scripts/load-room.mjs`). 12 people get a seat and the 13th waits, then gets in when someone leaves. 60 board ops sent at once by 12 people all land in order with no gaps. A burst from one address gets 429s, never server errors.
 - Backups: the owner console's Backups tab downloads a zip of `data/`. It holds a consistent copy of the database (safe while people are using Loft), every upload and `config.php`. Restore steps are in `docs/deploy-namecheap.md`.

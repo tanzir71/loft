@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
-import { AlertTriangle, Camera, ExternalLink, Hand, Mic, MicOff, MonitorUp, Pen, PhoneOff, Trash2, X } from "lucide-react";
+import { AlertTriangle, Camera, ExternalLink, Hand, Mic, MicOff, MonitorUp, Pen, PhoneOff, Trash2, Video as VideoIcon, VideoOff, X } from "lucide-react";
 import { Avatar, Button } from "@loft/ui";
 import type { PresencePeer } from "@loft/data";
 import type { useCall } from "./useCall";
+import { videoBlockedReason, type Video, type VideoConfig } from "./useVideo";
 
 type Call = ReturnType<typeof useCall>;
 
@@ -188,5 +189,62 @@ export function FollowChip({ call, hostName }: { call: Call; hostName: string })
       <span>{call.followingHost ? `Following ${hostName.split(" ")[0]}` : `${hostName.split(" ")[0]} is presenting`}</span>
       <Button size="sm" variant="ghost" onClick={() => call.setFollowingHost(!call.followingHost)}>{call.followingHost ? "Stop following" : "Follow"}</Button>
     </div>
+  );
+}
+
+const PROVIDER_NAME = { cloudflare: "Cloudflare", daily: "Daily", jitsi: "Jitsi" } as const;
+
+/** Video with the org's own keys (the ladder's last rung). Hidden when the org hasn't set it up. */
+export function VideoPill({ video, config }: { video: Video; config: VideoConfig | null | undefined }) {
+  if (!config) return null;
+  const blocked = videoBlockedReason(config);
+  if (!video.active) {
+    return (
+      <div className="island call-pill" data-board-ui="">
+        <Button size="sm" variant="secondary" icon={<VideoIcon aria-hidden="true" />} disabled={!!blocked || video.busy} onClick={() => void video.start()} title={blocked ?? `Video through ${PROVIDER_NAME[config.provider]}`}>{video.busy ? "Starting video…" : "Video"}</Button>
+        {blocked ? <small>{blocked}</small> : video.onVideo > 0 && <small>{video.onVideo} on video</small>}
+      </div>
+    );
+  }
+  return (
+    <div className="island call-pill is-on" data-board-ui="">
+      <span className="call-pill__text"><b>Video on</b><small>{video.active === "cloudflare" ? `${video.onVideo} on video` : `${PROVIDER_NAME[video.active]} call`}</small></span>
+      <button type="button" className="lf-icon-btn" onClick={() => video.stop()} aria-label="Stop video" title="Stop video"><VideoOff aria-hidden="true" /></button>
+    </div>
+  );
+}
+
+function Tile({ stream, name, mine }: { stream: MediaStream; name: string; mine?: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current && ref.current.srcObject !== stream) ref.current.srcObject = stream;
+  }, [stream]);
+  return (
+    <figure className={`video-tile${mine ? " is-mine" : ""}`}>
+      <video ref={ref} autoPlay playsInline muted aria-label={`${name}'s camera`} />
+      <figcaption>{name}</figcaption>
+    </figure>
+  );
+}
+
+/** Camera tiles (Cloudflare SFU) or the provider's own call (Daily, Jitsi) beside the board. */
+export function VideoPanel({ video }: { video: Video }) {
+  if (!video.active) return null;
+  if (video.url) {
+    return (
+      <section className="island video-panel video-panel--call" data-board-ui="" aria-label="Video call">
+        <header className="video-panel__head"><b>Video · {PROVIDER_NAME[video.active]}</b><small>Audio is in this call</small><button type="button" className="lf-icon-btn" onClick={() => video.stop()} aria-label="Close video"><X aria-hidden="true" /></button></header>
+        <iframe src={video.url} title={`${PROVIDER_NAME[video.active]} video call`} allow="camera; microphone; display-capture; fullscreen; autoplay" />
+      </section>
+    );
+  }
+  return (
+    <section className="island video-panel" data-board-ui="" aria-label="Video">
+      <div className="video-panel__grid">
+        {video.tiles.map((t) => <Tile key={t.key} stream={t.stream} name={t.name} mine={t.mine} />)}
+      </div>
+      {video.tiles.length <= 1 && <p className="video-panel__note">Waiting for others to turn on video.</p>}
+      {video.note && <p className="video-panel__note">{video.note}</p>}
+    </section>
   );
 }

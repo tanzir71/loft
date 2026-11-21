@@ -8,11 +8,13 @@ import { IS_PREVIEW } from "../../lib/env";
 import { useBreakpoint } from "../../lib/media";
 import { ErrorState, Loading } from "../../components/bits";
 
-interface Provider { on: boolean; keyLast4?: string | null; tokenLast4?: string | null }
+interface Provider { on: boolean; keyLast4?: string | null; tokenLast4?: string | null; appIdLast4?: string | null; appTokenLast4?: string | null; privateKeyLast4?: string | null }
 interface CallsData {
   settings: { ownLink: string; stun: string; p2p: boolean; cloudflare: Provider; daily: Provider; jitsi: Provider; budgetCents: number; freeMinutes: number; neverCut: boolean; savedAt: string | null };
   pool: number | null; activeMembers: number; perMember: number | null; today: { minutes: number; videoMinutes: number }; step: string;
   last14: { day: string; minutes: number; videoMinutes: number }[]; spentCents: number;
+  /** The provider rooms use for video (the server's choice: switched on with complete keys). */
+  video?: "cloudflare" | "daily" | "jitsi" | null;
 }
 
 /** Figma 04 · "Org admin (self-serve) · Calls & budget". Everything works with every provider off. */
@@ -49,7 +51,7 @@ function CallsForm({ data }: { data: CallsData }) {
   const [budget, setBudget] = useState((s.budgetCents / 100).toFixed(2));
   const [free, setFree] = useState(String(s.freeMinutes ?? 0));
   const [neverCut, setNeverCut] = useState(s.neverCut);
-  const [prov, setProv] = useState({ cloudflare: { on: s.cloudflare.on, key: "", token: "" }, daily: { on: s.daily.on, key: "" }, jitsi: { on: s.jitsi.on } });
+  const [prov, setProv] = useState({ cloudflare: { on: s.cloudflare.on, key: "", token: "", appId: "", appToken: "" }, daily: { on: s.daily.on, key: "" }, jitsi: { on: s.jitsi.on, appId: "", key: "", privateKey: "" } });
   const [note, setNote] = useState<string | null>(null);
   const [stunTest, setStunTest] = useState<string | null>(null);
   const save = async () => {
@@ -92,6 +94,9 @@ function CallsForm({ data }: { data: CallsData }) {
         <div className="money-grid">
           <section className="money-col">
             <div><h2 className="sec-title">Providers, cheapest first</h2><p className="muted-note" style={{ padding: 0 }}>Loft always tries the top tier that fits the room. Keys are stored encrypted; only the last 4 characters are shown.</p></div>
+            <p className="muted-note" style={{ padding: 0 }} aria-live="polite">
+              {data.video ? <>Video in rooms: <b>{({ cloudflare: "Cloudflare Realtime", daily: "Daily", jitsi: "Jitsi as a Service" } as const)[data.video]}</b>{data.pool ? `, up to ${data.pool} video-minutes a day.` : ". Add a budget or free minutes to turn it on."}</> : IS_PREVIEW ? "Video in rooms runs on your server, with the keys you add there." : "Video in rooms: off. Switch a provider on and add all its keys."}
+            </p>
             <section className="card-box prov">
               <div className="prov__head"><span><b>Your own Meet / Zoom link</b><small>Always on. Used when every built-in tier is capped or off, and for rooms over 12.</small></span><Badge status="neutral">Fallback</Badge></div>
               <input className="field" value={ownLink} onChange={(e) => setOwnLink(e.target.value)} placeholder="https://meet.example.com/your-room" aria-label="Your own link" />
@@ -101,16 +106,28 @@ function CallsForm({ data }: { data: CallsData }) {
               <div className="part-row"><span className="money-input"><span>STUN</span><input value={stun} onChange={(e) => setStun(e.target.value)} aria-label="STUN server" /></span><Button variant="secondary" icon={<Zap aria-hidden="true" />} onClick={() => void testStun()}>Test</Button></div>
               {stunTest && <small className="muted-note" style={{ padding: 0 }}>{stunTest}</small>}
             </section>
-            <ProviderCard title="Cloudflare Realtime · TURN + SFU" sub="Bigger groups, and TURN for blocked networks. Uses your Cloudflare account." on={prov.cloudflare.on} onToggle={(on) => setProv({ ...prov, cloudflare: { ...prov.cloudflare, on } })} saved={[s.cloudflare.keyLast4, s.cloudflare.tokenLast4]}>
+            <ProviderCard title="Cloudflare Realtime · TURN + SFU" sub="Cameras for everyone in the room, and TURN for blocked networks. Uses your Cloudflare account." on={prov.cloudflare.on} onToggle={(on) => setProv({ ...prov, cloudflare: { ...prov.cloudflare, on } })} saved={[s.cloudflare.keyLast4, s.cloudflare.tokenLast4, s.cloudflare.appIdLast4, s.cloudflare.appTokenLast4]}>
+              <small className="muted-note" style={{ padding: 0 }}>TURN key (Realtime → TURN)</small>
               <div className="part-row">
                 <span className="money-input"><span>Key ID</span><input value={prov.cloudflare.key} onChange={(e) => setProv({ ...prov, cloudflare: { ...prov.cloudflare, key: e.target.value } })} placeholder={s.cloudflare.keyLast4 ? `••••${s.cloudflare.keyLast4}` : ""} aria-label="Cloudflare key ID" /></span>
                 <span className="money-input"><span>API token</span><input type="password" value={prov.cloudflare.token} onChange={(e) => setProv({ ...prov, cloudflare: { ...prov.cloudflare, token: e.target.value } })} placeholder={s.cloudflare.tokenLast4 ? `••••${s.cloudflare.tokenLast4}` : ""} aria-label="Cloudflare API token" /></span>
+              </div>
+              <small className="muted-note" style={{ padding: 0 }}>SFU app (Realtime → Serverless SFU)</small>
+              <div className="part-row">
+                <span className="money-input"><span>App ID</span><input value={prov.cloudflare.appId} onChange={(e) => setProv({ ...prov, cloudflare: { ...prov.cloudflare, appId: e.target.value } })} placeholder={s.cloudflare.appIdLast4 ? `••••${s.cloudflare.appIdLast4}` : ""} aria-label="Cloudflare SFU app ID" /></span>
+                <span className="money-input"><span>App token</span><input type="password" value={prov.cloudflare.appToken} onChange={(e) => setProv({ ...prov, cloudflare: { ...prov.cloudflare, appToken: e.target.value } })} placeholder={s.cloudflare.appTokenLast4 ? `••••${s.cloudflare.appTokenLast4}` : ""} aria-label="Cloudflare SFU app token" /></span>
               </div>
             </ProviderCard>
             <ProviderCard title="Daily" sub="Polished video tier, metered per participant-minute. Uses your Daily account." on={prov.daily.on} onToggle={(on) => setProv({ ...prov, daily: { ...prov.daily, on } })} saved={[s.daily.keyLast4]}>
               <span className="money-input"><span>API key</span><input type="password" value={prov.daily.key} onChange={(e) => setProv({ ...prov, daily: { ...prov.daily, key: e.target.value } })} placeholder={s.daily.keyLast4 ? `••••${s.daily.keyLast4}` : ""} aria-label="Daily API key" /></span>
             </ProviderCard>
-            <ProviderCard title="Jitsi as a Service (8×8)" sub="Alternative video tier, priced per monthly active user." on={prov.jitsi.on} onToggle={(on) => setProv({ ...prov, jitsi: { on } })} saved={[]} />
+            <ProviderCard title="Jitsi as a Service (8×8)" sub="Alternative video tier, priced per monthly active user. Room tokens are signed on your server with your key." on={prov.jitsi.on} onToggle={(on) => setProv({ ...prov, jitsi: { ...prov.jitsi, on } })} saved={[s.jitsi.appIdLast4, s.jitsi.keyLast4, s.jitsi.privateKeyLast4]}>
+              <div className="part-row">
+                <span className="money-input"><span>App ID</span><input value={prov.jitsi.appId} onChange={(e) => setProv({ ...prov, jitsi: { ...prov.jitsi, appId: e.target.value } })} placeholder={s.jitsi.appIdLast4 ? `••••${s.jitsi.appIdLast4}` : "vpaas-magic-cookie-…"} aria-label="Jitsi app ID" /></span>
+                <span className="money-input"><span>API key ID</span><input value={prov.jitsi.key} onChange={(e) => setProv({ ...prov, jitsi: { ...prov.jitsi, key: e.target.value } })} placeholder={s.jitsi.keyLast4 ? `••••${s.jitsi.keyLast4}` : ""} aria-label="Jitsi API key ID" /></span>
+              </div>
+              <textarea className="textarea" rows={3} value={prov.jitsi.privateKey} onChange={(e) => setProv({ ...prov, jitsi: { ...prov.jitsi, privateKey: e.target.value } })} placeholder={s.jitsi.privateKeyLast4 ? "Private key saved. Paste a new one to replace it." : "-----BEGIN PRIVATE KEY-----"} aria-label="Jitsi private key" spellCheck={false} />
+            </ProviderCard>
             <section className="card-box" id="integrations">
               <h3>Integrations (all optional)</h3>
               <ul className="more-list" role="list">
