@@ -99,6 +99,8 @@ test.describe("main loops (M12)", () => {
   test("keyboard: Tab steps through board objects and arrows move the selection", async ({ page }) => {
     await page.goto("./app/#/r/SPR-DCD");
     const board = page.getByRole("application");
+    // Wait for the room's board to sync in: with nothing on it, Tab would leave the board.
+    await expect(page.locator(".sticky, .bsection").first()).toBeVisible();
     await board.focus();
     await page.keyboard.press("Tab");
     await expect(page.locator(".is-selected").first()).toBeVisible();
