@@ -286,6 +286,7 @@
 .find-bar { position: absolute; left: 50%; top: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; width: min(420px, calc(100% - 32px)); background: var(--color-card); z-index: 30; }
 .find-bar > svg { width: 16px; height: 16px; color: var(--color-muted-fg); }
 .find-bar input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: var(--text-body-m); }
+.find-bar:focus-within { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .find-bar__count { font: var(--text-mono-s); color: var(--color-muted-fg); }
 .busy-toast { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); padding: 10px 16px; background: var(--color-card); font: var(--text-label); z-index: 40; }
 .room--phone .shapes-flyout { grid-template-columns: repeat(4, 1fr); width: calc(100vw - 32px); }

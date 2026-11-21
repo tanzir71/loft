@@ -35,16 +35,42 @@ test.describe("main loops (M12)", () => {
     await expect(host.getByText("Recap: Lesson 6 · Projectiles lab")).toBeVisible();
   });
 
-  test("teach → wrap-up → session log → invoice → payer says paid → host confirms", async ({ page, context }) => {
-    test.setTimeout(60_000);
-    await page.goto("./app/#/review");
-    await page.locator(".review-row", { hasText: "Wrap-up pending" }).getByRole("button", { name: "Finish" }).click();
-    await expect(page.getByLabel("Ayaan Karim attendance")).toHaveValue("attended");
+  test("schedule → plan → room → wrap-up → invoice → payer says paid → host confirms", async ({ page, context }) => {
+    test.setTimeout(90_000);
+    // Schedule a session in HSC Physics a little later today, in the browser's time zone like the preview.
+    await page.goto("./app/#/calendar");
+    const at = await page.evaluate(() => {
+      const d = new Date(Math.ceil((Date.now() + 20 * 60_000) / (15 * 60_000)) * 15 * 60_000);
+      const p = (n: number) => String(n).padStart(2, "0");
+      return { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` };
+    });
+    await page.getByRole("button", { name: "New session" }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByLabel("Space").selectOption({ label: "HSC Physics" });
+    await sheet.getByLabel("Title").fill("Extra practice");
+    await sheet.getByLabel("Date").fill(at.date);
+    await sheet.getByLabel("Time").fill(at.time);
+    await sheet.getByRole("button", { name: "Create session" }).click();
+    await expect(page.getByRole("status")).toContainText(/session added/);
+    // Plan it: attach Lesson 7, which prepares the session's room.
+    await page.goto("./app/#/plans/pl_lesson7");
+    await page.getByRole("button", { name: "Attach to session" }).click();
+    await page.getByRole("radio", { name: /Extra practice/ }).check();
+    await page.getByRole("button", { name: "Attach & prepare" }).click();
+    await expect(page.getByText(/in the session's room/)).toBeVisible();
+    await page.reload();
+    // Teach: open the room, end it, and land on the wrap-up.
+    await page.getByRole("button", { name: "Open room" }).click();
+    await expect(page).toHaveURL(/#\/r\/[A-Z2-9]{3}-[A-Z2-9]{3}$/);
+    page.once("dialog", (d) => void d.accept());
+    await page.getByRole("button", { name: "End", exact: true }).click();
+    await expect(page.getByRole("heading", { name: /Wrap up · Lesson 7/ })).toBeVisible();
+    await page.getByLabel("Ayaan Karim attendance").selectOption("attended");
     await page.getByRole("button", { name: "Post recap & close" }).click();
     await expect(page.getByText(/1 billable line \(\$15\.00\)/)).toBeVisible();
     // The new line is in this month's log, then on Shirin's draft.
     await page.goto("./app/#/money/log");
-    await expect(page.locator("tr", { hasText: "Physics · extra session" }).filter({ hasText: "Ayaan Karim" })).toContainText("$15.00");
+    await expect(page.locator("tr", { hasText: "Extra practice" }).filter({ hasText: "Ayaan Karim" })).toContainText("$15.00");
     await page.getByRole("button", { name: /^Draft \w+ invoices$/ }).click();
     const shirin = page.locator(".inv-row", { hasText: "Shirin Karim" }).first();
     await expect(shirin).toBeVisible();

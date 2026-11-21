@@ -27,6 +27,7 @@
 .topbar__search { position: relative; display: flex; align-items: center; gap: 8px; width: min(344px, 50%); height: 36px; padding: 0 12px; border-radius: 10px; background: var(--color-muted); color: var(--color-muted-fg); }
 .topbar__search svg { width: 16px; height: 16px; }
 .topbar__search input { flex: 1; min-width: 0; border: 0; background: none; font: var(--text-body-s); color: var(--color-fg); outline: none; }
+.topbar__search:focus-within { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .topbar__results { position: absolute; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; box-shadow: 0 8px 24px rgb(18 20 28 / 0.1); z-index: 30; }
 .topbar__results button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 8px; text-align: left; }
 .topbar__results button:hover { background: var(--color-muted); }
@@ -236,6 +237,7 @@
 .msg p { font: var(--text-body-m); color: var(--color-fg); overflow-wrap: anywhere; }
 .thread__form { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; margin-bottom: 16px; border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-card); }
 .thread__input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: var(--text-body-m); height: 40px; }
+.thread__form:focus-within { outline: 2px solid var(--color-primary); outline-offset: -1px; border-color: transparent; }
 .thread__send { width: 36px; height: 36px; }
 .thread__send:disabled { opacity: 0.5; }
 .room-card { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-card); max-width: 520px; }

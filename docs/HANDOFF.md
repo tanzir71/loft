@@ -411,11 +411,11 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [ ] Media through the org's SFU (Cloudflare Realtime / Daily / Jitsi). **Blocked:** needs a real provider account to build and verify against; see Open questions in `docs/decisions.md`.
 
 ### M12: Hardening + mobile polish
-- [ ] Capacity + rate limits verified with a 12-user load script (`scripts/load-room.mjs`).
-- [ ] Backups (download `data/` zip from the owner console), restore guide.
-- [ ] Accessibility pass (keyboard on board, focus rings, contrast in every mode).
-- [ ] Playwright e2e for the main loops: create room → join as guest → board → end → recap; schedule → plan → wrap-up → invoice → claim → confirm.
-- [ ] Release **v1.0.0**.
+- [x] Capacity + rate limits verified with a 12-user load script (`scripts/load-room.mjs`).
+- [x] Backups (download `data/` zip from the owner console), restore guide.
+- [x] Accessibility pass (keyboard on board, focus rings, contrast in every mode).
+- [x] Playwright e2e for the main loops: create room → join as guest → board → end → recap; schedule → plan → wrap-up → invoice → claim → confirm.
+- [x] Release **v1.0.0**.
 
 ---
 

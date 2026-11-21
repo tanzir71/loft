@@ -2,6 +2,13 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v1.0.0 — M12: Hardening + mobile polish (2026-11-21)
+- Capacity and rate limits are checked in CI against a real PHP server (`scripts/load-room.mjs`). 12 people get a seat and the 13th waits, then gets in when someone leaves. 60 board ops sent at once by 12 people all land in order with no gaps. A burst from one address gets 429s, never server errors.
+- Backups: the owner console's Backups tab downloads a zip of `data/`. It holds a consistent copy of the database (safe while people are using Loft), every upload and `config.php`. Restore steps are in `docs/deploy-namecheap.md`.
+- Accessibility: a contrast test checks 13 text/background pairs at WCAG AA in all four brand modes. It caught Aurelian's muted text (4.10:1), which is now 4.67:1. The board works from the keyboard: Tab / Shift+Tab step through objects, arrow keys pan when nothing is selected, and + / − zoom. Every control has a visible focus ring, now including the search box, the chat box and the board's find bar.
+- End-to-end tests for the two main loops: create a room → a guest joins → board → end → recap, and schedule a session → attach a plan → teach in its room → wrap-up → invoice → the payer says paid → the host confirms.
+- Database writes that read and then change a row run in one transaction (answers, grades, claims, rate buckets, daily jobs, nudges), so requests arriving together never overwrite each other.
+
 ## v0.11.0 — M11: Live features over PHP (2026-11-21)
 - Rooms over plain HTTP: the board op-log syncs every 1.5 s, presence every 5 s (30 s expiry, leaving frees the seat at once) and WebRTC signalling through `/signal`. No WebSocket server.
 - P2P audio for up to 6 talking: mute, a speaking ring, and a seat note when talk is full.
