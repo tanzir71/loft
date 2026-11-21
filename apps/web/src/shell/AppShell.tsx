@@ -3,7 +3,8 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { IconRail, PreviewBanner, SidePanel, TabBar, type DmLink, type LiveRoomLink, type SpaceLink } from "@loft/ui";
 import type { User } from "@loft/core";
 import { useAdapter, useQuery } from "../lib/data";
-import { useBreakpoint } from "../lib/media";
+import { useBreakpoint, useOnline } from "../lib/media";
+import { CloudOff } from "lucide-react";
 import { IS_PREVIEW } from "../lib/env";
 import { mainNav } from "./nav";
 import { RouterLink } from "./RouterLink";
@@ -20,6 +21,7 @@ export interface NavData {
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const bp = useBreakpoint();
+  const online = useOnline();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [drawer, setDrawer] = useState(false);
@@ -56,6 +58,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   return (
     <div className={`app app--${bp}`}>
       {IS_PREVIEW && <PreviewBanner />}
+      {!online && <p className="state-banner state-banner--offline" role="status"><CloudOff aria-hidden="true" />You're offline. Changes are saved here and sync when you're back.</p>}
       <div className="app__body">
         {bp === "desktop" && side}
         {bp === "tablet" && (

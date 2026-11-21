@@ -63,3 +63,6 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 06 · I7 "Reminders & overdue (desktop)" [88:2715], phone [101:4129] | `/money/reminders` | `Money.tsx` `MoneyReminders` | M7 |
 | — (built from I4's invoice card) payer pay page | `/pay/:token`, `/pay/:token/print` | `pages/money/Pay.tsx` | M7 |
 | — Money overview (KPIs + To do) | `/money` | `Money.tsx` `MoneyOverview` | M7 |
+| 04 · "Host · Insights + nudges" [46:1044], 05 · "Host · Insights (phone)" [107:551] | `/insights` | `pages/insights/Insights.tsx` (`AutoNudges`, `CustomNudge`, `NudgeSheet`) | M8 |
+| — quick checks (built from the Insights/Money visual language; no dedicated frame) | `/s/:slug/grades`, `/checks/:id`, `/checks/:id/take` | `pages/checks/Checks.tsx` (`GradesTab`, `Gradebook`, `CheckPage`, `Builder`, `Results`), `pages/checks/TakeCheck.tsx` | M8 |
+| 07 · "States · offline, reconnecting, loading, errors" [111:550] | shell, room, every page | `shell/AppShell.tsx` (offline), `room/RoomPage.tsx` (reconnecting, room full · host), `components/bits.tsx` (`ErrorState`, `Loading`), `money/Invoices.tsx` (send failure) | M8 |

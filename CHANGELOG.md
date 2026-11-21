@@ -2,6 +2,15 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.8.0 — M8: Insights, checks, states (2026-11-21)
+- Insights: active members, attendance, homework on time and session length with change vs the previous period; a People table with last seen, last login, attendance, homework, fees and at-risk reasons; filters for At risk and Not seen 7 days; CSV export; a phone layout.
+- Nudges: one-tap Nudge for anyone at risk (in-app, or open in WhatsApp), automatic nudges (deadline, missed 2 sessions in a row, fee overdue + 3 days, files not opened) run on the first visit of the day, and custom nudges to a group now or at a set time, with "this week" sent / opened / acted on.
+- Quick checks in each course's Grades tab: one answer, several answers, true/false and short answer; time limit, close time, attempts, shuffle; auto-graded, with short answers you mark; results by member and by question.
+- Integrity signals with tinyproctor.js (MIT, vendored, nothing leaves the page, no camera or screen): leaving the tab, switching windows, pasting and similar, summarised as Clean / Review / Flagged for the host. Signals never change a mark.
+- Gradebook: tasks and checks per member with averages (missing work counts once due) and CSV export.
+- System states: an offline banner, "Reconnecting… the board keeps working" in rooms, errors that say what failed with Try again and a way home, a "Couldn't send N invoices" state with Copy links, and the room-full host view.
+- Fix: answers saved quickly one after another in a check could overwrite each other; attempt writes are now atomic.
+
 ## v0.7.0 — M7: Money (2026-11-21)
 - Billing setup per space (hosts): per session, per hour (prorated to the cent), monthly, package or free; bill each member or the client once per session; who pays for whom (siblings on one invoice); late cancel, no-show and excused policy; monthly / after each session / when a package runs out; due days, next number and footer; a per-space payment link override.
 - Session log: every wrap-up row with payer, minutes, status and amount; change a status and it re-prices from the policy (excused → $0 + a makeup credit); invoiced rows are locked; rows with no payer are highlighted; CSV export.

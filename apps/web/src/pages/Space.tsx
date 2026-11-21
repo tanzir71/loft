@@ -8,6 +8,7 @@ import { useBreakpoint } from "../lib/media";
 import { ErrorState, Loading, relTime, whenLabel } from "../components/bits";
 import { PlansTab } from "./Plans";
 import { BillingSetup } from "./money/Billing";
+import { GradesTab } from "./checks/Checks";
 
 interface SpaceView {
   id: string; slug: string; name: string; sub: string; code: string; colour: string; mode: SpaceMode;
@@ -21,7 +22,7 @@ interface PostView {
   mySubmission: { status: string } | null;
 }
 
-const LATER: Partial<Record<SpaceTab, string>> = { agenda: "M6", votes: "M4", grades: "M8", sessions: "M5", notes: "M6" };
+const LATER: Partial<Record<SpaceTab, string>> = { agenda: "M6", votes: "M4", sessions: "M5", notes: "M6" };
 
 /** Figma 04 · "Host · Space — Stream (hybrid)" and 05 · "Host · Space stream (phone)". */
 export function SpacePage() {
@@ -113,6 +114,8 @@ export function SpacePage() {
           <PlansTab spaceId={s.id} />
         ) : current === "billing" ? (
           <BillingSetup spaceId={s.id} />
+        ) : current === "grades" ? (
+          <GradesTab spaceId={s.id} />
         ) : (
           <section className="empty">
             <h2 className="empty__title">{labelOf(current)} arrives in {LATER[current as SpaceTab] ?? "a later milestone"}</h2>

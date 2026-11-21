@@ -48,12 +48,18 @@ export function Loading({ label = "Loading" }: { label?: string }) {
   );
 }
 
-export function ErrorState({ what, onRetry }: { what: string; onRetry?: () => void }) {
+/** Figma 07 · "Error with a way out": what failed, why if we know, and what to do next. */
+export function ErrorState({ what, onRetry, detail }: { what: string; onRetry?: () => void; detail?: string }) {
   return (
     <div className="page">
-      <p className="state-error">
-        Couldn't load {what}. {onRetry && <button className="link" onClick={onRetry}>Try again</button>}
-      </p>
+      <div className="state-error" role="alert">
+        <b>Couldn't load {what}</b>
+        <p>{detail ?? "Something went wrong on our side or the connection dropped. Your work is saved in this browser."}</p>
+        <div className="state-error__actions">
+          {onRetry && <button type="button" className="lf-btn lf-btn--secondary lf-btn--sm" onClick={onRetry}>Try again</button>}
+          <a className="lf-btn lf-btn--ghost lf-btn--sm" href="./">Go to Home</a>
+        </div>
+      </div>
     </div>
   );
 }

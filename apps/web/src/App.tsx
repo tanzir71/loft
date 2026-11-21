@@ -20,6 +20,10 @@ import { MoneyLog, MoneyOverview, MoneyPackages, MoneyPayments, MoneyReminders }
 import { InvoiceDetail, InvoicePrint, MoneyInvoices } from "./pages/money/Invoices";
 import { PayPage, PayPrint } from "./pages/money/Pay";
 import "./pages/money/money.css";
+import { InsightsPage } from "./pages/insights/Insights";
+import { CheckPage } from "./pages/checks/Checks";
+import { TakeCheck } from "./pages/checks/TakeCheck";
+import "./pages/insights/insights.css";
 
 export function App() {
   return (
@@ -32,6 +36,7 @@ export function App() {
       <Route path="pay/:token" element={<PayPage />} />
       <Route path="pay/:token/print" element={<PayPrint />} />
       <Route path="print/invoice/:id" element={<InvoicePrint />} />
+      <Route path="checks/:id/take" element={<TakeCheck />} />
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
         <Route path="calendar" element={<CalendarPage />} />
@@ -46,7 +51,8 @@ export function App() {
         <Route path="money/packages" element={<MoneyPackages />} />
         <Route path="money/payments" element={<MoneyPayments />} />
         <Route path="money/reminders" element={<MoneyReminders />} />
-        <Route path="insights" element={<Soon title="Insights" milestone="M8" blurb="Last seen, attendance, on-time and at-risk, with automatic and custom nudges." />} />
+        <Route path="insights" element={<InsightsPage />} />
+        <Route path="checks/:id" element={<CheckPage />} />
         <Route path="agents" element={<Soon title="Agents" milestone="M9" blurb="One link and one line. Agents prepare drafts; you review and accept." />} />
         <Route path="chats" element={<ChatsPage />} />
         <Route path="inbox" element={<InboxPage initial="review" />} />

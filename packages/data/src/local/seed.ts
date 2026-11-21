@@ -4,7 +4,7 @@ import type { LocalCtx } from "./routes";
 import { buildDrafts, confirmPayment, recordAttendance, sellPackage, sendInvoice, type InvoiceRow, type MoneySettings } from "./routes-money";
 
 /** Bump when demo data changes; the local adapter wipes and re-seeds a browser whose data is older. */
-export const SEED_VERSION = 6;
+export const SEED_VERSION = 7;
 
 export const DEMO_HOST_ID = "u_nusrat";
 
@@ -76,7 +76,9 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await seedHost(db, now);
   if (opts.empty) return;
   const iso = now.toISOString();
-  for (const p of PEOPLE) await db.put("users", { id: p.id, name: p.name, email: `${p.id.slice(2)}@example.com`, phone: p.phone, tz: "UTC", status: p.status, title: p.title, createdAt: iso });
+  // Last seen / last login (minutes ago) for Insights.
+  const SEEN: Record<string, number> = { u_leena: 30, u_farhan: 60 * 24 * 3, u_shirin: 300, u_ayaan: 10, u_mitu: 60 * 24 * 12, u_rafi: 60 * 26, u_sumaiya: 120, u_tania: 60 * 24 * 8, u_dipa: 60 * 24 * 9 };
+  for (const p of PEOPLE) await db.put("users", { id: p.id, name: p.name, email: `${p.id.slice(2)}@example.com`, phone: p.phone, tz: "UTC", status: p.status, title: p.title, createdAt: iso, lastSeenAt: ago(now, SEEN[p.id] ?? 60), lastLoginAt: ago(now, (SEEN[p.id] ?? 60) + 45) });
 
   const spaceIds: Record<string, string> = {};
   for (const [i, s] of SPACES.entries()) {
@@ -220,6 +222,49 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await note("ack", "2 of 4 have seen the steering review move", "Acme pricing · must-read", "/s/acme-pricing", 600, true);
 
   await seedMoney(db, now, spaceIds, physicsSessions, past.id);
+  await seedChecks(db, now, phy);
+}
+
+/** Quick checks and nudges (Figma 04 · Insights + nudges): one closed check with results, one open. */
+async function seedChecks(db: LocalDb, now: Date, phy: string) {
+  const t = now.getTime();
+  const iso = (ms: number) => new Date(ms).toISOString();
+  // A worksheet that was due last week: two on time, Dipa missing.
+  const ws6 = { id: "po_ws6", spaceId: phy, kind: "task", title: "Worksheet 6 p2", body: "Vectors on a slope, questions 1–6.", mustRead: false, dueAt: iso(t - 5 * DAY), createdBy: DEMO_HOST_ID, createdAt: iso(t - 9 * DAY), attachments: [] };
+  await db.put("posts", ws6);
+  await db.put("submissions", { id: `${ws6.id}:u_ayaan`, postId: ws6.id, spaceId: phy, userId: "u_ayaan", status: "done", note: "", at: iso(t - 6 * DAY), feedback: "Good work on Q4." });
+  await db.put("submissions", { id: `${ws6.id}:u_sumaiya`, postId: ws6.id, spaceId: phy, userId: "u_sumaiya", status: "done", note: "", at: iso(t - 5 * DAY - 3600_000) });
+  const q = (id: string, type: string, prompt: string, points: number, options: string[], answer: string[]) => ({ id, type, prompt, points, options: type === "true_false" ? [{ id: "true", text: "True" }, { id: "false", text: "False" }] : options.map((text, i) => ({ id: `${id}_${i}`, text })), answer });
+  const exit = {
+    id: "ck_exit6", spaceId: phy, title: "Projectiles · exit ticket", instructions: "Four quick questions on today's lab. No notes needed.",
+    questions: [
+      q("q1", "mcq_single", "Which launch angle gives the longest range on flat ground?", 2, ["30°", "45°", "60°", "75°"], ["q1_1"]),
+      q("q2", "true_false", "Horizontal velocity stays the same during the flight (ignoring air resistance).", 1, [], ["true"]),
+      q("q3", "mcq_multi", "Which changes make a projectile go further?", 2, ["A faster launch", "A heavier ball", "Launching from higher up", "A steeper angle than 60°"], ["q3_0", "q3_2"]),
+      q("q4", "short_answer", "What is the vertical acceleration of a projectile? Include the unit.", 1, [], ["9.8 m/s²", "9.8 m/s^2", "9.8 m/s2", "9.81 m/s²", "9.81 m/s2", "g"])
+    ],
+    status: "published", openAt: null, closeAt: iso(t - 2 * DAY), timeLimitMin: 10, maxAttempts: 1, shuffle: true, integrity: true, createdAt: iso(t - 3 * DAY), createdBy: DEMO_HOST_ID
+  };
+  await db.put("checks", exit);
+  const start = t - 2 * DAY - 3 * 3600_000;
+  await db.put("check_attempts", { id: "at_ayaan_exit6", checkId: exit.id, userId: "u_ayaan", startedAt: iso(start), submittedAt: iso(start + 6 * 60_000), status: "graded", answers: { q1: ["q1_1"], q2: ["true"], q3: ["q3_0"], q4: ["9.8 m/s2"] }, scores: { q1: { isCorrect: true, points: 2 }, q2: { isCorrect: true, points: 1 }, q3: { isCorrect: false, points: 0 }, q4: { isCorrect: true, points: 1 } }, integrity: { integrityScore: 100, violationCounts: {}, awayMs: 0, recent: [] } });
+  await db.put("check_attempts", { id: "at_sumaiya_exit6", checkId: exit.id, userId: "u_sumaiya", startedAt: iso(start + 60_000), submittedAt: iso(start + 9 * 60_000), status: "submitted", answers: { q1: ["q1_1"], q2: ["true"], q3: ["q3_0", "q3_2"], q4: ["about 10 metres per second squared, downwards"] }, scores: { q1: { isCorrect: true, points: 2 }, q2: { isCorrect: true, points: 1 }, q3: { isCorrect: true, points: 2 }, q4: { isCorrect: null, points: null } }, integrity: { integrityScore: 84, violationCounts: { tab_hidden: 2 }, awayMs: 40_000, recent: [] } });
+  await db.put("checks", {
+    id: "ck_energy", spaceId: phy, title: "Energy warm-up", instructions: "Three questions before Lesson 7. You can't pause once you start.",
+    questions: [
+      q("e1", "mcq_single", "A 2 kg book is lifted 1 m. Roughly how much work is done? (g ≈ 10 m/s²)", 1, ["2 J", "10 J", "20 J", "200 J"], ["e1_2"]),
+      q("e2", "true_false", "Work is done when you hold a heavy bag still.", 1, [], ["false"]),
+      q("e3", "short_answer", "Name the unit of energy.", 1, [], ["joule", "joules", "J"])
+    ],
+    status: "published", openAt: null, closeAt: iso(t + 2 * DAY), timeLimitMin: 10, maxAttempts: 1, shuffle: true, integrity: true, createdAt: iso(t - 3600_000), createdBy: DEMO_HOST_ID
+  });
+  // Two nudges this week (one opened and acted on).
+  const n1 = sortableId("nt");
+  await db.put("notifications", { id: n1, userId: "u_sumaiya", kind: "nudge", title: "Due tomorrow: Worksheet 6 p2", sub: "Due in 1 day", link: `/s/${phy}/work`, createdAt: iso(t - 6 * DAY), readAt: iso(t - 6 * DAY + 3600_000) });
+  await db.put("nudge_log", { id: "nl_1", hostId: DEMO_HOST_ID, nudgeId: null, rule: "deadline", userId: "u_sumaiya", notificationId: n1, at: iso(t - 6 * DAY), taskId: ws6.id });
+  const n2 = sortableId("nt");
+  await db.put("notifications", { id: n2, userId: "u_dipa", kind: "nudge", title: "Due tomorrow: Worksheet 6 p2", sub: "Due in 1 day", link: `/s/${phy}/work`, createdAt: iso(t - 6 * DAY), readAt: null });
+  await db.put("nudge_log", { id: "nl_2", hostId: DEMO_HOST_ID, nudgeId: null, rule: "deadline", userId: "u_dipa", notificationId: n2, at: iso(t - 6 * DAY), taskId: ws6.id });
 }
 
 /**

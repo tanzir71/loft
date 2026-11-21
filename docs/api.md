@@ -52,6 +52,15 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | GET/POST | `money/settings` | prefix, next number, footer, payment link `{mode, link, template, perPayer}`, reminders, package rules | M7 |
 | GET | `money/reminders` · POST `money/payers/:id/pause` | steps, message, overdue + queued WhatsApp · `{paused}` | M7 |
 | GET | `pay/:token` · POST `pay/:token/claim` · `pay/:token/comments` | public pay page (no sign-in) · "I've paid" `{amountCents, method, reference, note}` · question on a line | M7 |
+| GET | `insights?space=&days=` | KPIs with deltas, people (last seen/login, attendance, homework, fees, at-risk reasons), rules, audiences, week stats; runs the daily nudge rules | M8 |
+| POST | `nudges` · `nudges/rules` | custom nudge `{audience | userId, text, channels, sendAt?}` → recipients + wa.me texts · `{rule, on}` | M8 |
+| POST | `files/:id/open` | record that a member opened a file (for the "hasn't opened shared files" nudge) | M8 |
+| GET/POST | `spaces/:id/checks` | host: checks with done/average/to-mark/flagged · member: checks with my attempt · create a draft | M8 |
+| GET/POST | `checks/:id` · POST `checks/:id/status` | host: full check · member: no answer key · edit · `{status: published|closed|draft}` (publish validates) | M8 |
+| POST | `checks/:id/start` · GET `attempts/:id` | start or resume an attempt (window, time limit, attempt limit) | M8 |
+| POST | `attempts/:id/answer` · `/integrity` · `/submit` | autosave `{questionId, answer}` · tinyproctor snapshot · submit → auto-graded score | M8 |
+| GET | `checks/:id/results` · POST `attempts/:id/grade` | attempts with scores and integrity review, not started, per-question rates, short answers to mark · `{questionId, points}` | M8 |
+| GET | `spaces/:id/grades` | gradebook columns (tasks, checks) and rows with averages | M8 |
 | POST | `auth/link` | email a 15-minute single-use sign-in link | M10 |
 | POST | `auth/signout` | end the session | M10 |
 | POST | `rooms` | create a room `{name?, guestJoin?, spaceId?}` → room with `code` | M2 |

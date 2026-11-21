@@ -9,6 +9,8 @@ import "./routes-spaces";
 import "./routes-schedule";
 import "./routes-plans";
 import "./routes-money";
+import "./routes-insights";
+import "./routes-checks";
 import { seed, SEED_VERSION } from "./seed";
 
 export interface LocalAdapterOptions {

@@ -384,9 +384,9 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Payer pay page (phone) with "I've paid" claim. Default payment link (same / `{amount}` template / per payer).
 
 ### M8: Insights, checks, states
-- [ ] Insights (last seen/login, attendance, on-time, at-risk) + automatic and custom nudges.
-- [ ] Quick checks with integrity signals (tinyproctorjs) + host review.
-- [ ] All system states on page 07 (offline, reconnecting, skeletons, errors with a way out).
+- [x] Insights (last seen/login, attendance, on-time, at-risk) + automatic and custom nudges.
+- [x] Quick checks with integrity signals (tinyproctorjs) + host review.
+- [x] All system states on page 07 (offline, reconnecting, skeletons, errors with a way out).
 
 ### M9: Agents (UI complete; real protocol arrives in M10)
 - [ ] Agents page: agent link with scope, one-line prompt, seats (approve/revoke), "needs you" questions, "what agents read" preview.

@@ -8,3 +8,5 @@ export * from "./ics";
 export * from "./schedule";
 export * from "./plans";
 export * from "./billing";
+export * from "./checks";
+export * from "./insights";

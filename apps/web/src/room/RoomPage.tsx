@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Grid2x2, Hand, Link2, Mail, MessageCircle, MousePointer2, Pencil, Plus, Redo2, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Grid2x2, Hand, Link2, Mail, MessageCircle, MousePointer2, Pencil, Plus, Redo2, RefreshCw, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { Avatar, Button, PreviewBanner } from "@loft/ui";
 import { normaliseCode, type User } from "@loft/core";
 import { bounds, pageAt, sortedPages, PAGE_GAP, type BoardOp, type ConnectorObj, type Page, type ShapeKind, type StickyColour } from "@loft/board";
 import type { LocalAdapter } from "@loft/data";
 import { useAdapter, useQuery } from "../lib/data";
-import { useBreakpoint } from "../lib/media";
+import { useBreakpoint, useOnline } from "../lib/media";
 import { IS_PREVIEW } from "../lib/env";
 import { Board, type BoardHandle, type Tool } from "./Board";
 import { RoomChat } from "./Chat";
@@ -154,6 +154,8 @@ export function RoomPage() {
   const humansIn = peers.filter((p) => p.status === "in" && !p.isAgent);
   const waitingAhead = peers.filter((p) => p.status === "waiting" && typeof p.joinedAt === "number" && (p.joinedAt as number) < joinedAt).length;
   const freeSeats = (room?.capacity ?? 12) - humansIn.length;
+  const waitingPeers = peers.filter((p) => p.status === "waiting" && !p.isAgent);
+  const online = useOnline();
   useEffect(() => {
     if (!room || !admitted || seat === "in") return;
     if (isHost) setSeat("in"); // the host always has a seat
@@ -434,6 +436,14 @@ export function RoomPage() {
 
         {room.sessionId && <div className="room__rail"><PlanRail sessionId={room.sessionId} compact={phone} onGoToPage={(id) => boardRef.current?.goToPage(id)} /></div>}
         {share && <SharePopover room={room} isHost={isHost} onClose={() => setShare(false)} phone={phone} onEnd={async () => adapter.mutate(`rooms/${room.id}/end`)} />}
+
+        {/* Figma 07 states: reconnecting (the board keeps working locally) and room full · host view */}
+        {(!online || (isHost && waitingPeers.length > 0)) && (
+          <div className="room__states" data-board-ui="" aria-live="polite">
+            {!online && <p className="state-banner state-banner--reconnect"><RefreshCw aria-hidden="true" />Reconnecting… the board keeps working.</p>}
+            {isHost && waitingPeers.length > 0 && <p className="seat-note"><Users aria-hidden="true" />{humansIn.length} / {room.capacity} · {waitingPeers[0]!.name.split(" ")[0]}{waitingPeers.length > 1 ? ` +${waitingPeers.length - 1}` : ""} {waitingPeers.length > 1 ? "are" : "is"} waiting · <b>Let in when free</b></p>}
+          </div>
+        )}
 
         {/* bottom-left: guest admit toasts */}
         {isHost && admissions.length > 0 && (

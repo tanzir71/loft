@@ -9,6 +9,8 @@ export interface LocalDb {
   get<T extends Row>(table: string, id: string): Promise<T | undefined>;
   put<T extends Row>(table: string, row: T): Promise<T>;
   patch<T extends Row>(table: string, id: string, patch: Partial<T>): Promise<T>;
+  /** Read-modify-write in one transaction (fn must be synchronous), so concurrent writers never lose updates. */
+  update<T extends Row>(table: string, id: string, fn: (cur: T) => T): Promise<T>;
   del(table: string, id: string): Promise<void>;
   getMeta<T>(key: string): Promise<T | undefined>;
   setMeta(key: string, value: unknown): Promise<void>;
@@ -57,6 +59,15 @@ export async function openLocalDb(name: string): Promise<LocalDb> {
       const cur = (await tx.store.get(`${table}/${id}`)) as Stored | undefined;
       if (!cur) throw new Error(`${table}/${id} not found`);
       const next = { ...cur, ...patch, id, _key: cur._key, _table: table } as Stored;
+      await tx.store.put(next);
+      await tx.done;
+      return strip<T>(next);
+    },
+    async update<T extends Row>(table: string, id: string, fn: (cur: T) => T) {
+      const tx = db.transaction("rows", "readwrite");
+      const cur = (await tx.store.get(`${table}/${id}`)) as Stored | undefined;
+      if (!cur) throw new Error(`${table}/${id} not found`);
+      const next = { ...fn(strip<T>(cur)), id, _key: cur._key, _table: table } as unknown as Stored;
       await tx.store.put(next);
       await tx.done;
       return strip<T>(next);

@@ -121,6 +121,7 @@ export function MoneyInvoices() {
   const [sentNow, setSentNow] = useState<ListInvoice[] | null>(null);
   const [addPayer, setAddPayer] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "open" | "overdue" | "paid">("all");
+  const [sendError, setSendError] = useState<string | null>(null);
   if (error) return <ErrorState what="invoices" onRetry={reload} />;
   if (!data) return <Loading label="Loading invoices" />;
   const selected = picked ?? new Set(data.ready.map((r) => r.id));
@@ -128,9 +129,21 @@ export function MoneyInvoices() {
   const total = chosen.reduce((n, r) => n + r.totalCents, 0);
   const previewId = preview && [...data.ready, ...data.attention].some((r) => r.id === preview) ? preview : data.ready[0]?.id ?? null;
   const send = async () => {
-    const r = await adapter.mutate<{ sent: ListInvoice[] }>("invoices/send", { ids: chosen.map((c) => c.id), ...via });
-    setSentNow(r.sent);
-    setPicked(null);
+    setSendError(null);
+    try {
+      const r = await adapter.mutate<{ sent: ListInvoice[] }>("invoices/send", { ids: chosen.map((c) => c.id), ...via });
+      setSentNow(r.sent);
+      setPicked(null);
+    } catch (e) {
+      setSendError((e as Error).message || "The server didn't answer.");
+    }
+  };
+  const copyLinks = async () => {
+    try {
+      await navigator.clipboard.writeText(chosen.map((c) => `${c.payerName}: ${appUrl(c.payPath)}`).join("\n"));
+    } catch {
+      /* clipboard blocked: the links are still on each invoice */
+    }
   };
   const sent = data.sent.filter((i) => filter === "all" || (filter === "paid" ? i.status === "paid" : filter === "overdue" ? i.status === "overdue" : !["paid", "void"].includes(i.status)));
   const hasDrafts = data.ready.length + data.attention.length > 0;
@@ -143,6 +156,13 @@ export function MoneyInvoices() {
       actions={hasDrafts && !phone ? <Button icon={<Send aria-hidden="true" />} disabled={!chosen.length} onClick={() => void send()}>Send {chosen.length} ready</Button> : undefined}
     >
       {sentNow && <SentResult sent={sentNow} via={via} onClose={() => setSentNow(null)} />}
+      {sendError && (
+        <div className="state-error" role="alert">
+          <b>Couldn't send {chosen.length} invoice{chosen.length === 1 ? "" : "s"}</b>
+          <p>{sendError} Try again, or copy the pay links and send them yourself.</p>
+          <div className="state-error__actions"><Button size="sm" variant="secondary" onClick={() => void send()}>Try again</Button><Button size="sm" variant="ghost" onClick={() => void copyLinks()}>Copy links</Button></div>
+        </div>
+      )}
       {hasDrafts ? (
         <div className="money-grid">
           <section className="money-col">

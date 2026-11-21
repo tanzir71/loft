@@ -290,3 +290,5 @@
 .room--phone .diagram-panel { left: 16px; right: 16px; top: 64px; width: auto; }
 .bconn.is-selected, .bshape.is-selected { outline: none; }
 .sel-bar { max-width: calc(100vw - 32px); overflow-x: auto; scrollbar-width: none; }
+.room__states { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 12; }
+.room--phone .room__states { top: 64px; width: calc(100% - 32px); }
