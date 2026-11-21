@@ -1,4 +1,4 @@
-import type { User } from "@loft/core";
+import { newId, type User } from "@loft/core";
 import type { DataAdapter, FileRef, NewOp, Op, PresenceHandle, PresencePeer, PresenceState, SignalMsg, Unsubscribe } from "./types";
 import { ForbiddenError, NotFoundError } from "./types";
 
@@ -11,6 +11,8 @@ export interface HttpAdapterOptions {
 /** Talks to the PHP 8 + SQLite API at /spaces/api/v1 (production). Live features poll (no WebSockets). */
 export class HttpAdapter implements DataAdapter {
   readonly kind = "http" as const;
+  /** One id per browser tab: presence rows and signalling are addressed per tab. */
+  readonly tabId = newId("tab");
   private base: string;
   private f: typeof fetch;
   private pollMs: number;
@@ -122,7 +124,7 @@ export class HttpAdapter implements DataAdapter {
     const beat = async () => {
       if (stopped) return;
       try {
-        const peers = await this.req<PresencePeer[]>("POST", `rooms/${encodeURIComponent(roomId)}/presence`, { state });
+        const peers = await this.req<PresencePeer[]>("POST", `rooms/${encodeURIComponent(roomId)}/presence`, { state, tabId: this.tabId });
         onPeers?.(peers.filter((p) => p.userId !== state.userId));
       } catch {
         /* offline: the next beat retries */
@@ -137,7 +139,7 @@ export class HttpAdapter implements DataAdapter {
       stop: () => {
         stopped = true;
         clearInterval(timer);
-        void this.req("POST", `rooms/${encodeURIComponent(roomId)}/presence/leave`, {}).catch(() => {});
+        void this.req("POST", `rooms/${encodeURIComponent(roomId)}/presence/leave`, { tabId: this.tabId }).catch(() => {});
       }
     };
   }
@@ -152,7 +154,7 @@ export class HttpAdapter implements DataAdapter {
     const loop = async () => {
       while (!stopped) {
         try {
-          const res = await this.req<{ seq: number; msgs: SignalMsg[] }>("GET", "signal", undefined, { roomId, since });
+          const res = await this.req<{ seq: number; msgs: SignalMsg[] }>("GET", "signal", undefined, { roomId, since, tabId: this.tabId });
           since = res.seq;
           res.msgs.forEach(handler);
         } catch {

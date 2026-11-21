@@ -75,3 +75,19 @@
 .brand-space small { padding-bottom: 12px; font: var(--text-mono-s); color: var(--color-muted-fg); }
 .app--phone .brand-grid, .app--phone .brand-preview, .app--tablet .brand-grid { grid-template-columns: minmax(0, 1fr); }
 .app--phone .brand-banner { padding: 12px 16px; }
+.owner__navlink { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 8px; font: var(--text-body-m); color: var(--color-fg); }
+.owner__navlink svg { width: 18px; height: 18px; color: var(--color-ink-2); }
+.owner__navlink:hover { background: var(--color-muted); }
+.owner__navlink.is-off { color: var(--color-muted-fg); cursor: default; }
+.sec-title { font: var(--text-heading-m); }
+.prov { gap: 12px; }
+.prov__head { display: flex; align-items: center; gap: 10px; }
+.prov__head > span:first-child { flex: 1; display: flex; flex-direction: column; }
+.prov__head b { font: var(--text-body-m); font-weight: 600; }
+.prov__head small { font: var(--text-body-s); color: var(--color-muted-fg); }
+.cap-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font: var(--text-body-m); }
+.cap-steps li { display: flex; align-items: center; gap: 10px; }
+.usage-chart { position: relative; height: 120px; display: flex; align-items: flex-end; gap: 6px; padding-top: 8px; }
+.usage-chart__bar { flex: 1; background: var(--color-primary); border-radius: 3px 3px 0 0; min-height: 2px; }
+.usage-chart__bar.is-high { background: var(--color-warning); }
+.usage-chart__cap { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px solid var(--color-destructive); }

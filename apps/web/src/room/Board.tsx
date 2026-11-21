@@ -48,6 +48,8 @@ import { SHAPES, shapePath } from "./board/shapes";
 export type Tool = "select" | "hand" | "pen" | "eraser" | "sticky" | "text" | "shape" | "connector" | "section";
 
 export interface BoardHandle {
+  /** Follow-me: show exactly the host's view. */
+  setViewport(v: Viewport): void;
   goToPage(id: string): void;
   zoomBy(f: number): void;
   fit(): void;
@@ -163,6 +165,9 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board(p, ref) 
   useImperativeHandle(
     ref,
     () => ({
+      setViewport(v) {
+        setView(v);
+      },
       goToPage(id) {
         const pg = p.state.pages[id];
         if (pg) setView(fitRect(pg, size, size.w < 768 ? 16 : 64));
