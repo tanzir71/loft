@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { IconRail, PreviewBanner, SidePanel, TabBar, type DmLink, type LiveRoomLink, type SpaceLink } from "@loft/ui";
 import type { User } from "@loft/core";
-import { useQuery } from "../lib/data";
+import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint } from "../lib/media";
 import { IS_PREVIEW } from "../lib/env";
 import { mainNav } from "./nav";
@@ -24,6 +24,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const [drawer, setDrawer] = useState(false);
   const [start, setStart] = useState(false);
+  const adapter = useAdapter();
   const { data } = useQuery<NavData>("nav");
   const counts = data?.counts ?? { review: 0, chats: 0, inbox: 0 };
   const brand = data?.brand ?? { name: "Loft", monogram: "L" };
@@ -43,6 +44,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
       onJoinCode={() => setStart(true)}
       onNewSpace={() => navigate("/spaces/new")}
       onNewDm={() => navigate("/chats")}
+      onKnock={async (dm) => {
+        const r = await adapter.mutate<{ code: string }>(`dms/${dm.id}/room`, { knock: true });
+        navigate(`/r/${r.code}`);
+      }}
       onSettings={() => navigate("/more")}
       onNavigate={() => setDrawer(false)}
     />

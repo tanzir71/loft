@@ -35,6 +35,12 @@
   --color-dark-2: #1e2029;
   --color-dark-border: #303340;
   --color-white: #ffffff;
+  --color-space-blue: #213a8c;
+  --color-space-green: #1a6144;
+  --color-space-amber: #9b4d08;
+  --color-space-red: #b62020;
+  --color-space-slate: #434656;
+  --color-space-teal: #0c6e5b;
   --brand-name: "Loft";
   --brand-monogram: "L";
   --brand-tagline: "Free for every host";

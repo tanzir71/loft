@@ -4,6 +4,7 @@ import { ResourceRouter } from "../router";
 import { ForbiddenError, NotFoundError } from "../types";
 import type { LocalDb, Row } from "./db";
 
+export { requireMe };
 export interface LocalCtx {
   db: LocalDb;
   meId: string | null;
@@ -35,7 +36,7 @@ interface Message extends Row {
   createdAt: string;
 }
 
-const str = (v: unknown, max = 200) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+export const str = (v: unknown, max = 200) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 async function roomOr404(ctx: LocalCtx, id: string): Promise<RoomRow> {
   const r = await ctx.db.get<RoomRow>("rooms", id);
@@ -67,33 +68,6 @@ export const routes = new ResourceRouter<LocalCtx>()
     await ctx.db.put("settings", next);
     ctx.changed("settings");
     return next;
-  })
-  .get("nav", async (ctx) => {
-    const me = await requireMe(ctx);
-    const spaces = await ctx.db.list<Row & { slug: string }>("spaces");
-    const rooms = await ctx.db.list<Row & { name: string; code: string; people?: number }>("rooms", (r) => !r.endedAt);
-    return {
-      me,
-      brand: { name: "Loft", monogram: "L" },
-      rooms: rooms.map((r) => ({ id: r.id, name: r.name, to: `/r/${r.code}`, people: r.people ?? 0 })),
-      spaces: spaces.map((s) => ({ id: s.id, slug: s.slug, to: `/s/${s.slug}`, unread: 0 })),
-      dms: [],
-      counts: { review: 0, chats: 0, inbox: 0 }
-    };
-  })
-  .get("home", async (ctx) => {
-    const me = await requireMe(ctx);
-    const settings = await ctx.db.get("settings", me.id);
-    const spaces = await ctx.db.list("spaces");
-    const rooms = await ctx.db.list("rooms", (r) => !r.endedAt);
-    return {
-      me,
-      settings,
-      spaces,
-      rooms,
-      dms: [],
-      counts: { review: 0, chats: 0, inbox: 0 }
-    };
   })
   // ---- rooms (M2) ----
   .post("rooms", async (ctx, _p, input) => {

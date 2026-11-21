@@ -2,6 +2,13 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.3.0 — M3: Spaces, stream, hallway, inbox (2026-11-21)
+- Demo workspace seeded on Pages (consulting and team spaces first, a course second); "Start with an empty workspace" in More shows the first-run state again.
+- New space wizard with five modes (team, client, workshop, course, tutoring); each mode sets its tabs and labels.
+- Space page: banner, join code, upcoming, and a stream with updates, recaps, must-read notices (who hasn't seen it + Remind them), tasks with hand-ins (mark done / return), files (upload, sha-256 dedupe), people and space chat.
+- Hallway: DMs with presence, Knock and "Start a room together" (a room invite card lands in the DM); phone Chats lists live rooms, spaces and DMs.
+- Home (hybrid, desktop and phone): room link card, Today, space cards, To review rail. Inbox (To review + Notifications), notifications bell with "Mark all read", search for people and spaces.
+
 ## v0.2.0 — M2: Rooms + board v1 (2026-11-21)
 - Rooms by link or code (`K7P-42Q`): start one from the "+" sheet or the landing hero, join with a code and your name. Guest join on = walk in; off = the host gets a "wants to join" toast with Let in / Deny.
 - Board v1 on a room op-log: pen (4 colours, smoothed), object eraser, sticky notes (4 colours), text, select and drag, pan and zoom (wheel, ctrl/⌘-scroll, pinch, space-drag), pages, undo/redo, keyboard shortcuts.

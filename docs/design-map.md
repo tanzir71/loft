@@ -28,3 +28,13 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 05 · "Guest · Join with a link (approval on)" [50:239] | `/r/:code` (waiting) | `screens.tsx` `WaitingForHost` | M2 |
 | 07 · "Room full (phone)" [110:107] | `/r/:code` (line) | `screens.tsx` `RoomFull` | M2 |
 | 07 · "Session ended (phone)" [110:138] | `/r/:code` (ended) | `screens.tsx` `SessionEnded`, `exportPng.ts` | M2 |
+| 04 · "Host · Home (hybrid)" [43:263] | `/` (with spaces) | `pages/Home.tsx` `Hybrid`, `shell/TopBar.tsx` | M3 |
+| 05 · "Host · Home (phone)" [63:55] | `/` on phones | `Home.tsx` (`RoomLinkCard` phone, `space-rows`) | M3 |
+| 07 · "New space · step 1 mode" [111:316] | `/spaces/new` | `pages/NewSpace.tsx` | M3 |
+| 04 · "Host · Space — Stream (hybrid)" [44:405] | `/s/:slug/:tab?` | `pages/Space.tsx` | M3 |
+| 05 · "Host · Space stream (phone)" [104:283] | `/s/:slug` on phones | `Space.tsx` (`.app--phone`) | M3 |
+| 04 · "Host · Hallway — DM + start a room" [44:733] | `/dm/:userId` | `pages/Hallway.tsx` `DmPage` | M3 |
+| 05 · "Host · Chats / Hallway (phone)" [63:210], "DM + start a room (phone)" [63:368] | `/chats`, `/dm/:userId` | `Hallway.tsx` `ChatsPage`, `DmPage` | M3 |
+| 05 · "Host · Inbox (phone)" [104:398] | `/inbox`, `/review` | `pages/Inbox.tsx` `InboxPage` | M3 |
+| 07 · "Notifications panel (desktop)" [111:472] | bell in top bars | `Inbox.tsx` `NotificationsBell` | M3 |
+| 05 · "Host · More (phone)" [104:538] | `/more` | `pages/More.tsx` | M3 |

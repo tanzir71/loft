@@ -39,14 +39,29 @@ export function More() {
               type="button"
               className="list-row"
               onClick={async () => {
-                if (confirm("Reset this browser's preview data?")) {
+                if (confirm("Reset to the demo workspace? This browser's preview data is replaced.")) {
                   await (adapter as LocalAdapter).reset();
                   location.hash = "#/";
                 }
               }}
             >
               <RotateCcw aria-hidden="true" />
-              <span className="list-row__label">Reset preview data</span>
+              <span className="list-row__label">Reset to the demo workspace</span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              className="list-row"
+              onClick={async () => {
+                if (confirm("Start with an empty workspace? This browser's preview data is replaced.")) {
+                  await (adapter as LocalAdapter).reset({ empty: true });
+                  location.hash = "#/";
+                }
+              }}
+            >
+              <RotateCcw aria-hidden="true" />
+              <span className="list-row__label">Start with an empty workspace</span>
             </button>
           </li>
         </ul>

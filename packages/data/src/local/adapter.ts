@@ -5,6 +5,7 @@ import { NotFoundError } from "../types";
 import { Bus } from "./bus";
 import { openLocalDb, type LocalDb } from "./db";
 import { routes, type LocalCtx } from "./routes";
+import "./routes-spaces";
 import { seed, SEED_VERSION } from "./seed";
 
 export interface LocalAdapterOptions {
@@ -39,16 +40,20 @@ export class LocalAdapter implements DataAdapter {
     this.bus = new Bus(opts.channel ?? dbName);
     this.tabStore = opts.tabStore === undefined ? (typeof sessionStorage !== "undefined" ? sessionStorage : null) : opts.tabStore;
     this.dbp = openLocalDb(dbName).then(async (db) => {
-      if (opts.autoSeed !== false && (await db.getMeta<number>("seedVersion")) !== SEED_VERSION) await seed(db, this.now());
+      if (opts.autoSeed !== false && (await db.getMeta<number>("seedVersion")) !== SEED_VERSION) {
+        // Preview data is disposable: an older seed is wiped and replaced.
+        await db.clear();
+        await seed(db, this.now());
+      }
       return db;
     });
   }
 
-  /** Wipe this browser's preview data and re-seed. */
-  async reset(): Promise<void> {
+  /** Wipe this browser's preview data and re-seed (the demo workspace, or an empty one for the first-run state). */
+  async reset(opts: { empty?: boolean } = {}): Promise<void> {
     const db = await this.dbp;
     await db.clear();
-    await seed(db, this.now());
+    await seed(db, this.now(), opts);
     this.tabStore?.removeItem(IDENTITY_KEY);
     this.bus.post({ type: "changed", tables: ["*"] });
   }

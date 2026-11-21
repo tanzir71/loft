@@ -20,13 +20,16 @@ afterEach(() => {
 });
 
 describe("LocalAdapter", () => {
-  it("seeds the demo host and serves the first-run home", async () => {
+  it("seeds the demo workspace (consulting first) and can start empty for the first-run home", async () => {
     const { a } = pair();
     const me = await a.auth.me();
     expect(me?.name).toBe("Nusrat Rahman");
-    const home = await a.query<{ spaces: unknown[]; settings: { roomLink: string } }>("home");
-    expect(home.spaces).toEqual([]);
+    const home = await a.query<{ spaces: { slug: string; mode: string }[]; settings: { roomLink: string } }>("home");
+    expect(home.spaces[0]).toMatchObject({ slug: "acme-pricing", mode: "client" });
     expect(home.settings.roomLink).toContain("/spaces/r/");
+    await a.reset({ empty: true });
+    const empty = await a.query<{ spaces: unknown[] }>("home");
+    expect(empty.spaces).toEqual([]);
   });
 
   it("rejects unknown resources", async () => {

@@ -27,19 +27,23 @@ test.describe("Pages smoke", () => {
     await expect(page.locator("form#contact")).toBeVisible();
   });
 
-  test("app shell shows the first-run Home", async ({ page }, info) => {
+  test("app shell shows the demo Home, and the first-run state on an empty workspace", async ({ page }, info) => {
     await page.goto("./app/");
     await expect(page.getByRole("note")).toContainText("Preview build");
-    await expect(page.getByRole("heading", { name: /Welcome, Nusrat/ })).toBeVisible();
-    await expect(page.getByText("Your room link")).toBeVisible();
-    await expect(page.getByRole("main").getByRole("button", { name: "New space" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /(Good (morning|afternoon|evening), Nusrat)|Home/ }).first()).toBeVisible();
+    await expect(page.getByText("Acme pricing").first()).toBeVisible();
     if (info.project.name === "phone") {
       await expect(page.getByRole("link", { name: "Inbox" })).toBeVisible();
       await page.getByRole("link", { name: "More" }).click();
       await expect(page.getByRole("heading", { name: "More" })).toBeVisible();
+      page.once("dialog", (d) => d.accept());
+      await page.getByRole("button", { name: "Start with an empty workspace" }).click();
+      await expect(page.getByRole("heading", { name: /Welcome, Nusrat/ })).toBeVisible();
+      await expect(page.getByText("Your room link")).toBeVisible();
     } else {
       const side = page.getByRole("navigation", { name: "Main" });
       await expect(side.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+      await expect(side.getByRole("link", { name: /acme-pricing/ })).toBeVisible();
       await side.getByRole("link", { name: "Money" }).click();
       await expect(page.getByRole("heading", { name: /Money arrives in M7/ })).toBeVisible();
     }

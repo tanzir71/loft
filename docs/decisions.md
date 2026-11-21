@@ -8,6 +8,16 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M3 spaces, stream, hallway, inbox
+- **Demo data by default:** Pages seeds a demo workspace (6 spaces, 8 people, posts, DMs, notifications, today's sessions). The first-run Home stays reachable through More → "Start with an empty workspace". When the seed changes (`SEED_VERSION`), a browser's preview data is wiped and re-seeded.
+- **Mode tabs** follow the wizard's lists, with Chat added after Stream (the space frame shows it) and People/Files where the mode implies them. Tabs owned by later milestones (Billing M7, Agenda/Notes M6, Votes M4, Grades M8, Sessions M5) show which milestone delivers them.
+- **Space colours** are new static tokens `space-blue|green|amber|red|slate|teal`, taken from the colours used in the Figma space cards, so they don't change with the org's brand mode.
+- **Must-read:** the author never counts; "N haven't seen this yet" lists names; "Remind them" notifies only those people.
+- **Knock / start a room from a DM** creates a room (guest join off), posts an invite card in the DM and notifies the other person. Demo people in the preview don't answer; a note says so.
+- **Search** in the desktop top bar matches spaces and people (files search arrives with the PHP backend).
+- **Sessions table** is seeded early so Home's "Today" is real; scheduling UI arrives in M5.
+- Seed timestamps are relative to "now" so unread counts and "Today" behave at any hour.
+
 ### 2026-11-21 — M2 rooms + board v1
 - **Room codes** follow Figma's "Join with code": 6 characters as `K7P-42Q`, from an alphabet without I/L/O/0/1. `normaliseCode` accepts lowercase, spaces or a full `…/r/<code>` link.
 - **Board engine** (`packages/board`) is framework-free: object model, op-log reducer (ops applied in `seq` order = last-writer-wins per field; an update can't change an object's kind), geometry, RDP simplification + quantisation of strokes, and a per-user undo stack built from inverse ops. Ops carry a client `_cid` so the view can apply them optimistically and drop them when the echo arrives.

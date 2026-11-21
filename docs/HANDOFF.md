@@ -356,10 +356,10 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Frames: "Host · Live Room — minimal", "Host · Room (phone)", "Join with code (phone)".
 
 ### M3: Spaces, stream, hallway, inbox
-- [ ] Spaces with modes (wizard "New space · step 1 mode"); tabs per mode.
-- [ ] Stream: posts, recap posts, must-read with acks, files, tasks.
-- [ ] Hallway: live rooms, spaces as channels, DMs with presence + Knock, "start a room" from a DM.
-- [ ] Home (desktop + phone), Inbox (To review + Notifications), More (phone), Notifications panel.
+- [x] Spaces with modes (wizard "New space · step 1 mode"); tabs per mode.
+- [x] Stream: posts, recap posts, must-read with acks, files, tasks.
+- [x] Hallway: live rooms, spaces as channels, DMs with presence + Knock, "start a room" from a DM.
+- [x] Home (desktop + phone), Inbox (To review + Notifications), More (phone), Notifications panel.
 
 ### M4: Board v2 (FigJam / Eraser-style)
 - [ ] Smoothing, shape recognition, flowchart shapes, connectors (3 types, caps, labels, re-route), sections, quick-create arrows, tidy up, snapping, find.

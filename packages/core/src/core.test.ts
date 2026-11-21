@@ -3,6 +3,7 @@ import { callModeFor, seatFor, ROOM_CAPACITY } from "./limits";
 import { fillPaymentLink, formatUSD, parseUSD, prorate } from "./money";
 import { isRoomCode, newId, normaliseCode, roomCode, slugify, sortableId } from "./ids";
 import { dayKey, isDailyDue } from "./time";
+import { MODE_ORDER, SPACE_MODES, spaceCode, tabLabel, unacknowledged } from "./spaces";
 
 describe("limits", () => {
   it("seats 12 then queues the 13th", () => {
@@ -76,5 +77,24 @@ describe("daily jobs", () => {
     expect(isDailyDue(null, now)).toBe(true);
     expect(isDailyDue("2026-11-20", now)).toBe(true);
     expect(isDailyDue("2026-11-21", now)).toBe(false);
+  });
+});
+
+describe("space modes", () => {
+  it("has five modes with Figma's tab sets", () => {
+    expect(MODE_ORDER).toEqual(["team", "client", "workshop", "course", "tutoring"]);
+    expect(SPACE_MODES.client.tabs).toContain("billing");
+    expect(tabLabel("course", "work")).toBe("Classwork");
+    expect(tabLabel("client", "work")).toBe("Actions");
+    expect(tabLabel("team", "work")).toBe("Tasks");
+  });
+  it("makes three-letter codes", () => {
+    expect(spaceCode("Acme pricing")).toBe("ACM");
+    expect(spaceCode("HSC Physics")).toBe("HSC");
+    expect(spaceCode("Q3")).toBe("QXX");
+    expect(spaceCode("123")).toBe("LFT");
+  });
+  it("lists who hasn't acknowledged a must-read post", () => {
+    expect(unacknowledged(["a", "b", "c", "host"], ["b"], "host")).toEqual(["a", "c"]);
   });
 });

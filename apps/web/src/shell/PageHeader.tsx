@@ -4,6 +4,7 @@ import { Avatar } from "@loft/ui";
 import { useBreakpoint } from "../lib/media";
 import { useQuery } from "../lib/data";
 import type { NavData } from "./AppShell";
+import { NotificationsBell } from "../pages/Inbox";
 
 /** Phone header (Figma 05 · Host · Home (phone)): mark + title + search + avatar. Desktop: 68 px top bar. */
 export function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) {
@@ -25,7 +26,7 @@ export function PageHeader({ title, actions }: { title: string; actions?: ReactN
   return (
     <header className="top-bar">
       <h1 className="top-bar__title">{title}</h1>
-      <div className="top-bar__actions">{actions}</div>
+      <div className="top-bar__actions">{actions}<NotificationsBell /></div>
     </header>
   );
 }
