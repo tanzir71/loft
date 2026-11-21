@@ -32,8 +32,9 @@ test('db: rows, atomic update, op-log, change polling, token bucket', function (
     $ops = $db->appendOps('rm1', [['actor' => 'u', 'kind' => 'add', 'payload' => ['obj' => ['id' => 's1']]], ['actor' => 'u', 'kind' => 'remove', 'payload' => ['id' => 's1']]]);
     eq(array_column($ops, 'seq'), [1, 2]);
     eq(count($db->opsSince('rm1', 1)), 1);
-    $v = $db->changed(['posts']);
-    eq($db->changesSince($v - 1)['tables'], ['posts']);
+    $v1 = $db->changed(['users']);
+    $db->changed(['posts']);
+    eq($db->changesSince($v1)['tables'], ['posts']);
     eq($db->changesSince(0)['tables'], ['*']);
     $t = 1_000_000;
     for ($i = 0; $i < 5; $i++) ok($db->takeToken('k', 5, $t));
