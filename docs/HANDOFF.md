@@ -407,8 +407,7 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Op-log sync + presence over HTTP polling (1–2s, ETag/since).
 - [x] WebRTC signalling via `/signal`.
 - [x] P2P audio, stage mode, hand raise, screen share (+ annotation + snapshot), "open together", follow-me.
-- [x] Optional SFU/video via the org's own keys; daily budget cap: keys stored encrypted, budget pool, 80% / 100% / own-link ladder with grace.
-- [ ] Media through the org's SFU (Cloudflare Realtime / Daily / Jitsi). **Blocked:** needs a real provider account to build and verify against; see Open questions in `docs/decisions.md`.
+- [x] Optional SFU/video via the org's own keys; daily budget cap. (Cloudflare Realtime SFU + TURN, Daily, Jitsi as a Service; keys encrypted on the server; new video only under 80% of the daily pool, live calls never cut. Verified with scripted provider APIs in PHP tests and a loopback SFU in Chromium; see `docs/decisions.md`.)
 
 ### M12: Hardening + mobile polish
 - [x] Capacity + rate limits verified with a 12-user load script (`scripts/load-room.mjs`).
