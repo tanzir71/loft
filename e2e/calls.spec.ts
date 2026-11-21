@@ -76,7 +76,7 @@ test.describe("calls (M11)", () => {
     const started = await host.getByText("You're sharing").isVisible({ timeout: 5000 }).catch(() => false);
     test.skip(!started, "headless browser refused screen capture");
     await expect(guest.getByText("Nusrat is sharing")).toBeVisible();
-    await expect.poll(async () => guest.locator(".share video").evaluate((v) => Boolean((v as HTMLVideoElement).srcObject)), { timeout: 15_000 }).toBe(true);
+    await expect.poll(async () => guest.locator(".screenshare video").evaluate((v) => Boolean((v as HTMLVideoElement).srcObject)), { timeout: 15_000 }).toBe(true);
     // Annotate on the host; the stroke shows up for the guest.
     const ink = host.getByLabel("Annotations");
     const b = (await ink.boundingBox())!;

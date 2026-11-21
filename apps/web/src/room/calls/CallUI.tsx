@@ -152,30 +152,30 @@ export function ShareOverlay({ call, peers, myName, onSnapshot }: { call: Call; 
   };
   const viewers = peers.filter((p) => p.tabId !== call.share?.from).slice(0, 6);
   return (
-    <div className="share" data-board-ui="">
-      <div className="island share__chip"><MonitorUp aria-hidden="true" /><b>{mine ? "You're" : `${name.split(" ")[0]} is`} sharing</b><span className="share__live">{mine ? `${call.viewers} watching` : call.share?.stream ? "live" : call.share?.still ? "still every 3 s" : "connecting…"}</span></div>
-      <div className="island share__who">
+    <div className="screenshare" data-board-ui="">
+      <div className="island screenshare__chip"><MonitorUp aria-hidden="true" /><b>{mine ? "You're" : `${name.split(" ")[0]} is`} sharing</b><span className="screenshare__live">{mine ? `${call.viewers} watching` : call.share?.stream ? "live" : call.share?.still ? "still every 3 s" : "connecting…"}</span></div>
+      <div className="island screenshare__who">
         {viewers.map((p) => <Avatar key={p.tabId} name={p.name} size="sm" />)}
         {mine && <Button size="sm" variant="danger" icon={<X aria-hidden="true" />} onClick={() => call.stopShare()}>Stop sharing</Button>}
       </div>
-      <div className="share__frame">
+      <div className="screenshare__frame">
         {call.share?.still && !call.share.stream && !mine ? <img src={call.share.still} alt={`${name}'s screen`} /> : <video ref={video} autoPlay playsInline muted={mine} />}
         <canvas
           ref={canvas}
-          className={`share__ink${pen ? " is-pen" : ""}`}
+          className={`screenshare__ink${pen ? " is-pen" : ""}`}
           aria-label="Annotations"
           onPointerDown={(e) => { if (!pen) return; e.currentTarget.setPointerCapture(e.pointerId); drawing.current = at(e); }}
           onPointerMove={(e) => { if (drawing.current) drawing.current.push(...at(e)); }}
           onPointerUp={() => { if (drawing.current && drawing.current.length >= 4) call.annotate(drawing.current, "#ef4444"); drawing.current = null; }}
         />
       </div>
-      <div className="island share__tools">
+      <div className="island screenshare__tools">
         <button type="button" className={`lf-icon-btn${pen ? " is-on" : ""}`} aria-pressed={pen} aria-label="Pen" onClick={() => setPen(!pen)}><Pen aria-hidden="true" /></button>
         <button type="button" className="lf-icon-btn" aria-label="Clear annotations" onClick={() => call.clearStrokes()}><Trash2 aria-hidden="true" /></button>
         <Button size="sm" variant="ghost" icon={<Camera aria-hidden="true" />} disabled={busy} onClick={() => void snapshot()}>Snapshot to board</Button>
         <Button size="sm" variant="ghost" icon={<ExternalLink aria-hidden="true" />} onClick={() => { const u = prompt("Link to open together (https://…)"); if (u) call.openTogether(u.trim()); }}>Open together</Button>
       </div>
-      {mine && call.viewers === 0 && <p className="island share__note"><AlertTriangle aria-hidden="true" />Waiting for viewers. Anyone who can't get video sees a still every 3 s.</p>}
+      {mine && call.viewers === 0 && <p className="island screenshare__note"><AlertTriangle aria-hidden="true" />Waiting for viewers. Anyone who can't get video sees a still every 3 s.</p>}
     </div>
   );
 }
