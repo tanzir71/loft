@@ -60,7 +60,7 @@ test.describe("board v2 (M4)", () => {
     await page.getByRole("button", { name: "Add to board" }).click();
     await expect(page.locator(".bdiagram")).toHaveCount(1);
     await expect(page.locator(".bshape-label", { hasText: "Qualified?" })).toBeVisible();
-    await page.locator(".bdiagram__chip").click();
+    // Adding a diagram selects it, so its bar (with Detach) is already open.
     await page.getByRole("button", { name: "Detach to freeform" }).click();
     await expect(page.locator(".bdiagram")).toHaveCount(0);
     await expect(page.locator(".bshape")).toHaveCount(6);
