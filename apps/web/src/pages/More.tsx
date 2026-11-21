@@ -12,7 +12,8 @@ const ITEMS = [
   { to: "/agents", label: "Agents", icon: Sparkles },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/brand", label: "Brand", icon: Palette },
-  { to: "/admin", label: "Admin", icon: Shield }
+  { to: "/admin", label: "Admin", icon: Shield },
+  { to: "/owner", label: "Owner console", icon: Shield }
 ];
 
 /** Figma 05 · Host · More (phone). Money, Insights, Calendar, Settings, Brand and Admin live here on phones. */

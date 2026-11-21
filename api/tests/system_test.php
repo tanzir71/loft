@@ -78,7 +78,15 @@ test('owner console: branding toggle + paid-until, active for 14 days after, cha
     $GLOBALS['loft_now'] = ms('2026-11-25T10:00:00Z');
     eq(branding_active($db->get('orgs', $next['id']), now_ms()), false, 'grace over');
     eq(call($db, 'u_owner', 'GET', 'owner')['log'][0]['action'], 'branding');
-    throws(fn () => call($db, 'u_host', 'POST', 'brand', ['theme' => 'sunrise']), '/Branding is off/');
+    $draft = call($db, 'u_host', 'POST', 'brand', ['theme' => 'sunrise', 'slug' => 'Nusrat Tutors']);
+    eq([$draft['theme'], $draft['slug'], $draft['published']], ['sunrise', 'nusrat-tutors', false], 'set up while off');
+    throws(fn () => call($db, 'u_host', 'POST', 'brand', ['publish' => true]), '/Branding is off/');
+    eq(nav_brand(new Ctx($db, 'u_host'), $db->get('users', 'u_host'))['name'], 'Loft');
+    $GLOBALS['loft_now'] = ms('2026-11-21T10:00:00Z');
+    call($db, 'u_owner', 'POST', 'owner/orgs/' . $draft['id'], ['branded' => true, 'brandedUntil' => '2027-11-21', 'notify' => true]);
+    eq(end($GLOBALS['loft_mail'])['subject'], 'Branding is on for Nusrat Rahman');
+    call($db, 'u_host', 'POST', 'brand', ['publish' => true]);
+    eq(nav_brand(new Ctx($db, 'u_host'), $db->get('users', 'u_host'))['theme'], 'sunrise');
 });
 
 test('contact form stores the message and emails the owner', function () {

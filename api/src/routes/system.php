@@ -58,9 +58,21 @@ function org_for_host(Ctx $ctx, array $host): array
     $base = slugify((string) $host['name']) ?: 'org';
     $slug = $base;
     for ($i = 2; find($ctx->db->list('orgs'), fn ($o) => $o['slug'] === $slug); $i++) $slug = "$base-$i";
-    $org = ['id' => new_id('org'), 'hostId' => $host['id'], 'slug' => $slug, 'name' => (string) $host['name'], 'branded' => false, 'brandedUntil' => null, 'note' => '', 'theme' => 'loft', 'monogram' => strtoupper(substr((string) $host['name'], 0, 1)), 'createdAt' => $ctx->nowIso()];
+    $mono = implode('', array_map(fn ($w) => mb_substr($w, 0, 1), array_slice(preg_split('/\s+/', trim((string) $host['name'])) ?: [], 0, 2)));
+    $org = ['id' => new_id('org'), 'hostId' => $host['id'], 'slug' => $slug, 'name' => (string) $host['name'], 'monogram' => strtoupper($mono) ?: 'L', 'theme' => 'loft', 'branded' => false, 'brandedUntil' => null, 'note' => '', 'published' => false, 'applies' => array_fill_keys(BRAND_APPLIES, true), 'requestedAt' => null, 'createdAt' => $ctx->nowIso()];
     $ctx->db->put('orgs', $org);
     return $org;
+}
+
+const BRAND_THEMES = ['loft', 'sunrise', 'northwind', 'aurelian'];
+const BRAND_APPLIES = ['app', 'invoices', 'certificates', 'exports', 'templates', 'poweredBy'];
+
+/** What the shell shows: the host's published, active brand, else Loft. */
+function nav_brand(Ctx $ctx, array $me): array
+{
+    $org = find($ctx->db->list('orgs'), fn ($o) => ($o['hostId'] ?? '') === $me['id']);
+    if ($org && !empty($org['published']) && branding_active($org, $ctx->now())) return ['name' => $org['name'], 'monogram' => $org['monogram'], 'theme' => $org['theme']];
+    return ['name' => 'Loft', 'monogram' => 'L'];
 }
 
 function public_user(array $u): array
@@ -116,6 +128,16 @@ routes()
         if (strlen($pw) < 10) throw new BadRequest('Use at least 10 characters');
         $ctx->db->patch('users', $me['id'], ['passwordHash' => password_hash($pw, PASSWORD_DEFAULT)]);
         return ['ok' => true];
+    })
+    ->post('profile', function (Ctx $ctx, array $p, array $in) {
+        $me = require_me($ctx);
+        $patch = [];
+        if (is_string($in['name'] ?? null) && str($in['name'], 80) !== '') $patch['name'] = str($in['name'], 80);
+        if (is_string($in['title'] ?? null)) $patch['title'] = str($in['title'], 80);
+        if (is_string($in['tz'] ?? null) && in_array($in['tz'], \DateTimeZone::listIdentifiers(), true)) $patch['tz'] = $in['tz'];
+        $next = $ctx->db->patch('users', $me['id'], $patch);
+        $ctx->changed('users', 'me', 'nav');
+        return public_user($next);
     })
     ->post('auth/signout', function (Ctx $ctx) {
         end_session($ctx->db);
@@ -205,20 +227,26 @@ routes()
     // ---- owner console (/spaces/owner) ----
     ->get('owner', function (Ctx $ctx) {
         require_owner($ctx);
+        $t = $ctx->now();
         $users = index_by($ctx->db->list('users'), fn ($u) => $u['id']);
         $hosts = [];
         foreach ($ctx->db->list('memberships', fn ($m) => $m['role'] === 'host') as $m) $hosts[$m['userId']][] = $m['spaceId'];
+        foreach ($hosts as $hid => $_) if (isset($users[$hid])) org_for_host($ctx, $users[$hid]);
+        $contacts = $ctx->db->list('contact_messages');
+        $since = iso($t - 30 * DAY);
         $orgs = [];
-        foreach ($hosts as $hid => $spaceIds) {
-            if (!isset($users[$hid])) continue;
-            $org = org_for_host($ctx, $users[$hid]);
-            $members = count(array_unique(array_map(fn ($m) => $m['userId'], $ctx->db->list('memberships', fn ($m) => in_array($m['spaceId'], $spaceIds, true)))));
-            $orgs[] = $org + ['hostName' => $users[$hid]['name'], 'hostEmail' => $users[$hid]['email'] ?? '', 'spaces' => count($spaceIds), 'members' => $members, 'active' => branding_active($org, $ctx->now()), 'lastSeenAt' => $users[$hid]['lastSeenAt'] ?? null];
+        foreach ($ctx->db->list('orgs') as $org) {
+            $host = $users[$org['hostId']] ?? null;
+            $spaceIds = $hosts[$org['hostId']] ?? [];
+            $members = array_values(array_unique(array_map(fn ($m) => $m['userId'], $ctx->db->list('memberships', fn ($m) => in_array($m['spaceId'], $spaceIds, true)))));
+            $activeMembers = count(array_filter($members, fn ($id) => (string) ($users[$id]['lastSeenAt'] ?? '') > $since));
+            $ends = !empty($org['branded']) && !empty($org['brandedUntil']) ? (int) ceil((ms((string) $org['brandedUntil']) - $t) / DAY) : null;
+            $asked = empty($org['branded']) && (!empty($org['requestedAt']) || some($contacts, fn ($c) => ($host && $c['email'] === ($host['email'] ?? '')) || $c['organisation'] === $org['name']));
+            $orgs[] = $org + ['hostName' => $host['name'] ?? '', 'hostEmail' => $host['email'] ?? '', 'spaces' => count($spaceIds), 'members' => count($members), 'activeMembers' => $activeMembers, 'active' => branding_active($org, $t), 'endsInDays' => $ends, 'askedByEmail' => $asked];
         }
         $st = $ctx->db->pdo->query("SELECT at, actor, action, data FROM audit WHERE action LIKE 'branding%' OR action = 'install' ORDER BY id DESC LIMIT 50");
         $log = array_map(fn ($r) => ['at' => $r['at'], 'actor' => $users[$r['actor']]['name'] ?? $r['actor'], 'action' => $r['action'], 'data' => json_decode((string) $r['data'], true)], $st->fetchAll(\PDO::FETCH_ASSOC));
-        $contacts = sorted($ctx->db->list('contact_messages'), fn ($a, $b) => strcmp($b['createdAt'], $a['createdAt']));
-        return ['orgs' => sorted($orgs, fn ($a, $b) => strcmp($a['name'], $b['name'])), 'log' => $log, 'contacts' => array_slice($contacts, 0, 20), 'version' => Config::get('version', 'dev')];
+        return ['orgs' => sorted($orgs, fn ($a, $b) => strcmp($a['name'], $b['name'])), 'log' => $log, 'contacts' => array_slice(sorted($contacts, fn ($a, $b) => strcmp($b['createdAt'], $a['createdAt'])), 0, 20), 'version' => Config::get('version', 'dev')];
     })
     ->post('owner/orgs/:id', function (Ctx $ctx, array $p, array $in) {
         $me = require_owner($ctx);
@@ -230,25 +258,49 @@ routes()
         if (array_key_exists('note', $in)) $patch['note'] = str($in['note'], 500);
         $next = $ctx->db->patch('orgs', $org['id'], $patch);
         $ctx->db->audit($me['id'], 'branding', ['org' => $org['name'], 'branded' => $next['branded'], 'until' => $next['brandedUntil'], 'note' => $next['note']]);
-        $ctx->changed('orgs');
+        if (!empty($in['notify']) && !empty($next['branded']) && ($host = $ctx->db->get('users', (string) $next['hostId'])) && !empty($host['email'])) {
+            send_mail((string) $host['email'], 'Branding is on for ' . $next['name'], "Hi " . first_name((string) $host['name']) . ",\n\nBranding is on for {$next['name']} until {$next['brandedUntil']}. Open Brand studio to publish your name, colours and address:\n\n" . $ctx->appUrl('/brand') . "\n\nAfter that date there are reminders 14 and 3 days before, 14 days' grace, then the standard look returns. Nothing is deleted.");
+            $ctx->db->put('notifications', ['id' => sortable_id('nt'), 'userId' => $host['id'], 'kind' => 'brand', 'title' => 'Branding is on', 'sub' => 'Until ' . ($next['brandedUntil'] ?? '—') . ' · open Brand studio to publish', 'link' => '/brand', 'createdAt' => $ctx->nowIso(), 'readAt' => null]);
+        }
+        $ctx->changed('orgs', 'notifications', 'nav');
         return $next + ['active' => branding_active($next, $ctx->now())];
     })
-    // ---- the host's brand (Brand studio) ----
+    // ---- the host's brand (Brand studio): set up while off, publish once branding is on ----
     ->get('brand', function (Ctx $ctx) {
         $me = require_me($ctx);
         $org = org_for_host($ctx, $me);
-        return ['org' => $org, 'active' => branding_active($org, $ctx->now()), 'ownerEmail' => Config::get('owner_email', ''), 'link' => rtrim((string) Config::get('app_url', ''), '/') . '/' . $org['slug']];
+        $owner = (string) Config::get('owner_email', '');
+        $host = parse_url((string) Config::get('app_url', ''), PHP_URL_HOST) ?: 'your-site';
+        $path = rtrim((string) parse_url((string) Config::get('app_url', ''), PHP_URL_PATH), '/');
+        $link = $host . $path . '/' . $org['slug'];
+        return ['org' => $org, 'active' => branding_active($org, $ctx->now()), 'endsInDays' => !empty($org['brandedUntil']) ? (int) ceil((ms((string) $org['brandedUntil']) - $ctx->now()) / DAY) : null, 'ownerEmail' => $owner, 'link' => $link, 'request' => ['to' => $owner, 'subject' => 'Branding for ' . $org['name'], 'body' => "Hi, please switch on branding for {$org['name']} (" . ($me['email'] ?? '') . "). Address: $link. Monthly or yearly: yearly."]];
     })
     ->post('brand', function (Ctx $ctx, array $p, array $in) {
         $me = require_me($ctx);
         $org = org_for_host($ctx, $me);
-        if (!branding_active($org, $ctx->now())) throw new Forbidden('Branding is off for this organisation');
         $patch = [];
         if (isset($in['name'])) $patch['name'] = str($in['name'], 60) ?: $org['name'];
         if (isset($in['monogram'])) $patch['monogram'] = strtoupper(str($in['monogram'], 2)) ?: $org['monogram'];
-        if (isset($in['theme']) && in_array($in['theme'], ['loft', 'sunrise', 'northwind', 'aurelian'], true)) $patch['theme'] = $in['theme'];
+        if (isset($in['theme']) && in_array($in['theme'], BRAND_THEMES, true)) $patch['theme'] = $in['theme'];
+        if (isset($in['slug'])) {
+            $slug = slugify(str($in['slug'], 40));
+            if ($slug === '') throw new BadRequest('Pick an address');
+            if (some($ctx->db->list('orgs'), fn ($o) => $o['slug'] === $slug && $o['id'] !== $org['id'])) throw new BadRequest('That address is taken');
+            $patch['slug'] = $slug;
+        }
+        if (isset($in['applies']) && is_array($in['applies'])) {
+            $a = (array) ($org['applies'] ?? []);
+            foreach ($in['applies'] as $k => $v) if (in_array($k, BRAND_APPLIES, true) && is_bool($v)) $a[$k] = $v;
+            $patch['applies'] = $a;
+        }
+        if (($in['requested'] ?? null) === true) $patch['requestedAt'] = $ctx->nowIso();
+        if (($in['publish'] ?? null) === true) {
+            if (!branding_active($org, $ctx->now())) throw new Forbidden('Branding is off for this organisation. Ask for branding by email first.');
+            $patch['published'] = true;
+        }
+        if (($in['publish'] ?? null) === false) $patch['published'] = false;
         $next = $ctx->db->patch('orgs', $org['id'], $patch);
-        $ctx->changed('orgs');
+        $ctx->changed('orgs', 'nav');
         return $next;
     })
     // ---- organisations contact form (landing) ----

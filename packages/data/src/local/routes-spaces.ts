@@ -9,6 +9,7 @@ import { autoWrapStale, wrapupsPending } from "./routes-plans";
 import { moneyDaily, moneyReviewItems } from "./routes-money";
 import { deliverNudges, insightsDaily, touchSeen } from "./routes-insights";
 import { checksReviewItems } from "./routes-checks";
+import { navBrand } from "./routes-owner";
 
 /** Deliver reminders whose time has come (no cron: the first request after deliverAt does it). */
 async function deliverDue(ctx: LocalCtx) {
@@ -181,7 +182,7 @@ routes
     chats += dms.reduce((n, d) => n + d.unread, 0);
     return {
       me,
-      brand: { name: "Loft", monogram: "L" },
+      brand: await navBrand(ctx, me),
       rooms: rooms.map((r) => ({ id: r.id, name: r.name, to: `/r/${r.code}`, people: 0 })),
       spaces: spaceRows,
       dms: dms.slice(0, 6).map((d) => ({ id: d.id, name: d.name, to: `/dm/${d.id}`, presence: d.status, note: d.status === "busy" ? "in a room" : undefined, canKnock: d.status === "available" })),
