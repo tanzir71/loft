@@ -49,6 +49,8 @@ export interface FileRef {
 /** The single data interface the SPA talks to (handoff §7.1). */
 export interface DataAdapter {
   readonly kind: "local" | "http";
+  /** One id per browser tab (presence rows and signalling are addressed per tab). */
+  readonly tabId: string;
   auth: {
     me(): Promise<User | null>;
     requestLink(email: string): Promise<void>;

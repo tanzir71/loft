@@ -1,18 +1,19 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { IconRail, PreviewBanner, SidePanel, TabBar, type DmLink, type LiveRoomLink, type SpaceLink } from "@loft/ui";
 import type { User } from "@loft/core";
 import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint, useOnline } from "../lib/media";
 import { CloudOff } from "lucide-react";
-import { IS_PREVIEW } from "../lib/env";
+import { ADAPTER, IS_PREVIEW } from "../lib/env";
+import { applyTheme, THEME_MODES, type ThemeMode } from "@loft/ui";
 import { mainNav } from "./nav";
 import { RouterLink } from "./RouterLink";
 import { StartSheet } from "./StartSheet";
 
 export interface NavData {
   me: User;
-  brand: { name: string; monogram: string };
+  brand: { name: string; monogram: string; theme?: string };
   rooms: LiveRoomLink[];
   spaces: SpaceLink[];
   dms: DmLink[];
@@ -27,7 +28,18 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const [start, setStart] = useState(false);
   const adapter = useAdapter();
-  const { data } = useQuery<NavData>("nav");
+  const { data, error } = useQuery<NavData>("nav");
+  // Production: not signed in → sign-in page; first run → install wizard.
+  useEffect(() => {
+    if (ADAPTER !== "http" || !error) return;
+    if (/not installed/i.test(error.message)) navigate("/install", { replace: true });
+    else if (/not signed in|forbidden/i.test(error.message) || error.name === "ForbiddenError") navigate("/signin", { replace: true });
+  }, [error, navigate]);
+  // A published brand switches the theme mode (Figma brand-theme modes).
+  const themeMode = data?.brand.theme;
+  useEffect(() => {
+    applyTheme((THEME_MODES as readonly string[]).includes(themeMode ?? "") ? (themeMode as ThemeMode) : "loft");
+  }, [themeMode]);
   const counts = data?.counts ?? { review: 0, chats: 0, inbox: 0 };
   const brand = data?.brand ?? { name: "Loft", monogram: "L" };
   const nav = mainNav(counts);

@@ -1,0 +1,10 @@
+# Loft API: every request goes to the front controller.
+Options -Indexes
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
+<FilesMatch "\.(sqlite|sql|log|md)$">
+  Require all denied
+</FilesMatch>

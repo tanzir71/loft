@@ -4,7 +4,7 @@ import type { LocalCtx } from "./routes";
 import { buildDrafts, confirmPayment, recordAttendance, sellPackage, sendInvoice, type InvoiceRow, type MoneySettings } from "./routes-money";
 
 /** Bump when demo data changes; the local adapter wipes and re-seeds a browser whose data is older. */
-export const SEED_VERSION = 8;
+export const SEED_VERSION = 9;
 
 export const DEMO_HOST_ID = "u_nusrat";
 
@@ -224,6 +224,22 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await seedMoney(db, now, spaceIds, physicsSessions, past.id);
   await seedChecks(db, now, phy);
   await seedAgents(db, now, spaceIds, sessionIds);
+  await seedOrgs(db, now);
+}
+
+/** Owner console demo (Figma 04 · Owner): on Pages the demo host plays the owner. */
+async function seedOrgs(db: LocalDb, now: Date) {
+  const t = now.getTime();
+  const day = (d: number) => new Date(t + d * DAY).toISOString().slice(0, 10);
+  await db.setMeta("ownerUserId", DEMO_HOST_ID);
+  const all = { app: true, invoices: true, certificates: true, exports: true, templates: true, poweredBy: true };
+  const org = (id: string, name: string, slug: string, email: string, theme: string, branded: boolean, until: string | null, active: number, extra: Record<string, unknown> = {}) =>
+    db.put("orgs", { id, hostId: `demo_${id}`, hostName: name, hostEmail: email, slug, name, monogram: name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase(), theme, branded, brandedUntil: until, note: "", published: branded, applies: all, requestedAt: null, createdAt: new Date(t - 90 * DAY).toISOString(), activeOverride: active, ...extra });
+  await org("org_sunrise", "Sunrise Academy", "sunrise", "office@sunriseacademy.example", "sunrise", true, day(365), 214, { note: "Yearly · bank transfer" });
+  await org("org_northwind", "Northwind Consulting", "northwind", "ops@northwind.example", "northwind", true, day(74), 38);
+  await org("org_bright", "Bright Minds Academy", "bright-minds", "admin@brightminds.example", "aurelian", true, day(9), 140);
+  await org("org_acme", "Acme Foods", "acme-foods", "shirin@acmefoods.example", "loft", false, null, 12, { requestedAt: new Date(t - 2 * DAY).toISOString() });
+  await db.put("orgs", { id: "org_nusrat", hostId: DEMO_HOST_ID, slug: "nusrat", name: "Nusrat Rahman", monogram: "NR", theme: "loft", branded: false, brandedUntil: null, note: "", published: false, applies: all, requestedAt: null, createdAt: new Date(t - 30 * DAY).toISOString() });
 }
 
 /** Agents demo (Figma 06 · A1–A5): two links, three seats, a prep queue and drafts on the room's draft layer. */

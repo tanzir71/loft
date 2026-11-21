@@ -12,6 +12,8 @@ import "./routes-money";
 import "./routes-insights";
 import "./routes-checks";
 import "./routes-agents";
+import "./routes-owner";
+import "./routes-admin";
 import { seed, SEED_VERSION } from "./seed";
 
 export interface LocalAdapterOptions {

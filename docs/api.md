@@ -70,8 +70,17 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | GET/POST | `prep/:id/review` | drafts with previews and the report · `{accept[], reject[], reason?, changes?}` | M9 |
 | GET | `rooms/:id/agent` | host only: pending board draft ops, activity, working agent, review task | M9 |
 | GET/POST | `a/:token` · `a/:token/next.json` · `/claim` · `/context/:id` · `/drafts` · `/report` · `/ask` · `/changes` | the agent link protocol (see `docs/agent-link.md`) | M9 (local) · M10 (PHP) |
-| POST | `auth/link` | email a 15-minute single-use sign-in link | M10 |
-| POST | `auth/signout` | end the session | M10 |
+| POST | `auth/link` · GET `auth/callback?token=` | email a sign-in link (32-byte token, single use, 15 min) · consume it, set the session cookie, redirect into the app | M10 |
+| POST | `auth/password` · `auth/password/set` · `auth/signout` | optional password sign-in · set a password (≥10 chars) · end the session | M10 |
+| POST | `profile` | your name, title, time zone | M10 |
+| GET | `changes?since=` | `{version, tables}`: what the app polls instead of WebSockets | M10 |
+| GET/POST | `rooms/:id/ops?since=` | the op-log over HTTP (actor comes from the session) | M10 |
+| POST · GET | `files` (multipart) · `files/:id` | upload (sha-256 dedupe, bytes outside the web root) · download (members of the file's space) | M10 |
+| GET/POST | `install` | server checks · create the owner account and data/config.php (first run only) | M10 |
+| GET · POST | `owner` · `owner/orgs/:id` | owner only: organisations with branding, paid-until, active members, ending soon, asked by email; change log; requests · `{branded, brandedUntil, note, notify}` | M10 |
+| GET/POST | `brand` | the host's organisation brand: set up while off, `{publish: true}` only while branding is active (paid-until + 14 days) | M10 |
+| POST | `contact` | the landing's organisations form → stored + emailed to the owner | M10 |
+| GET | `ics/:token.ics` | private calendar feed (text/calendar) | M10 |
 | POST | `rooms` | create a room `{name?, guestJoin?, spaceId?}` → room with `code` | M2 |
 | GET | `rooms/by-code/:code` | room + `hostName` (code normalised) | M2 |
 | GET | `rooms/:id` | room + `hostName` | M2 |
@@ -87,5 +96,12 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | POST | `rooms/:id/presence` | heartbeat (5 s), returns peers (TTL 30 s) | M2 / M11 |
 | GET/POST | `signal` | WebRTC signalling by polling | M11 |
 | POST | `files` | upload (sha-256 dedupe) | M3 / M10 |
+| POST | `rooms/:id/presence/leave` · GET `rooms/:id/presence` | leave now (frees the seat) · current peers | M11 |
+| GET/POST | `admin/calls` | org call settings: tier (P2P / SFU provider), STUN/TURN, sealed provider keys (last 4 shown), free minutes, budget, unit price; usage for 14 days and the month | M11 |
+| GET | `rooms/:id/call-config` | ICE servers and the call mode for this room (P2P, stage, audio-only, own link) | M11 |
+| POST | `rooms/:id/usage` | add call minutes `{minutes ≤ 5, video?}` → feeds the daily pool | M11 |
+| POST · GET | `rooms/:id/still` · `rooms/:id/still?tabId=` | upload / fetch the latest screen-share still (WebP, ≤ 1280 px) for viewers whose connection fails | M11 |
+| POST | `a/:token/files` (multipart) | an agent uploads an attachment (≤ 20 MB, optional claimed `taskId`) | M10 |
+| GET | `owner/backup` | owner only: a zip of `data/` with a consistent copy of the database (`VACUUM INTO`), uploads and config | M12 |
 
 This table grows with every milestone.

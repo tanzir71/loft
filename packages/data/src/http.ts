@@ -1,4 +1,4 @@
-import type { User } from "@loft/core";
+import { newId, type User } from "@loft/core";
 import type { DataAdapter, FileRef, NewOp, Op, PresenceHandle, PresencePeer, PresenceState, SignalMsg, Unsubscribe } from "./types";
 import { ForbiddenError, NotFoundError } from "./types";
 
@@ -11,6 +11,8 @@ export interface HttpAdapterOptions {
 /** Talks to the PHP 8 + SQLite API at /spaces/api/v1 (production). Live features poll (no WebSockets). */
 export class HttpAdapter implements DataAdapter {
   readonly kind = "http" as const;
+  /** One id per browser tab: presence rows and signalling are addressed per tab. */
+  readonly tabId = newId("tab");
   private base: string;
   private f: typeof fetch;
   private pollMs: number;
@@ -30,9 +32,13 @@ export class HttpAdapter implements DataAdapter {
       headers: body !== undefined ? { "Content-Type": "application/json", Accept: "application/json" } : { Accept: "application/json" },
       body: body !== undefined ? JSON.stringify(body) : undefined
     });
-    if (res.status === 404) throw new NotFoundError(`${method} ${resource}`);
-    if (res.status === 401 || res.status === 403) throw new ForbiddenError(`${method} ${resource}`);
-    if (!res.ok) throw new Error(`${method} ${resource} failed: ${res.status}`);
+    if (!res.ok) {
+      // The server explains what went wrong ({ error }); show that, like the local adapter does.
+      const msg = await res.json().then((b: { error?: string }) => b.error).catch(() => undefined);
+      if (res.status === 404) throw new NotFoundError(msg ?? `${method} ${resource}`);
+      if (res.status === 401 || res.status === 403) throw new ForbiddenError(msg ?? `${method} ${resource}`);
+      throw new Error(msg ?? `${method} ${resource} failed: ${res.status}`);
+    }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   }
@@ -65,9 +71,34 @@ export class HttpAdapter implements DataAdapter {
     return out;
   }
 
+  /** Other people's changes arrive by polling `changes?since=` (no WebSockets on shared hosting). */
   subscribe(listener: (tables: string[]) => void): Unsubscribe {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    if (this.listeners.size === 1) void this.pollChanges();
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private version = -1;
+  private polling = false;
+  private async pollChanges(): Promise<void> {
+    if (this.polling) return;
+    this.polling = true;
+    while (this.listeners.size) {
+      const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+      if (!hidden) {
+        try {
+          const res = await this.req<{ version: number; tables: string[] }>("GET", "changes", undefined, { since: Math.max(0, this.version) });
+          if (this.version >= 0 && res.version > this.version && res.tables.length) for (const l of this.listeners) l(res.tables);
+          this.version = res.version;
+        } catch {
+          /* offline: try again on the next tick */
+        }
+      }
+      await new Promise((r) => setTimeout(r, hidden ? 15_000 : 4_000));
+    }
+    this.polling = false;
   }
 
   append(roomId: string, ops: NewOp[]): Promise<Op[]> {
@@ -93,7 +124,7 @@ export class HttpAdapter implements DataAdapter {
     const beat = async () => {
       if (stopped) return;
       try {
-        const peers = await this.req<PresencePeer[]>("POST", `rooms/${encodeURIComponent(roomId)}/presence`, { state });
+        const peers = await this.req<PresencePeer[]>("POST", `rooms/${encodeURIComponent(roomId)}/presence`, { state, tabId: this.tabId });
         onPeers?.(peers.filter((p) => p.userId !== state.userId));
       } catch {
         /* offline: the next beat retries */
@@ -108,7 +139,7 @@ export class HttpAdapter implements DataAdapter {
       stop: () => {
         stopped = true;
         clearInterval(timer);
-        void this.req("POST", `rooms/${encodeURIComponent(roomId)}/presence/leave`, {}).catch(() => {});
+        void this.req("POST", `rooms/${encodeURIComponent(roomId)}/presence/leave`, { tabId: this.tabId }).catch(() => {});
       }
     };
   }
@@ -123,7 +154,7 @@ export class HttpAdapter implements DataAdapter {
     const loop = async () => {
       while (!stopped) {
         try {
-          const res = await this.req<{ seq: number; msgs: SignalMsg[] }>("GET", "signal", undefined, { roomId, since });
+          const res = await this.req<{ seq: number; msgs: SignalMsg[] }>("GET", "signal", undefined, { roomId, since, tabId: this.tabId });
           since = res.seq;
           res.msgs.forEach(handler);
         } catch {

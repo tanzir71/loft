@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Bot, ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Eye, Grid2x2, Hand, Link2, Mail, MessageCircle, MousePointer2, Pause, Pencil, Plus, Redo2, RefreshCw, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, ZoomIn, ZoomOut } from "lucide-react";
+import { Bot, ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Eye, Grid2x2, Hand, Link2, Mail, MessageCircle, MonitorUp, MousePointer2, Pause, Pencil, Plus, Redo2, RefreshCw, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Avatar, Button, PreviewBanner } from "@loft/ui";
 import { normaliseCode, type User } from "@loft/core";
-import { applyOp, bounds, pageAt, sortedPages, PAGE_GAP, type BoardOp, type ConnectorObj, type Page, type ShapeKind, type StickyColour } from "@loft/board";
+import { applyOp, bounds, pageAt, sortedPages, PAGE_GAP, type BoardOp, type Viewport, type ConnectorObj, type Page, type ShapeKind, type StickyColour } from "@loft/board";
 import type { LocalAdapter } from "@loft/data";
 import { useAdapter, useQuery } from "../lib/data";
 import { relTime } from "../components/bits";
@@ -19,6 +19,9 @@ import { JoinForm, RoomFull, SessionEnded, StateScreen, WaitingForHost } from ".
 import { useBoard } from "./useBoard";
 import { PlanRail } from "./PlanRail";
 import { usePresence } from "./usePresence";
+import { useCall } from "./calls/useCall";
+import { AudioPill, FollowChip, HandToasts, OpenPrompt, RemoteAudio, ShareOverlay } from "./calls/CallUI";
+import "./calls/calls.css";
 
 export interface RoomRes {
   id: string;
@@ -144,6 +147,10 @@ export function RoomPage() {
       ? { userId: me.id, name: me.name, role: isHost ? "host" : "guest", status: seat === "in" ? "in" : "waiting", joinedAt, cursor: null, editing: null }
       : null;
   const { peers, update } = usePresence(room?.id ?? null, presenceMe);
+  // Calls, screen share, open together and follow-me (M11). Media goes peer to peer, never through the server.
+  const { data: callCfg } = useQuery<{ iceServers: RTCIceServer[]; ownLink: string | null }>(room && seat === "in" ? `rooms/${room.id}/call-config` : null);
+  const call = useCall({ adapter, roomId: room && seat === "in" && !room.endedAt ? room.id : null, tabId: adapter.tabId, me: { userId: me?.id ?? "", name: me?.name ?? "" }, isHost, presence: { update }, peers, iceServers: callCfg?.iceServers });
+  const lastView = useRef(0);
 
   useEffect(() => {
     if (!presenceMe) return;
@@ -203,6 +210,9 @@ export function RoomPage() {
   const [pageMenu, setPageMenu] = useState(false);
   const [visiblePage, setVisiblePage] = useState<string | null>("p1");
   const pages = sortedPages(state);
+  useEffect(() => {
+    if (!isHost && call.follow && call.followingHost) boardRef.current?.setViewport(call.follow.viewport as Viewport);
+  }, [call.follow, call.followingHost, isHost]);
   const pageIndex = Math.max(0, pages.findIndex((p) => p.id === visiblePage));
 
   // Keyboard shortcuts.
@@ -377,7 +387,14 @@ export function RoomPage() {
           peers={peers.filter((p) => p.status === "in")}
           onCursor={(c) => update({ cursor: c })}
           onEditing={(id) => update({ editing: id })}
-          onViewChange={(_v, pg) => pg && setVisiblePage(pg)}
+          onViewChange={(v, pg) => {
+            if (pg) setVisiblePage(pg);
+            const t = performance.now();
+            if (call.followMe && t - lastView.current > 250) {
+              lastView.current = t;
+              call.broadcastView(v, pg);
+            }
+          }}
           onToolDone={() => setTool("select")}
         />
 
@@ -416,6 +433,16 @@ export function RoomPage() {
               ))}
               {people.length > 3 && <span className="avatar-stack__more">+{people.length - 3}</span>}
             </span>
+          )}
+          {isHost && !phone && (
+            <button type="button" className={`lf-icon-btn${call.followMe ? " is-on" : ""}`} onClick={() => call.setFollowMe(!call.followMe)} aria-pressed={call.followMe} aria-label="Follow me" title="Follow me: everyone sees what you see">
+              <Eye aria-hidden="true" />
+            </button>
+          )}
+          {!phone && typeof navigator !== "undefined" && "getDisplayMedia" in (navigator.mediaDevices ?? {}) && (
+            <button type="button" className={`lf-icon-btn${call.sharing ? " is-on" : ""}`} onClick={() => (call.sharing ? call.stopShare() : void call.startShare())} aria-pressed={call.sharing} aria-label="Share screen" title="Share a screen, window or tab">
+              <MonitorUp aria-hidden="true" />
+            </button>
           )}
           <button type="button" className={`lf-icon-btn${share ? " is-on" : ""}`} onClick={() => setShare(!share)} aria-label="Invite to this room" aria-expanded={share}>
             <Share2 aria-hidden="true" />
@@ -465,6 +492,21 @@ export function RoomPage() {
             {isHost && waitingPeers.length > 0 && <p className="seat-note"><Users aria-hidden="true" />{humansIn.length} / {room.capacity} · {waitingPeers[0]!.name.split(" ")[0]}{waitingPeers.length > 1 ? ` +${waitingPeers.length - 1}` : ""} {waitingPeers.length > 1 ? "are" : "is"} waiting · <b>Let in when free</b></p>}
           </div>
         )}
+
+        <RemoteAudio streams={call.remote} />
+        <ShareOverlay call={call} peers={peers} myName={me?.name ?? ""} onSnapshot={async (blob) => {
+          const ref = await adapter.files.put(blob, { name: "screen-snapshot.webp" });
+          const x = Math.max(0, ...pages.map((pg) => pg.x + pg.w)) + PAGE_GAP;
+          const pg: Page = { id: `p${Date.now().toString(36)}snap`, title: "Screen snapshot", order: pages.length, x, y: 0, w: 1600, h: 900, bg: ref.id };
+          commit({ kind: "add", payload: { page: pg } });
+        }} />
+        <OpenPrompt call={call} total={peers.length} />
+        {!isHost && <FollowChip call={call} hostName={room.hostName} />}
+        {call.error && <p className="island call-error" role="alert" data-board-ui="">{call.error}<button type="button" className="lf-icon-btn" aria-label="Dismiss" onClick={() => call.setError(null)}><X aria-hidden="true" /></button></p>}
+        <div className="room__calls" data-board-ui="" aria-live="polite">
+          {isHost && <HandToasts call={call} peers={peers} />}
+          <AudioPill call={call} inCallCount={peers.filter((p) => p.inCall).length} isHost={isHost} ownLink={callCfg?.ownLink ?? null} />
+        </div>
 
         {/* bottom-left: guest admit toasts */}
         {isHost && admissions.length > 0 && (
@@ -528,6 +570,7 @@ export function RoomPage() {
                   <button type="button" role="menuitem" onClick={() => void importLink()}><Link2 aria-hidden="true" /> Import a Google Slides link</button>
                   <button type="button" role="menuitem" onClick={exportCurrentPng}><Download aria-hidden="true" /> Export this page (PNG)</button>
                   <button type="button" role="menuitem" onClick={() => void exportPdf(state, sortedPages(state), room.name, fileUrl.image)}><Download aria-hidden="true" /> Export all pages (PDF)</button>
+                  <button type="button" role="menuitem" onClick={() => { const u = prompt("Link everyone should open (https://…)"); if (u) call.openTogether(u.trim()); }}><Link2 aria-hidden="true" /> Open together…</button>
                   <button type="button" role="menuitem" onClick={() => boardRef.current?.zoomBy(1.25)}><ZoomIn aria-hidden="true" /> Zoom in</button>
                   <button type="button" role="menuitem" onClick={() => boardRef.current?.zoomBy(0.8)}><ZoomOut aria-hidden="true" /> Zoom out</button>
                   {phone && isHost && <button type="button" role="menuitem" className="danger" onClick={async () => confirm("End the session for everyone?") && adapter.mutate(`rooms/${room.id}/end`)}>End session</button>}

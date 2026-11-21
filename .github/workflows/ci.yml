@@ -21,6 +21,12 @@ jobs:
       - run: npm ci
       - name: Typecheck, lint, unit tests
         run: npm run check
+      - uses: shivammathur/setup-php@v2
+        if: hashFiles('api/tests/run.php') != ''
+        with:
+          php-version: "8.2"
+          extensions: pdo_sqlite, sqlite3, sodium, openssl, curl, mbstring, iconv
+          coverage: none
       - name: PHP API tests
         if: hashFiles('api/tests/run.php') != ''
         run: php api/tests/run.php

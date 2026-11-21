@@ -73,3 +73,13 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 06 · A5 "Ready for you · review (desktop)" [117:1097], phone [118:1322] | `/agents/review/:taskId` | `Agents.tsx` `ReviewPage`, `DraftPreview` | M9 |
 | 06 · A6 "What agents read (next.md)" [115:442] | `/agents/read` | `Agents.tsx` `AgentsReadPage`, `packages/core/src/agents.ts` `nextMarkdown` | M9 |
 | 06 · "Agents · build rules" [117:1392] | protocol | `packages/data/src/local/routes-agents.ts`, `docs/agent-link.md` | M9 |
+| 07 · "Sign in (desktop)" [110:12], "Check email (phone)" [110:53] | `/signin` | `pages/system/Auth.tsx` `SignInPage` (email link, password, check-your-email state); `api/src/routes/system.php` `auth/*` | M10 |
+| 07 · "Install · first run (desktop)" [111:420] | `/install` | `pages/system/Auth.tsx` `InstallPage`; `api/src/routes/system.php` `install` | M10 |
+| 04 · "Owner · Organisations + branding switch" [76:3660], "Owner · branding switch (phone)" [76:3883] | `/owner` | `pages/system/Owner.tsx` (organisations, branding toggle + paid-until, change log, requests, Backups) | M10 |
+| 04 · "Org admin · Brand studio (Sunrise Academy theme)" [47:1295], "… · branding off (preview only)" [76:3951], 05 · "Org admin · Brand studio (phone)" [107:641] | `/brand` | `pages/system/Brand.tsx`, `shell/AppShell.tsx` (`applyTheme`) | M10 |
+| — profile, password, sign out (built from the Settings rows in 04) | `/settings` | `pages/system/Settings.tsx` | M10 |
+| 04 · "Org admin (self-serve) · Calls & budget" [47:1611] | `/admin` | `pages/system/Admin.tsx`; `api/src/routes/live.php` `admin/calls` | M11 |
+| 04 · "Host · Live Room — minimal" [40:343] (call controls) | `/r/:code` | `room/calls/useCall.ts`, `room/calls/CallUI.tsx` (audio pill, hands, stage, follow chip, open-together prompt), `room/RoomPage.tsx` | M11 |
+| 04 · "Room · screen share (desktop)" [103:2291], "… · phone viewer" [103:2417], "… · build rules" [103:2492] | `/r/:code` | `room/calls/CallUI.tsx` `ShareOverlay` (annotations, snapshot to board, stills fallback), `useCall.ts` | M11 |
+| 04 · "Host · Live Room — minimal" [40:343] (keyboard) | `/r/:code` | `room/Board.tsx` (Tab/Shift+Tab through objects, arrow-key pan, +/− zoom) | M12 |
+| 04 · "Owner · Organisations + branding switch" [76:3660] (Backups tab) | `/owner` → Backups | `pages/system/Owner.tsx`; `api/src/routes/system.php` `owner/backup` | M12 |

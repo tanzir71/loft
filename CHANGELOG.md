@@ -2,6 +2,16 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.10.0 — M10: PHP backend + production on Namecheap (2026-11-21)
+- A PHP 8 + SQLite API in `api/` (no Composer, no daemons, no cron) with every endpoint the app uses. It runs the same logic as the preview, ported module by module, and 80 PHP tests run in CI on PHP 8.2.
+- The app talks to it through the HTTP adapter: session cookies, changes polled every 4 s (15 s in a background tab), JSON-only writes with a same-origin check, and 240 writes a minute per IP.
+- First run: an install wizard (server checks, owner account, site address, an encryption key in `data/config.php`). Sign in with an email link (single use, 15 minutes) or an optional password; Settings for your name, time zone and password.
+- Owner console: organisations with the branding toggle and paid-until date (active until paid-until + 14 days), notes, ending soon and asked-by-email flags, a change log and landing-form requests. Brand studio: set up name, monogram, one of four brand themes and where it applies while branding is off; publish once it's on.
+- Server-only behaviour the preview simulates: invoices, reminders, receipts, nudges and calendar invites are emailed (invites as `.ics` with a stable UID and SEQUENCE); private calendar feeds; busy times from a host's iCal feed (cached, public addresses only); daily jobs on the first request of the day.
+- The agent link protocol is live on the server: seats from the User-Agent, 60 requests a minute per seat, atomic claims, an audit log, and file uploads.
+- Deploy: `loft-prod.zip` (landing → `/loft`, app → `/spaces`, API → `/spaces/api`, code and `data/` outside the web root) is attached to every release. `docs/deploy-namecheap.md` covers cPanel step by step; an FTP deploy action runs only if the owner adds secrets.
+- Fix: opening a session's room again after it ended now gives the new room its own board pages.
+
 ## v0.9.0 — M9: Agents (2026-11-21)
 - Agents page: one link (workspace, a space or a room) plus one line to hand prep to any agent; who's on your links (approve, revoke), what agents are working on, questions that need you (answer with a tap), drafts ready for you, and agent time this week.
 - Prep tab in every space: the next session's prep status, ready / in progress / needs you / queued, templates (agenda, board from a brief, N-question check, recap, client-call agenda, invoice drafts) and a New prep task sheet with brief, attachments, ready-by time and agent.
