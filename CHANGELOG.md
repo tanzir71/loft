@@ -2,6 +2,14 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.6.0 — M6: Plans (2026-11-21)
+- Plans tab for hosts in every space (the workshop's "Agenda"): plans grouped by unit with coverage bars, Draft → Ready → Taught status, reordering, and a warning with a one-click template for unplanned upcoming sessions.
+- New plan from blank, a template (lesson, workshop, sprint day, client session, retro) or a PDF (one block per page). Draft with AI stays hidden until an organisation adds its own key.
+- Block editor: the timeline bar shows planned vs available time (free or over), six block types, what members see vs private host notes, resources, visibility, Alt+↑/↓ reorder, 800 ms autosave, version history with restore, and "Preview as member".
+- Attach & prepare (idempotent): board pages in the session's room, the agenda posted 1 h before, a reminder 24 h before; "Open room" goes straight in.
+- In the room, a host-only plan rail (current block, countdown, overrun, notes, time's-up prompt, "Start next block", "+2 min"); members only see "Now / next". The rail state is saved to the session.
+- Wrap-up: what we covered, carry-over into the next plan, attendance prefilled from presence, homework, a recap post, and one `session_log` line per member at the space's price. Unwrapped sessions show as "Wrap-up pending" and get default lines after 24 h.
+
 ## v0.5.0 — M5: Scheduling (2026-11-21)
 - Calendar with week, day and month views (agenda on phones): sessions in space colours, bookable hours shaded, booked calls and requests in lighter or dashed fills, a now line, drag to move (host) with "this / following / all" for series.
 - New session or weekly series in one form, with a live clash check against your sessions and busy times and "skip date" for clashes.

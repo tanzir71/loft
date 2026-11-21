@@ -16,6 +16,7 @@ import { DiagramPanel, FindBar, PenOptions, SelectionBar, ShapesFlyout } from ".
 import { useFileUrls } from "./useFileUrls";
 import { JoinForm, RoomFull, SessionEnded, StateScreen, WaitingForHost } from "./screens";
 import { useBoard } from "./useBoard";
+import { PlanRail } from "./PlanRail";
 import { usePresence } from "./usePresence";
 
 export interface RoomRes {
@@ -28,6 +29,7 @@ export interface RoomRes {
   createdAt: string;
   endedAt: string | null;
   hostName: string;
+  sessionId?: string | null;
 }
 interface Admission {
   id: string;
@@ -165,6 +167,17 @@ export function RoomPage() {
   }, [seat]);
 
   const { state, commit, undo, redo } = useBoard(seat === "in" ? (room?.id ?? null) : null, me?.id ?? "anon");
+  // Attendance from presence (joined/left), used by the wrap-up.
+  useEffect(() => {
+    if (seat !== "in" || !room) return;
+    void adapter.mutate(`rooms/${room.id}/attendance`, { event: "join" }).catch(() => {});
+    const leave = () => void adapter.mutate(`rooms/${room.id}/attendance`, { event: "leave" }).catch(() => {});
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("pagehide", leave);
+      leave();
+    };
+  }, [adapter, seat, room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const boardRef = useRef<BoardHandle>(null);
   const [tool, setTool] = useState<Tool>("pen");
   const [penColour, setPenColour] = useState(PEN_COLOURS[1]!.value);
@@ -407,7 +420,9 @@ export function RoomPage() {
                 variant="dark"
                 size="sm"
                 onClick={async () => {
-                  if (confirm("End the session for everyone?")) await adapter.mutate(`rooms/${room.id}/end`);
+                  if (!confirm("End the session for everyone?")) return;
+                  await adapter.mutate(`rooms/${room.id}/end`);
+                  if (room.sessionId) nav(`/wrapup/${room.sessionId}`);
                 }}
               >
                 End
@@ -417,6 +432,7 @@ export function RoomPage() {
             ))}
         </div>
 
+        {room.sessionId && <div className="room__rail"><PlanRail sessionId={room.sessionId} compact={phone} onGoToPage={(id) => boardRef.current?.goToPage(id)} /></div>}
         {share && <SharePopover room={room} isHost={isHost} onClose={() => setShare(false)} phone={phone} onEnd={async () => adapter.mutate(`rooms/${room.id}/end`)} />}
 
         {/* bottom-left: guest admit toasts */}

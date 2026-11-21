@@ -2,7 +2,7 @@ import { newId, sortableId } from "@loft/core";
 import type { LocalDb } from "./db";
 
 /** Bump when demo data changes; the local adapter wipes and re-seeds a browser whose data is older. */
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 export const DEMO_HOST_ID = "u_nusrat";
 
@@ -116,19 +116,59 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
     ["physics-a", "Kinematics II", 1, 16, 0]
   ];
   const sessionIds: Record<string, string> = {};
+  let steeringId: string | undefined;
   for (const [slug, title, d, h, m] of sessions) {
     const id = newId("se");
     sessionIds[title] = id;
+    if (title === "Steering review") steeringId = id;
     await db.put("sessions", { id, spaceId: spaceIds[slug], title, startsAt: at(now, d, h, m), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
   }
   // A weekly series (Mon/Wed 16:00) for the course, materialised as rows.
   const seriesId = newId("sr");
+  const physicsSessions: { id: string; startsAt: string }[] = [];
   await db.put("series", { id: seriesId, spaceId: spaceIds["physics-a"], rule: { days: [1, 3], time: "16:00", minutes: 60 }, createdAt: iso });
   for (let d = -7; d <= 28; d++) {
     const day = new Date(now);
     day.setDate(day.getDate() + d);
     if (day.getDay() !== 1 && day.getDay() !== 3) continue;
-    await db.put("sessions", { id: newId("se"), spaceId: spaceIds["physics-a"], seriesId, title: "Physics · Section A", startsAt: at(now, d, 16), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
+    const sid = newId("se");
+    physicsSessions.push({ id: sid, startsAt: at(now, d, 16) });
+    await db.put("sessions", { id: sid, spaceId: spaceIds["physics-a"], seriesId, title: "Physics · Section A", startsAt: at(now, d, 16), minutes: 60, room: "loft", status: "scheduled", sequence: 0 });
+  }
+
+  // Billing prices per space (full billing setup arrives in M7).
+  for (const [slug, cents] of [["physics-a", 1500], ["acme-pricing", 15000], ["northwind-retainer", 12000]] as const) {
+    const sp = await db.get<{ id: string }>("spaces", spaceIds[slug]!);
+    if (sp) await db.put("spaces", { ...sp, billing: { mode: "per_session", unitPriceCents: cents } });
+  }
+
+  // Plans (Figma 06 · row A): Lesson 6 attached to the next Physics session, Lesson 7 a draft,
+  // last week's lesson taught-but-not-wrapped (shows "Wrap-up pending").
+  const blk = (id: string, title: string, type: string, minutes: number, memberText: string, hostNotes = "", visible = true) => ({ id, title, type, minutes, memberText, hostNotes, resources: type === "board" ? [{ kind: "board", label: "Board · blank grid" }] : [], visible });
+  const next = physicsSessions.find((x) => Date.parse(x.startsAt) > now.getTime());
+  const past = [...physicsSessions].reverse().find((x) => Date.parse(x.startsAt) + 3600_000 < now.getTime());
+  const lesson6 = [
+    blk("b1", "Check-in", "talk", 5, "What did you notice about last week's homework?"),
+    blk("b2", "Predict", "board", 10, "Which launch angle lands furthest? Write your guess on the board before we test.", "Expect 45°. Ask Rafi first; he guessed 60° last week."),
+    blk("b3", "Simulation lab", "activity", 20, "Pairs test 15°–75° in the simulation and log ranges"),
+    blk("b4", "Share findings", "board", 10, "Each pair plots their best angle"),
+    blk("b5", "Exit ticket", "check", 5, "3 questions · auto-graded"),
+    blk("b6", "Set homework", "handout", 5, "Worksheet 7 p2 · due in 2 days")
+  ];
+  await db.put("plans", { id: "pl_lesson6", spaceId: spaceIds["physics-a"], title: "Lesson 6 · Projectiles lab", minutes: 60, objective: "Predict range from launch angle", tags: ["Predict range from launch angle", "Test a prediction with data"], unit: "Unit 3", order: 1, status: "draft", blocks: lesson6, sessionId: next?.id ?? null, version: 3, createdAt: ago(now, 60 * 30), updatedAt: ago(now, 2) });
+  if (next) await db.put("sessions", { ...(await db.get<Record<string, unknown> & { id: string }>("sessions", next.id))!, planId: "pl_lesson6" });
+  await db.put("plans", { id: "pl_lesson7", spaceId: spaceIds["physics-a"], title: "Lesson 7 · Energy and work", minutes: 60, objective: "Relate work done to energy change", tags: ["Work–energy theorem"], unit: "Unit 3", order: 2, status: "draft", blocks: [blk("c1", "Warm-up", "talk", 5, "Lift a book: where did the energy go?"), blk("c2", "Derive W = Fd", "board", 15, "Together on the board")], sessionId: null, version: 1, createdAt: ago(now, 60 * 20), updatedAt: ago(now, 60 * 20) });
+  if (past) {
+    await db.put("plans", { id: "pl_lesson5", spaceId: spaceIds["physics-a"], title: "Lesson 5 · Vectors", minutes: 60, objective: "Resolve vectors into components", tags: ["Resolve vectors"], unit: "Unit 3", order: 0, status: "draft", blocks: [blk("a1", "Check-in", "talk", 10, "Quick recap"), blk("a2", "Components", "board", 30, "Resolve forces on a slope"), blk("a3", "Practice", "activity", 15, "Worksheet 6"), blk("a4", "Set homework", "handout", 5, "Worksheet 6 p2")], sessionId: past.id, version: 2, createdAt: ago(now, 60 * 24 * 9), updatedAt: ago(now, 60 * 24 * 8) });
+    await db.put("sessions", { ...(await db.get<Record<string, unknown> & { id: string }>("sessions", past.id))!, planId: "pl_lesson5" });
+    const roomId = `rm_past_${past.id}`;
+    await db.put("rooms", { id: roomId, spaceId: spaceIds["physics-a"], sessionId: past.id, slug: "past", code: "PST-RM2", name: "Physics · Section A", capacity: 12, guestJoin: false, createdBy: DEMO_HOST_ID, createdAt: past.startsAt, endedAt: new Date(Date.parse(past.startsAt) + 3600_000).toISOString() });
+    await db.put("attendance_events", { id: `${roomId}:u_ayaan`, roomId, userId: "u_ayaan", joinedAt: past.startsAt, leftAt: new Date(Date.parse(past.startsAt) + 58 * 60_000).toISOString() });
+  }
+  if (steeringId) {
+    const s = await db.get<Record<string, unknown> & { id: string }>("sessions", steeringId);
+    await db.put("plans", { id: "pl_steering", spaceId: spaceIds["acme-pricing"], title: "Steering review", minutes: 60, objective: "Agree the price test and owners", tags: ["Price test decision"], unit: "Pricing project", order: 0, status: "draft", blocks: [blk("s1", "Since last time", "talk", 10, "Two-week test status"), blk("s2", "Review the numbers", "board", 20, "Units and revenue by store"), blk("s3", "Options", "activity", 15, "Three price paths"), blk("s4", "Decisions + owners", "talk", 10, "Who does what by Friday"), blk("s5", "Actions", "handout", 5, "Action list")], sessionId: steeringId, version: 1, createdAt: ago(now, 60 * 30), updatedAt: ago(now, 60 * 30) });
+    if (s) await db.put("sessions", { ...s, planId: "pl_steering" });
   }
 
   // Availability + booking types (Figma 06 · S3) and a booking page at /book/nusrat (S4).
@@ -148,7 +188,7 @@ export async function seed(db: LocalDb, now = new Date(), opts: { empty?: boolea
   await db.put("booking_types", { id: "bt_intro", userId: DEMO_HOST_ID, name: "Workshop intro", minutes: 45, priceCents: 0, destSpaceId: spaceIds["acme-sprint"], approval: "auto", blurb: "Plan a design sprint with your team." });
 
   // A pending move request (S5) and a booking waiting for approval.
-  const steering = sessionIds["Steering review"];
+  const steering = steeringId;
   if (steering) {
     const proposed = new Date(at(now, 4, 11));
     await db.put("change_requests", { id: "rq_demo", sessionId: steering, memberId: "u_rafi", kind: "move", proposedStartsAt: proposed.toISOString(), note: "I'm travelling Monday morning.", status: "pending", createdAt: ago(now, 90) });

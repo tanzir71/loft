@@ -8,6 +8,16 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M6 plans
+- **Plans tab** is inserted for hosts in every mode (after Chat); for workshops the existing "Agenda" tab becomes the plans tab, labelled "Agenda".
+- **Status rule:** Draft until attached *and* at least 80% of the length is planned, then Ready; Taught after wrap-up. An AI draft keeps the "AI draft" badge until its blocks are edited.
+- **Autosave** sends the whole block list after 800 ms of quiet, and every save that changes blocks writes a version (restorable). Attached plans re-prepare on save so pages and the agenda follow edits.
+- **Attach & prepare** is idempotent: the session remembers its room, page ids per block, agenda post id and reminder id, and re-attaching updates them. Reminders are stored as scheduled items and delivered by the first request after their time (no cron).
+- **Room rail:** state `{current, startedAt, extensions}` lives on the session, so reloads resume. "Start next block" moves the host's board to that block's page. Moving *everyone's* board (follow-me) arrives with M11; members already see "Now / next".
+- **Wrap-up** writes `session_log` rows keyed `sessionId:memberId` (re-saving overwrites, never duplicates). Billable statuses default to attended, late cancel and no-show; the price comes from the space's `billing.unitPriceCents` (seeded for the demo; set in Billing setup in M7). Partly/skipped blocks can be carried into the next untaught plan, or a carry tray.
+- **Attendance** comes from `rooms/:id/attendance` join/leave events recorded by the room page.
+- **Plan from a file** counts PDF pages with pdf.js and creates one Board block per page; page headings need the text layer, so titles are "Page n" for now.
+
 ### 2026-11-21 — M5 scheduling
 - **Time zones** use only `Intl` (no date library): `zonedToUtc` converts a wall time in a zone to UTC and re-checks the offset so DST transitions land correctly (tested for London and New York). Sessions are stored as UTC ISO strings.
 - **Series** are materialised as rows linked by `seriesId` (max 200 per series); moves and cancels ask "this / this and following / all".

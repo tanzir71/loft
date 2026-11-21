@@ -376,8 +376,8 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] `.ics` generation in TS (Pages download) and PHP (M10).
 
 ### M6: Plans (row A)
-- [ ] P1 Library, P2 New plan (blank/template/file; AI hidden on Pages), P3 Block editor (timeline bar), P4 Attach & prepare, P5 Host-only plan rail in room, P6 Wrap-up.
-- [ ] Wrap-up writes `session_log` rows (the hinge into billing).
+- [x] P1 Library, P2 New plan (blank/template/file; AI hidden on Pages), P3 Block editor (timeline bar), P4 Attach & prepare, P5 Host-only plan rail in room, P6 Wrap-up.
+- [x] Wrap-up writes `session_log` rows (the hinge into billing).
 
 ### M7: Money (row B)
 - [ ] I1 Billing setup, I2 Session log, I3 Invoice run, I4 Invoice detail (printable A4/Letter HTML), I5 Packages & credits, I6 Confirm a payment, I7 Reminders & overdue.

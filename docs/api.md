@@ -29,6 +29,14 @@ All money is integer cents (USD). All times are UTC ISO-8601; the client applies
 | GET | `book/:handle` · `book/:handle/slots?type=` · POST `book/:handle` | public booking page (no auth, honeypot `website`) | M5 |
 | GET | `manage/:token` · POST `manage/:token/cancel` · `manage/:token/move` | no-login manage link | M5 |
 | POST | `sessions/:id/requests` · GET `requests` · POST `requests/:id` | member asks to move/cancel · host's pending list with checks · `{decision}` | M5 |
+| GET/POST | `spaces/:id/plans` | library (units, unplanned sessions) / create `{title, minutes, unit, objective, tags, from: blank|template:<key>, blocks?}` | M6 |
+| GET/POST | `plans/:id` | plan with sessions + versions / autosave `{blocks?, title?, minutes?, …}` | M6 |
+| POST | `plans/:id/restore` · `plans/:id/reorder` · `plans/:id/delete` | history · order · delete | M6 |
+| POST | `plans/:id/attach` · `plans/:id/detach` | idempotent prepare (room pages, agenda post, reminder), `copyTo[]` | M6 |
+| POST | `sessions/:id/room` | the session's room (created on first use) | M6 |
+| GET/POST | `sessions/:id/plan` · `sessions/:id/rail` | rail data (host notes only for hosts) · save rail state | M6 |
+| POST | `rooms/:id/attendance` | `{event: join|leave}` | M6 |
+| GET/POST | `sessions/:id/wrapup` | prefill · write session_log, recap, homework, carry-over | M6 |
 | POST | `auth/link` | email a 15-minute single-use sign-in link | M10 |
 | POST | `auth/signout` | end the session | M10 |
 | POST | `rooms` | create a room `{name?, guestJoin?, spaceId?}` → room with `code` | M2 |

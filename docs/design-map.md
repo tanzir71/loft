@@ -48,3 +48,9 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 06 · S3 "Availability + booking types (desktop)" [97:3307], phone [100:3978] | `/calendar/availability` | `pages/Booking.tsx` `AvailabilityPage` | M5 |
 | 06 · S4 "Public booking page (desktop)" [97:3704], phone [100:4066] | `/book/:handle` | `Booking.tsx` `BookingPage` | M5 |
 | 06 · S5 "Reschedule + booking requests (desktop)" [98:3538], phone [100:4125] | `/calendar` rail, `/review`, `/manage/:token` | `Calendar.tsx` `Requests`, `Booking.tsx` `ManagePage` | M5 |
+| 06 · P1 "Plans library (desktop)" [71:9], phone [90:2593] | `/s/:slug/plans` | `pages/Plans.tsx` `PlansTab` | M6 |
+| 06 · P2 "New plan (desktop)" [71:578], phone [90:2727] | Plans tab → New plan | `Plans.tsx` `NewPlanSheet` | M6 |
+| 06 · P3 "Edit blocks (desktop)" [82:650], phone [90:2818] | `/plans/:id` | `Plans.tsx` `PlanEditor` | M6 |
+| 06 · P4 "Attach & prepare (desktop)" [82:1088], phone [90:2913] | `/plans/:id` → Attach | `Plans.tsx` `AttachSheet` | M6 |
+| 06 · P5 "Run in the room (desktop)" [84:1117], phone [91:2712] | `/r/:code` (session room) | `room/PlanRail.tsx` | M6 |
+| 06 · P6 "Wrap-up (desktop)" [84:1288], phone [91:2767] | `/wrapup/:sessionId` | `pages/WrapUp.tsx` | M6 |

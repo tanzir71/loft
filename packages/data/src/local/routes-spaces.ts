@@ -5,6 +5,18 @@ import { ForbiddenError, NotFoundError } from "../types";
 import type { Row } from "./db";
 import { requireMe, routes, str, type LocalCtx } from "./routes";
 import { pendingRequests } from "./routes-schedule";
+import { autoWrapStale, wrapupsPending } from "./routes-plans";
+
+/** Deliver reminders whose time has come (no cron: the first request after deliverAt does it). */
+async function deliverDue(ctx: LocalCtx) {
+  const t = ctx.now().toISOString();
+  for (const r of await ctx.db.list<Row & { spaceId: string; kind: string; title: string; sub: string; link: string; deliverAt: string }>("scheduled_reminders", (x) => x.deliverAt <= t)) {
+    for (const m of await ctx.db.list<MemberRow>("memberships", (x) => x.spaceId === r.spaceId)) {
+      await ctx.db.put("notifications", { id: sortableId("nt"), userId: m.userId, kind: r.kind, title: r.title, sub: r.sub, link: r.link, createdAt: r.deliverAt, readAt: null });
+    }
+    await ctx.db.del("scheduled_reminders", r.id);
+  }
+}
 
 interface SpaceRow extends Row { mode: SpaceMode; code: string; name: string; sub?: string; slug: string; colour: string; createdBy: string; createdAt: string }
 interface MemberRow extends Row { spaceId: string; userId: string; role: string; lastReadAt: string }
@@ -104,6 +116,9 @@ async function reviewItems(ctx: LocalCtx, meId: string) {
     if (!post || !space) continue;
     items.push({ id: `handin:${postId}`, kind: "handin", title: `${list.length} hand-in${list.length === 1 ? "" : "s"} to review`, sub: `${post.title} · ${space.name}`, action: "Review", link: `/s/${space.slug}/work` });
   }
+  for (const s of await wrapupsPending(ctx, meId)) {
+    items.push({ id: `wrap:${s.id}`, kind: "wrapup", title: `Wrap-up pending · ${s.title}`, sub: new Date(s.startsAt).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }), action: "Finish", link: `/wrapup/${s.id}` });
+  }
   for (const r of await pendingRequests(ctx, meId)) {
     const when = new Date(r.from).toLocaleString("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     const to = r.to ? new Date(r.to).toLocaleString("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
@@ -140,6 +155,8 @@ async function postView(ctx: LocalCtx, p: PostRow, meId: string, members: Member
 routes
   .get("nav", async (ctx) => {
     const me = await requireMe(ctx);
+    await deliverDue(ctx);
+    await autoWrapStale(ctx, me.id);
     const spaces = await mySpaces(ctx, me.id);
     const rooms = await ctx.db.list<Row & { name: string; code: string; endedAt: string | null; createdAt: string }>("rooms", (r) => !r.endedAt && Date.parse(r.createdAt) > ctx.now().getTime() - 12 * 3600_000);
     const dms = await dmList(ctx, me.id);
@@ -239,7 +256,9 @@ routes
     const { me } = await requireMember(ctx, p.id!);
     const members = await ctx.db.list<MemberRow>("memberships", (x) => x.spaceId === p.id);
     const u = await users(ctx);
-    const posts = (await ctx.db.list<PostRow>("posts", (x) => x.spaceId === p.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const t = ctx.now().toISOString();
+    // Agenda posts appear at start − 1 h.
+    const posts = (await ctx.db.list<PostRow & { publishAt?: string }>("posts", (x) => x.spaceId === p.id && (!x.publishAt || x.publishAt <= t))).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return Promise.all(posts.map((x) => postView(ctx, x, me.id, members, u)));
   })
   .post("spaces/:id/posts", async (ctx, p, input) => {
@@ -403,6 +422,7 @@ routes
   })
   .get("notifications", async (ctx) => {
     const me = await requireMe(ctx);
+    await deliverDue(ctx);
     return (await ctx.db.list<NoteRow>("notifications", (n) => n.userId === me.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50);
   })
   .post("notifications/read-all", async (ctx) => {

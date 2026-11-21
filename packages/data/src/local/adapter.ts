@@ -7,6 +7,7 @@ import { openLocalDb, type LocalDb } from "./db";
 import { routes, type LocalCtx } from "./routes";
 import "./routes-spaces";
 import "./routes-schedule";
+import "./routes-plans";
 import { seed, SEED_VERSION } from "./seed";
 
 export interface LocalAdapterOptions {

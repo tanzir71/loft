@@ -146,7 +146,7 @@ export function CalendarPage() {
           </aside>
         )}
       </div>
-      {open && <SessionSheet s={open} onClose={() => setOpen(null)} onMove={(t) => { requestMove(open, t); setOpen(null); }} onCancelled={() => { setOpen(null); say("Session cancelled. Everyone gets an updated invite."); }} onRoom={async () => { const r = await adapter.mutate<{ code: string }>("rooms", { name: open.title, spaceId: open.spaceId }); nav(`/r/${r.code}`); }} />}
+      {open && <SessionSheet s={open} onClose={() => setOpen(null)} onMove={(t) => { requestMove(open, t); setOpen(null); }} onCancelled={() => { setOpen(null); say("Session cancelled. Everyone gets an updated invite."); }} onRoom={async () => { const r = await adapter.mutate<{ code: string }>(`sessions/${open.id}/room`); nav(`/r/${r.code}`); }} />}
       {creating && <NewSessionSheet spaces={data.spaces.filter((s) => s.isHost)} tz={data.tz} onClose={() => setCreating(false)} onCreated={(n) => { setCreating(false); say(`${n} session${n === 1 ? "" : "s"} added. Invites sent with calendar files.`); }} />}
       {scopeAsk && (
         <Sheet open onClose={() => setScopeAsk(null)} title="Move a session in a series">

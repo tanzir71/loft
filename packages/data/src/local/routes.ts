@@ -78,6 +78,7 @@ export const routes = new ResourceRouter<LocalCtx>()
     const room: RoomRow = {
       id: newId("rm"),
       spaceId: str(input.spaceId) || null,
+      sessionId: str(input.sessionId) || null,
       slug: code.toLowerCase(),
       code,
       name: str(input.name, 60) || `Quick room · ${first}`,

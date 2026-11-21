@@ -6,6 +6,7 @@ import { formatTime, SPACE_MODES, tabLabel, type ModeConfig, type SpaceMode, typ
 import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint } from "../lib/media";
 import { ErrorState, Loading, relTime, whenLabel } from "../components/bits";
+import { PlansTab } from "./Plans";
 
 interface SpaceView {
   id: string; slug: string; name: string; sub: string; code: string; colour: string; mode: SpaceMode;
@@ -39,8 +40,13 @@ export function SpacePage() {
 
   if (error) return <ErrorState what="this space" onRetry={reload} />;
   if (!s) return <Loading label="Loading space" />;
-  const tabs = s.modeConfig.tabs;
-  const current = (tabs.includes(tab as SpaceTab) ? tab : tabs[0]) as SpaceTab;
+  // Every space has a Plans tab for hosts (the workshop's "Agenda" tab is its plans).
+  type Tab = SpaceTab | "plans";
+  let tabs: Tab[] = s.modeConfig.tabs.map((t) => (t === "agenda" ? "plans" : t));
+  if (s.isHost && !tabs.includes("plans")) tabs.splice(Math.max(0, tabs.indexOf("chat") + 1), 0, "plans");
+  if (!s.isHost) tabs = tabs.filter((t) => t !== "plans");
+  const current = (tabs.includes(tab as Tab) ? tab : tabs[0]) as Tab;
+  const labelOf = (t: Tab) => (t === "plans" ? (s.mode === "workshop" ? "Agenda" : "Plans") : tabLabel(s.mode, t));
   const startRoom = async () => {
     const r = await adapter.mutate<{ code: string }>("rooms", { name: s.name, spaceId: s.id });
     nav(`/r/${r.code}`);
@@ -54,7 +60,7 @@ export function SpacePage() {
         <nav className="space-tabs" aria-label="Space sections">
           {tabs.map((t) => (
             <NavLink key={t} to={`/s/${s.slug}/${t}`} className={() => `space-tab${current === t ? " is-on" : ""}`} aria-current={current === t ? "page" : undefined}>
-              {tabLabel(s.mode, t)}
+              {labelOf(t)}
             </NavLink>
           ))}
         </nav>
@@ -100,9 +106,11 @@ export function SpacePage() {
           <Files spaceId={s.id} />
         ) : current === "people" ? (
           <People space={s} />
+        ) : current === "plans" ? (
+          <PlansTab spaceId={s.id} />
         ) : (
           <section className="empty">
-            <h2 className="empty__title">{tabLabel(s.mode, current)} arrives in {LATER[current] ?? "a later milestone"}</h2>
+            <h2 className="empty__title">{labelOf(current)} arrives in {LATER[current as SpaceTab] ?? "a later milestone"}</h2>
             <p className="empty__lead">This tab is part of the {SPACE_MODES[s.mode].label.toLowerCase()} mode.</p>
           </section>
         )}

@@ -12,6 +12,9 @@ import "./pages/m3.css";
 import { CalendarPage } from "./pages/Calendar";
 import { AvailabilityPage, BookingPage, ManagePage } from "./pages/Booking";
 import "./pages/m5.css";
+import { PlanEditor } from "./pages/Plans";
+import { WrapUpPage } from "./pages/WrapUp";
+import "./pages/m6.css";
 import "./room/room.css";
 
 export function App() {
@@ -26,6 +29,8 @@ export function App() {
         <Route index element={<Home />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="calendar/availability" element={<AvailabilityPage />} />
+        <Route path="plans/:id" element={<PlanEditor />} />
+        <Route path="wrapup/:sessionId" element={<WrapUpPage />} />
         <Route path="review" element={<InboxPage initial="review" />} />
         <Route path="money" element={<Soon title="Money" milestone="M7" blurb="Session log, invoice runs where every line links to its session, payment links and “I've paid” claims." />} />
         <Route path="insights" element={<Soon title="Insights" milestone="M8" blurb="Last seen, attendance, on-time and at-risk, with automatic and custom nudges." />} />
