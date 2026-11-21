@@ -404,10 +404,11 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
   - optional GitHub Action using FTP/SFTP secrets **only if the owner adds them**.
 
 ### M11: Live features over PHP
-- [ ] Op-log sync + presence over HTTP polling (1–2s, ETag/since).
-- [ ] WebRTC signalling via `/signal`.
-- [ ] P2P audio, stage mode, hand raise, screen share (+ annotation + snapshot), "open together", follow-me.
-- [ ] Optional SFU/video via the org's own keys; daily budget cap.
+- [x] Op-log sync + presence over HTTP polling (1–2s, ETag/since).
+- [x] WebRTC signalling via `/signal`.
+- [x] P2P audio, stage mode, hand raise, screen share (+ annotation + snapshot), "open together", follow-me.
+- [x] Optional SFU/video via the org's own keys; daily budget cap: keys stored encrypted, budget pool, 80% / 100% / own-link ladder with grace.
+- [ ] Media through the org's SFU (Cloudflare Realtime / Daily / Jitsi). **Blocked:** needs a real provider account to build and verify against; see Open questions in `docs/decisions.md`.
 
 ### M12: Hardening + mobile polish
 - [ ] Capacity + rate limits verified with a 12-user load script (`scripts/load-room.mjs`).

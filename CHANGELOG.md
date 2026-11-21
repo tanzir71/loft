@@ -2,6 +2,15 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.11.0 — M11: Live features over PHP (2026-11-21)
+- Rooms over plain HTTP: the board op-log syncs every 1.5 s, presence every 5 s (30 s expiry, leaving frees the seat at once) and WebRTC signalling through `/signal`. No WebSocket server.
+- P2P audio for up to 6 talking: mute, a speaking ring, and a seat note when talk is full.
+- Stage mode for up to 12: the host speaks, people raise a hand, the host gives 60-second turns, and anyone without a turn is muted.
+- Screen share for up to 6 viewers on its own connections. A still image every 3 s covers viewers whose connection fails. Annotations sync to everyone and clear 10 s after the share ends unless kept. Snapshot to board turns the frame and its strokes into a new board page.
+- Open together: everyone gets a prompt to open the same link in their own browser (never embedded or proxied), and the host sees who opened it. Follow-me puts everyone on the host's view of the board.
+- Admin → Calls & budget: P2P or the organisation's own SFU keys (Cloudflare Realtime, Daily, Jitsi), stored encrypted with only the last 4 characters shown; STUN/TURN servers; free minutes, a monthly budget and unit price, a daily pool, and 14 days of usage. At 80% of the pool you get a warning, at 100% audio-only, and after a 10-minute grace the host's own link. A live session is never cut. Routing media through the SFU isn't wired yet: it needs a real provider account to verify. Rooms use P2P and stage mode, and the host's own link beyond that.
+- Reconnecting banner in rooms; call errors say what failed and what to do.
+
 ## v0.10.0 — M10: PHP backend + production on Namecheap (2026-11-21)
 - A PHP 8 + SQLite API in `api/` (no Composer, no daemons, no cron) with every endpoint the app uses. It runs the same logic as the preview, ported module by module, and 80 PHP tests run in CI on PHP 8.2.
 - The app talks to it through the HTTP adapter: session cookies, changes polled every 4 s (15 s in a background tab), JSON-only writes with a same-origin check, and 240 writes a minute per IP.
