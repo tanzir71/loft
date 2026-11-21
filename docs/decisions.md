@@ -8,6 +8,18 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-21 — M4 board v2
+- **Rendering layers:** pages and sections (DOM) → highlighter, shapes and connectors (world-space SVG) → shape labels, connector labels, notes and text (DOM, so text wraps and edits natively) → pen ink (SVG, on top) → selection, guides and handles. Live strokes update one SVG path imperatively. (The M2 canvas ink layer was replaced.)
+- **Smoothing** stores raw points plus a `smoothing` value per stroke and renders the perfect-freehand outline, so the slider can change later; pressure comes from `PointerEvent.pressure` for pens only.
+- **Shape recognition** commits the stroke, then a batch that swaps it for a shape, so one undo restores the stroke. Rectangles, ellipses and diamonds are recognised; triangles are not (the Figma shape set has no triangle).
+- **Undo records** are taken against a state ref that each commit advances synchronously, so several commits in one tick (recognition, batches) undo correctly.
+- **Connectors** store `{id, anchor}` or `{x, y}` ends and are routed on every render, so they follow moves and resizes for free. Deleting a shape also deletes connectors attached to it.
+- **Sections** carry everything fully inside them when moved; marquee selects sections only when they are fully inside the box.
+- **Diagram objects** store only code and a position; the layout is recomputed on render. "Detach to freeform" replaces the diagram with ordinary shapes, connectors and lane sections. ERD relations are drawn as labelled connectors (`1 → n`) rather than crow's-foot caps; sequence diagrams use dashed lifelines and horizontal messages.
+- **pdf.js** (37 MB as an npm package) is not installed. The app loads the pinned `pdfjs-dist@4.10.38` ESM build on demand from `<base>vendor/pdfjs/` if present, otherwise from jsDelivr. Production can self-host by copying `pdf.min.mjs` and `pdf.worker.min.mjs` there.
+- **Google Slides/Docs links:** Google's `/export/pdf` doesn't allow cross-origin fetches from a browser. The import tries, then explains how to download the PDF and drop it in. The optional PHP proxy (M10) can fetch it server-side.
+- **PDF export** uses a ~90-line in-house writer (one JPEG per page, DCTDecode, A4 by default) instead of a PDF library.
+
 ### 2026-11-21 — M3 spaces, stream, hallway, inbox
 - **Demo data by default:** Pages seeds a demo workspace (6 spaces, 8 people, posts, DMs, notifications, today's sessions). The first-run Home stays reachable through More → "Start with an empty workspace". When the seed changes (`SEED_VERSION`), a browser's preview data is wiped and re-seeded.
 - **Mode tabs** follow the wizard's lists, with Chat added after Stream (the space frame shows it) and People/Files where the mode implies them. Tabs owned by later milestones (Billing M7, Agenda/Notes M6, Votes M4, Grades M8, Sessions M5) show which milestone delivers them.

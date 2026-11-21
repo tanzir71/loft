@@ -2,6 +2,14 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v0.4.0 — M4: Board v2 (2026-11-21)
+- Flowchart shapes (process, rounded, start/end, decision, input/output, database, document, ellipse) with labels, fills, resize and four anchors each.
+- Connectors: straight, elbow (≤2 bends) and curved (Bézier, 0.4 × distance controls); arrow/dot caps, dash, colour and labels; they re-route when shapes move. Quick-create arrows add a connected copy of a shape.
+- Sections that carry their contents, multi-select with marquee, align · distribute · tidy up, smart guides, keyboard nudging and find on board (⌘F).
+- Pen smoothing with perfect-freehand (raw points kept, slider 0–100%), pressure from a pen or stylus, highlighter, and shape recognition (rough box, circle or diamond → clean shape; undo restores the stroke).
+- Diagram as code: flowchart, sequence, ERD and swimlane with a small layered auto-layout; a Mermaid flowchart subset; live editing; "Detach to freeform"; copy as Mermaid.
+- PDF, slides and image import as board pages (rendered to WebP in the browser); export a page or section to PNG and pages or sections to PDF (A4) with no server.
+
 ## v0.3.0 — M3: Spaces, stream, hallway, inbox (2026-11-21)
 - Demo workspace seeded on Pages (consulting and team spaces first, a course second); "Start with an empty workspace" in More shows the first-run state again.
 - New space wizard with five modes (team, client, workshop, course, tutoring); each mode sets its tabs and labels.

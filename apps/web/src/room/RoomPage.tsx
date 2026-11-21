@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, Eraser, Hand, Mail, MessageCircle, MousePointer2, Pencil, Plus, Redo2, Share2, StickyNote, Type, Undo2, Users, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Code, Copy, Download, Eraser, Grid2x2, Hand, Link2, Mail, MessageCircle, MousePointer2, Pencil, Plus, Redo2, Search, Shapes, Share2, Spline, StickyNote, Type, Undo2, Upload, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { Avatar, Button, PreviewBanner } from "@loft/ui";
 import { normaliseCode, type User } from "@loft/core";
-import { pageAt, sortedPages, type StickyColour } from "@loft/board";
+import { bounds, pageAt, sortedPages, PAGE_GAP, type BoardOp, type ConnectorObj, type Page, type ShapeKind, type StickyColour } from "@loft/board";
 import type { LocalAdapter } from "@loft/data";
 import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint } from "../lib/media";
 import { IS_PREVIEW } from "../lib/env";
 import { Board, type BoardHandle, type Tool } from "./Board";
 import { RoomChat } from "./Chat";
-import { downloadBoardPng } from "./exportPng";
+import { contentBounds, exportPdf, exportPng } from "./board/render";
+import { googleExportUrl, renderImage, renderPdf } from "./board/pdfImport";
+import { DiagramPanel, FindBar, PenOptions, SelectionBar, ShapesFlyout } from "./BoardPanels";
+import { useFileUrls } from "./useFileUrls";
 import { JoinForm, RoomFull, SessionEnded, StateScreen, WaitingForHost } from "./screens";
 import { useBoard } from "./useBoard";
 import { usePresence } from "./usePresence";
@@ -32,12 +35,13 @@ interface Admission {
   status: "pending" | "admitted" | "denied";
 }
 
-const PEN_COLOURS = [
+const PEN_COLOURS_ALL = [
   { name: "Ink", value: "#1a1c23" },
   { name: "Blue", value: "#213a8c" },
   { name: "Red", value: "#ef4343" },
   { name: "Mint", value: "#1dd7b2" }
 ];
+const PEN_COLOURS = [...PEN_COLOURS_ALL, { name: "Amber", value: "#f59f0a" }, { name: "Lilac", value: "#a5b6eb" }];
 const STICKY_COLOURS: StickyColour[] = ["yellow", "pink", "blue", "green"];
 const GUEST_NAME_KEY = "loft.guestName";
 
@@ -164,6 +168,16 @@ export function RoomPage() {
   const boardRef = useRef<BoardHandle>(null);
   const [tool, setTool] = useState<Tool>("pen");
   const [penColour, setPenColour] = useState(PEN_COLOURS[1]!.value);
+  const [smoothing, setSmoothing] = useState(0.6);
+  const [highlighter, setHighlighter] = useState(false);
+  const [recognise, setRecognise] = useState(true);
+  const [shapeKind, setShapeKind] = useState<ShapeKind>("process");
+  const [connectorRoute] = useState<ConnectorObj["route"]>("elbow");
+  const [diagramFor, setDiagramFor] = useState<string | null | "new">(null);
+  const [finding, setFinding] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const fileUrl = useFileUrls(state);
   const [stickyColour, setStickyColour] = useState<StickyColour>("yellow");
   const [share, setShare] = useState(false);
   const [more, setMore] = useState(false);
@@ -177,6 +191,11 @@ export function RoomPage() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest("input, textarea")) return;
       const k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === "f") {
+        e.preventDefault();
+        setFinding(true);
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && k === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -184,8 +203,9 @@ export function RoomPage() {
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const map: Record<string, Tool> = { v: "select", h: "hand", p: "pen", e: "eraser", s: "sticky", t: "text" };
+      const map: Record<string, Tool> = { v: "select", h: "hand", p: "pen", e: "eraser", s: "sticky", t: "text", r: "shape", x: "connector", f: "section" };
       if (map[k]) setTool(map[k]!);
+      if (k === "u") fileInput.current?.click();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -204,7 +224,7 @@ export function RoomPage() {
   const badge = room.name.replace(/[^A-Za-z ]/g, "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "LF";
 
   if (room.endedAt) {
-    return <SessionEnded roomName={room.name} isHost={isHost} isGuest={guest} onDownload={() => void downloadBoardPng(state, `${room.name.replace(/[^\w-]+/g, "-")}.png`)} />;
+    return <SessionEnded roomName={room.name} isHost={isHost} isGuest={guest} onDownload={() => void exportPdf(state, sortedPages(state), room.name, fileUrl.image)} />;
   }
   if (guest && myAdm?.status === "denied") {
     return (
@@ -240,14 +260,70 @@ export function RoomPage() {
     setTimeout(() => boardRef.current?.goToPage(pg.id), 50);
     setPageMenu(false);
   };
+  // Figma Board v2 · tools spec: one tool active at a time, Esc returns to Select.
   const tools: { id: Tool; label: string; icon: JSX.Element; key: string }[] = [
+    { id: "select", label: "Select", icon: <MousePointer2 aria-hidden="true" />, key: "V" },
     { id: "hand", label: "Hand (pan)", icon: <Hand aria-hidden="true" />, key: "H" },
     { id: "pen", label: "Pen", icon: <Pencil aria-hidden="true" />, key: "P" },
     { id: "eraser", label: "Eraser", icon: <Eraser aria-hidden="true" />, key: "E" },
+    { id: "sticky", label: "Sticky note", icon: <StickyNote aria-hidden="true" />, key: "S" },
+    { id: "shape", label: "Shapes", icon: <Shapes aria-hidden="true" />, key: "R" },
+    { id: "connector", label: "Connector", icon: <Spline aria-hidden="true" />, key: "X" },
     { id: "text", label: "Text", icon: <Type aria-hidden="true" />, key: "T" },
-    { id: "sticky", label: "Sticky note", icon: <StickyNote aria-hidden="true" />, key: "S" }
+    { id: "section", label: "Section", icon: <Grid2x2 aria-hidden="true" />, key: "F" }
   ];
-  const phoneTools = [{ id: "select" as Tool, label: "Select", icon: <MousePointer2 aria-hidden="true" />, key: "V" }, ...tools.filter((t) => t.id !== "hand")];
+  const phoneTools = tools.filter((t) => ["select", "pen", "sticky", "shape", "connector"].includes(t.id));
+
+  /** PDFs, slides and images become board pages (WebP, rendered in the browser). */
+  const importFiles = async (files: FileList | File[]) => {
+    const list = [...files];
+    if (!list.length) return;
+    let order = pages.length;
+    let x = Math.max(0, ...pages.map((pg) => pg.x + pg.w)) + PAGE_GAP;
+    const ops: BoardOp[] = [];
+    let firstId: string | null = null;
+    try {
+      for (const f of list) {
+        const rendered = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") ? await renderPdf(f, (d, t) => setBusy(`Importing ${f.name}: page ${d} of ${t}`)) : [await renderImage(f)];
+        for (const [i, r] of rendered.entries()) {
+          setBusy(`Saving page ${i + 1} of ${rendered.length}`);
+          const ref = await adapter.files.put(r.blob, { name: `${f.name.replace(/\.[^.]+$/, "")}-p${i + 1}.webp` });
+          const h = 900;
+          const w = Math.round((r.width / r.height) * h);
+          const pg: Page = { id: `p${Date.now().toString(36)}${order}`, title: rendered.length > 1 ? `${f.name} · p${i + 1}` : f.name, order, x, y: 0, w, h, bg: ref.id };
+          firstId ??= pg.id;
+          ops.push({ kind: "add", payload: { page: pg } });
+          order += 1;
+          x += w + PAGE_GAP;
+        }
+      }
+      if (ops.length) commit({ kind: "batch", payload: { ops } });
+      if (firstId) setTimeout(() => boardRef.current?.goToPage(firstId!), 80);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "That file couldn't be imported.");
+    } finally {
+      setBusy(null);
+    }
+  };
+  const importLink = async () => {
+    const link = prompt("Paste a public Google Slides or Docs link");
+    if (!link) return;
+    const url = googleExportUrl(link);
+    if (!url) return alert("That doesn't look like a Google Slides or Docs link.");
+    try {
+      setBusy("Fetching the PDF from Google…");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      await importFiles([new File([await res.blob()], "slides.pdf", { type: "application/pdf" })]);
+    } catch {
+      setBusy(null);
+      alert("Google doesn't let browsers fetch that file directly. Open the link, use File → Download → PDF, then drop the PDF here.");
+    }
+  };
+  const exportCurrentPng = () => {
+    const pg = pages[pageIndex];
+    void exportPng(state, pg ?? contentBounds(state), `${room.name} ${pg?.title ?? ""}`, fileUrl.image);
+  };
 
   return (
     <div className={`room${phone ? " room--phone" : ""}`}>
@@ -258,9 +334,26 @@ export function RoomPage() {
           state={state}
           commit={commit}
           tool={tool}
-          penColour={penColour}
-          penSize={phone ? 3 : 3.5}
+          pen={{ colour: penColour, size: phone ? 3 : 3.5, smoothing, highlighter, recognise }}
           stickyColour={stickyColour}
+          shapeKind={shapeKind}
+          connectorRoute={connectorRoute}
+          fileUrl={fileUrl.url}
+          renderSelectionBar={(ids) => (
+            <SelectionBar
+              state={state}
+              ids={ids}
+              commit={commit}
+              onEditDiagram={(id) => setDiagramFor(id)}
+              onExportSection={(id, kind) => {
+                const s = state.objects[id];
+                if (!s) return;
+                const r = bounds(s);
+                if (kind === "png") void exportPng(state, r, s.kind === "section" ? s.title : room.name, fileUrl.image);
+                else void exportPdf(state, [r], s.kind === "section" ? s.title : room.name, fileUrl.image);
+              }}
+            />
+          )}
           meId={me.id}
           peers={peers.filter((p) => p.status === "in")}
           onCursor={(c) => update({ cursor: c })}
@@ -346,12 +439,9 @@ export function RoomPage() {
         {/* bottom-centre: pen colours, tools, pages */}
         <div className="room__dock" data-board-ui="">
           {tool === "pen" && (
-            <div className="island swatches" role="radiogroup" aria-label="Pen colour">
-              {PEN_COLOURS.map((c) => (
-                <button key={c.value} type="button" role="radio" aria-checked={penColour === c.value} aria-label={c.name} className="swatch" style={{ background: c.value }} onClick={() => setPenColour(c.value)} />
-              ))}
-            </div>
+            <PenOptions colour={penColour} colours={PEN_COLOURS} onColour={setPenColour} smoothing={smoothing} onSmoothing={setSmoothing} highlighter={highlighter} onHighlighter={setHighlighter} recognise={recognise} onRecognise={setRecognise} />
           )}
+          {tool === "shape" && <ShapesFlyout value={shapeKind} onPick={setShapeKind} />}
           {tool === "sticky" && (
             <div className="island swatches" role="radiogroup" aria-label="Sticky colour">
               {STICKY_COLOURS.map((c) => (
@@ -367,14 +457,30 @@ export function RoomPage() {
                 </button>
               ))}
               <span className="toolbar__sep" aria-hidden="true" />
+              {!phone && (
+                <>
+                  <button type="button" className="tool" aria-label="Upload PDF, slides or images (U)" title="Upload PDF, slides or images (U)" onClick={() => fileInput.current?.click()}><Upload aria-hidden="true" /></button>
+                  <button type="button" className="tool" aria-label="Undo (⌘Z)" title="Undo (⌘Z)" onClick={undo}><Undo2 aria-hidden="true" /></button>
+                  <button type="button" className="tool" aria-label="Redo (⇧⌘Z)" title="Redo (⇧⌘Z)" onClick={redo}><Redo2 aria-hidden="true" /></button>
+                </>
+              )}
               <button type="button" className={`tool${more ? " is-on" : ""}`} aria-label="More tools" aria-expanded={more} onClick={() => setMore(!more)}>
                 <ChevronDown aria-hidden="true" />
               </button>
+              <input ref={fileInput} type="file" hidden multiple accept="application/pdf,image/*" onChange={(e) => { if (e.target.files) void importFiles(e.target.files); e.target.value = ""; }} />
               {more && (
-                <div className="island menu menu--up" role="menu">
-                  {!phone && <button type="button" role="menuitem" onClick={() => { setTool("select"); setMore(false); }}><MousePointer2 aria-hidden="true" /> Select <kbd>V</kbd></button>}
-                  <button type="button" role="menuitem" onClick={undo}><Undo2 aria-hidden="true" /> Undo <kbd>⌘Z</kbd></button>
-                  <button type="button" role="menuitem" onClick={redo}><Redo2 aria-hidden="true" /> Redo <kbd>⇧⌘Z</kbd></button>
+                <div className="island menu menu--up" role="menu" onClick={() => setMore(false)}>
+                  {phone && <button type="button" role="menuitem" onClick={() => setTool("eraser")}><Eraser aria-hidden="true" /> Eraser <kbd>E</kbd></button>}
+                  {phone && <button type="button" role="menuitem" onClick={() => setTool("text")}><Type aria-hidden="true" /> Text <kbd>T</kbd></button>}
+                  {phone && <button type="button" role="menuitem" onClick={() => setTool("hand")}><Hand aria-hidden="true" /> Hand</button>}
+                  {phone && <button type="button" role="menuitem" onClick={undo}><Undo2 aria-hidden="true" /> Undo</button>}
+                  {phone && <button type="button" role="menuitem" onClick={redo}><Redo2 aria-hidden="true" /> Redo</button>}
+                  <button type="button" role="menuitem" onClick={() => setDiagramFor("new")}><Code aria-hidden="true" /> Diagram as code</button>
+                  <button type="button" role="menuitem" onClick={() => setFinding(true)}><Search aria-hidden="true" /> Find on board <kbd>⌘F</kbd></button>
+                  <button type="button" role="menuitem" onClick={() => fileInput.current?.click()}><Upload aria-hidden="true" /> Upload PDF, slides, images <kbd>U</kbd></button>
+                  <button type="button" role="menuitem" onClick={() => void importLink()}><Link2 aria-hidden="true" /> Import a Google Slides link</button>
+                  <button type="button" role="menuitem" onClick={exportCurrentPng}><Download aria-hidden="true" /> Export this page (PNG)</button>
+                  <button type="button" role="menuitem" onClick={() => void exportPdf(state, sortedPages(state), room.name, fileUrl.image)}><Download aria-hidden="true" /> Export all pages (PDF)</button>
                   <button type="button" role="menuitem" onClick={() => boardRef.current?.zoomBy(1.25)}><ZoomIn aria-hidden="true" /> Zoom in</button>
                   <button type="button" role="menuitem" onClick={() => boardRef.current?.zoomBy(0.8)}><ZoomOut aria-hidden="true" /> Zoom out</button>
                   {phone && isHost && <button type="button" role="menuitem" className="danger" onClick={async () => confirm("End the session for everyone?") && adapter.mutate(`rooms/${room.id}/end`)}>End session</button>}
@@ -404,6 +510,10 @@ export function RoomPage() {
             )}
           </div>
         </div>
+
+        {diagramFor && <DiagramPanel state={state} editingId={diagramFor === "new" ? null : diagramFor} commit={commit} centre={() => boardRef.current?.centre() ?? { x: 0, y: 0 }} onClose={() => setDiagramFor(null)} onAdded={(id) => { setTool("select"); setTimeout(() => boardRef.current?.focusObject(id), 60); }} />}
+        {finding && <FindBar state={state} onFocus={(id) => boardRef.current?.focusObject(id)} onClose={() => setFinding(false)} />}
+        {busy && <div className="island busy-toast" role="status" aria-live="polite">{busy}</div>}
 
         {/* bottom-right: chat */}
         <div className="room__chat">

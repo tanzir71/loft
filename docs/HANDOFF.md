@@ -362,10 +362,10 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] Home (desktop + phone), Inbox (To review + Notifications), More (phone), Notifications panel.
 
 ### M4: Board v2 (FigJam / Eraser-style)
-- [ ] Smoothing, shape recognition, flowchart shapes, connectors (3 types, caps, labels, re-route), sections, quick-create arrows, tidy up, snapping, find.
-- [ ] Diagram as code panel (flowchart first; sequence, ERD, swimlane after).
-- [ ] PDF/slides import; export PNG/PDF.
-- [ ] Frames: "Board v2 · flowchart + connectors (desktop)", "Board v2 · tools spec", "Board v2 · phone".
+- [x] Smoothing, shape recognition, flowchart shapes, connectors (3 types, caps, labels, re-route), sections, quick-create arrows, tidy up, snapping, find.
+- [x] Diagram as code panel (flowchart first; sequence, ERD, swimlane after).
+- [x] PDF/slides import; export PNG/PDF.
+- [x] Frames: "Board v2 · flowchart + connectors (desktop)", "Board v2 · tools spec", "Board v2 · phone".
 
 ### M5: Scheduling (row C)
 - [ ] S1 Calendar (week/day/month) incl. Calendar in side panel.

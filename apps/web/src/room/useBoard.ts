@@ -56,6 +56,8 @@ export function useBoard(roomId: string | null, actor: string) {
   const commit = useCallback(
     (op: BoardOp) => {
       undo.current.record(stateRef.current, op);
+      // Keep the ref current so several commits in one tick record correct undo steps.
+      stateRef.current = applyOp(stateRef.current, op);
       send(op);
     },
     [send]
@@ -63,11 +65,15 @@ export function useBoard(roomId: string | null, actor: string) {
 
   const doUndo = useCallback(() => {
     const op = undo.current.undo(stateRef.current);
-    if (op) send(op);
+    if (!op) return;
+    stateRef.current = applyOp(stateRef.current, op);
+    send(op);
   }, [send]);
   const doRedo = useCallback(() => {
     const op = undo.current.redo(stateRef.current);
-    if (op) send(op);
+    if (!op) return;
+    stateRef.current = applyOp(stateRef.current, op);
+    send(op);
   }, [send]);
 
   return { state, commit, undo: doUndo, redo: doRedo, synced };

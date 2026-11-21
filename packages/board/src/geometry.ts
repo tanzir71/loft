@@ -67,8 +67,27 @@ export function bounds(o: BoardObj): Rect {
     const h = o.size / 2;
     return { x: minX - h, y: minY - h, w: maxX - minX + o.size, h: maxY - minY + o.size };
   }
-  if (o.kind === "sticky") return { x: o.x, y: o.y, w: o.w, h: o.h };
-  return { x: o.x, y: o.y, w: o.w, h: Math.max(o.size * 1.4, o.size * 1.4 * o.text.split("\n").length) };
+  if (o.kind === "sticky" || o.kind === "shape" || o.kind === "section") return { x: o.x, y: o.y, w: o.w, h: o.h };
+  if (o.kind === "text") return { x: o.x, y: o.y, w: o.w, h: Math.max(o.size * 1.4, o.size * 1.4 * o.text.split("\n").length) };
+  if (o.kind === "connector") {
+    const pts = [o.from, o.to].filter((e): e is { x: number; y: number } => "x" in e);
+    if (!pts.length) return { x: 0, y: 0, w: 0, h: 0 };
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+  }
+  return { x: o.x, y: o.y, w: 0, h: 0 };
+}
+
+export function rectInside(inner: Rect, outer: Rect): boolean {
+  return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h;
+}
+
+export function rectsIntersect(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+export function normRect(a: Pt, b: Pt): Rect {
+  return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
 }
 
 export function rectContains(r: Rect, p: Pt): boolean {

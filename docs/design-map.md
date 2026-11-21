@@ -38,3 +38,8 @@ Figma file `OvapmLmXJ0QmobXQA1mxNG` (Tutor). Node ids in brackets.
 | 05 · "Host · Inbox (phone)" [104:398] | `/inbox`, `/review` | `pages/Inbox.tsx` `InboxPage` | M3 |
 | 07 · "Notifications panel (desktop)" [111:472] | bell in top bars | `Inbox.tsx` `NotificationsBell` | M3 |
 | 05 · "Host · More (phone)" [104:538] | `/more` | `pages/More.tsx` | M3 |
+| 04 · "Board v2 · flowchart + connectors (desktop)" [77:2089] | `/r/:code` | `room/Board.tsx`, `room/BoardPanels.tsx` (`SelectionBar`), `packages/board` (`connectors`, `arrange`) | M4 |
+| 04 · "Board v2 · tools spec" [79:2144] | `/r/:code` toolbar, flyouts | `RoomPage.tsx` toolbar, `ShapesFlyout`, `PenOptions`, `board/shapes.ts` | M4 |
+| 04 · "Board v2 · phone (shapes sheet open)" [79:2456] | `/r/:code` on phones | `RoomPage.tsx` (`phoneTools`), `.room--phone .shapes-flyout` | M4 |
+| 04 · "Board feature map" [81:4015] · diagram as code | `/r/:code` → More → Diagram as code | `BoardPanels.tsx` `DiagramPanel`, `packages/board/src/diagram.ts` | M4 |
+| — PDF/slides import, PNG/PDF export | `/r/:code` → Upload / More | `room/board/pdfImport.ts`, `room/board/render.ts`, `packages/board/src/pdf.ts` | M4 |
