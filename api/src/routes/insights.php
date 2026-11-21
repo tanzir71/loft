@@ -222,19 +222,7 @@ function insights_daily(Ctx $ctx, string $hostId): void
 {
     if (!is_daily_due(ins_nudge_settings($ctx, $hostId)['lastDaily'], $ctx->now())) return;
     // Server-only: one immediate transaction so two "first requests of the day" can't both run the rules.
-    $pdo = $ctx->db->pdo;
-    $own = !$pdo->inTransaction();
-    if ($own) {
-        $pdo->exec('BEGIN IMMEDIATE');
-        $ctx->db->clearCache();
-    }
-    try {
-        ins_daily_run($ctx, $hostId);
-        if ($own) $pdo->exec('COMMIT');
-    } catch (\Throwable $e) {
-        if ($own) $pdo->exec('ROLLBACK');
-        throw $e;
-    }
+    $ctx->db->tx(fn () => ins_daily_run($ctx, $hostId), true);
 }
 
 function ins_daily_run(Ctx $ctx, string $hostId): void

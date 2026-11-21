@@ -232,7 +232,7 @@ test('agents routes: accepted board drafts move onto the room op-log without the
     $db = fresh();
     ag_test_fixture($db);
     $task = call($db, 'u_host', 'POST', 'spaces/sp_1/prep', ['template' => 'board_brief', 'sessionId' => 'se_thu', 'brief' => 'Sections: Map, Decide, Storyboard']);
-    eq([$task['title'], $task['readyBy'], $task['session']['id']], ['Board from the brief', '2026-11-24T13:00:00.000Z' === $task['readyBy'] ? $task['readyBy'] : '2026-11-26T13:00:00.000Z', 'se_thu']);
+    eq([$task['title'], $task['readyBy'], $task['session']['id']], ['Board from the brief', '2026-11-26T13:00:00.000Z', 'se_thu']);
     $claimed = call($db, null, 'POST', 'a/' . AG_TEST_SP . '/claim', ag_test_claude())['task'];
     eq($claimed['session'], ['title' => 'Day 4 · Decide', 'startsAt' => '2026-11-26T15:00:00.000Z', 'minutes' => 90]);
     $roomId = $db->get('prep_tasks', $task['id'])['roomId'];
@@ -286,7 +286,7 @@ test('agents routes: ask moves the agent on; the host answer re-queues the task 
     contains($md, "host asked: $q → 3 dots each");
     $kinds = array_map(fn ($c) => $c['kind'], call($db, null, 'GET', 'a/' . AG_TEST_WS . '/changes', $claude)['changes']);
     eq($kinds, ['answer']);
-    eq($db->pdo->query("SELECT COUNT(*) FROM audit WHERE action = 'agent.ask'")->fetchColumn(), 1);
+    eq((int) $db->pdo->query("SELECT COUNT(*) FROM audit WHERE action = 'agent.ask'")->fetchColumn(), 1);
 });
 
 test('agents routes: pausing stops claims and drafts; revoking a seat blocks it; 60 requests a minute per seat', function () {

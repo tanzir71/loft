@@ -370,21 +370,7 @@ routes()
         if (!empty($link['paused'])) return ['paused' => true, 'task' => null];
         $ctx->flush();
         // One immediate transaction: two agents claiming at once never get the same task.
-        $pdo = $ctx->db->pdo;
-        $own = !$pdo->inTransaction();
-        if ($own) {
-            $pdo->exec('BEGIN IMMEDIATE');
-            $ctx->db->clearCache();
-        }
-        try {
-            $out = ag_claim($ctx, $link, $seat);
-            if ($own) $pdo->exec('COMMIT');
-        } catch (\Throwable $e) {
-            if ($own) $pdo->exec('ROLLBACK');
-            $ctx->db->clearCache();
-            throw $e;
-        }
-        return $out;
+        return $ctx->db->tx(fn () => ag_claim($ctx, $link, $seat), true);
     })
     ->get('a/:token/context/:id', function (Ctx $ctx, array $p, array $in) {
         [$link] = ag_auth($ctx, $p['token'], $in);

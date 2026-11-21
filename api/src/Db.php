@@ -67,6 +67,41 @@ final class Db
         return $this->update($table, $id, fn (array $cur) => array_merge($cur, $patch, ['id' => $id]));
     }
 
+    private int $depth = 0;
+
+    /**
+     * Run $fn in one immediate transaction (nested calls join the outer one). PDO's inTransaction()
+     * can't see a raw BEGIN on SQLite, so the depth is tracked here.
+     * @template T
+     * @param callable(): T $fn
+     * @return T
+     */
+    public function tx(callable $fn, bool $fresh = false): mixed
+    {
+        if ($this->depth > 0) {
+            $this->depth++;
+            try {
+                return $fn();
+            } finally {
+                $this->depth--;
+            }
+        }
+        $this->pdo->exec('BEGIN IMMEDIATE');
+        $this->depth = 1;
+        if ($fresh) $this->clearCache();
+        try {
+            $out = $fn();
+            $this->pdo->exec('COMMIT');
+            return $out;
+        } catch (\Throwable $e) {
+            $this->pdo->exec('ROLLBACK');
+            $this->clearCache();
+            throw $e;
+        } finally {
+            $this->depth = 0;
+        }
+    }
+
     /**
      * Read-modify-write in one transaction so concurrent writers never lose updates.
      * @param callable(array<string, mixed>): array<string, mixed> $fn
@@ -74,20 +109,14 @@ final class Db
      */
     public function update(string $table, string $id, callable $fn): array
     {
-        $own = !$this->pdo->inTransaction();
-        if ($own) $this->pdo->exec('BEGIN IMMEDIATE');
-        try {
+        return $this->tx(function () use ($table, $id, $fn) {
             $cur = $this->get($table, $id);
             if ($cur === null) throw new NotFound("$table/$id not found");
             $next = $fn($cur);
             $next['id'] = $id;
             $this->put($table, $next);
-            if ($own) $this->pdo->exec('COMMIT');
             return $next;
-        } catch (\Throwable $e) {
-            if ($own) $this->pdo->exec('ROLLBACK');
-            throw $e;
-        }
+        });
     }
 
     public function del(string $table, string $id): void
@@ -120,9 +149,7 @@ final class Db
      */
     public function appendOps(string $roomId, array $ops): array
     {
-        $own = !$this->pdo->inTransaction();
-        if ($own) $this->pdo->exec('BEGIN IMMEDIATE');
-        try {
+        return $this->tx(function () use ($roomId, $ops) {
             $st = $this->pdo->prepare('SELECT COALESCE(MAX(seq), 0) FROM ops WHERE room_id = ?');
             $st->execute([$roomId]);
             $seq = (int) $st->fetchColumn();
@@ -134,12 +161,8 @@ final class Db
                 $ins->execute([$roomId, $seq, $row['actor'], $row['ts'], $row['kind'], json_encode($row['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
                 $out[] = $row;
             }
-            if ($own) $this->pdo->exec('COMMIT');
             return $out;
-        } catch (\Throwable $e) {
-            if ($own) $this->pdo->exec('ROLLBACK');
-            throw $e;
-        }
+        });
     }
 
     /** @return list<array<string, mixed>> */
