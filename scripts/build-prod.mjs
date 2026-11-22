@@ -18,7 +18,15 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const out = resolve(repo, args.includes("--out") ? args[args.indexOf("--out") + 1] : "loft-prod.zip");
 const stage = join(repo, ".prod-build");
-const version = JSON.parse(readFileSync(join(repo, "package.json"), "utf8")).version ?? "0.0.0";
+// The release tag (set by release-zip.yml), else the nearest git tag, else package.json.
+function gitTag() {
+  try {
+    return execFileSync("git", ["describe", "--tags", "--always"], { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
+const version = (process.env.LOFT_VERSION || gitTag() || JSON.parse(readFileSync(join(repo, "package.json"), "utf8")).version || "0.0.0").replace(/^v/, "");
 
 rmSync(stage, { recursive: true, force: true });
 mkdirSync(stage, { recursive: true });
@@ -67,13 +75,16 @@ writeFileSync(
   join(stage, "README-DEPLOY.txt"),
   `Loft ${version} · production build
 
-1. In cPanel → File Manager, upload loft-prod.zip to your home folder and extract it.
-   It creates public_html/loft, public_html/spaces and loft-app (outside the web root).
-2. Pick PHP 8.2 in cPanel → Select PHP Version and enable: pdo_sqlite, sqlite3, openssl, sodium, curl, mbstring.
-3. Open https://<your-domain>/spaces/ — the install wizard checks the server and creates the owner account.
-4. Back up loft-app/data/ (it holds the database, uploads and config.php).
+1. cPanel → Select PHP Version: 8.2 or newer, with pdo_sqlite, sqlite3, sodium, openssl, curl,
+   mbstring and iconv; upload_max_filesize and post_max_size at least 20M.
+2. cPanel → File Manager: upload loft-prod.zip to your home folder (the one that contains
+   public_html) and extract it there. It creates public_html/loft, public_html/spaces and
+   loft-app (outside the web root).
+3. Open https://<your-domain>/spaces/ and follow the install wizard.
+4. In loft-app/data/config.php, set 'mail_from' to an address at your domain.
+5. Back up loft-app/data/ (database, uploads and config.php), e.g. from the owner console.
 
-Full guide: docs/deploy-namecheap.md in the repository.
+Step-by-step guide with checks and fixes: INSTALL.md in the repository.
 `
 );
 

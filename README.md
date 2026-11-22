@@ -4,6 +4,7 @@ A free workspace for small teams who run things live: a shared board that opens 
 
 - **Preview (GitHub Pages):** https://tanzir71.github.io/loft/ · app: https://tanzir71.github.io/loft/app/ · every milestone: https://tanzir71.github.io/loft/milestones/
 - **Production:** landing `tanziro.com/loft`, app `tanziro.com/spaces` on PHP 8 + SQLite shared hosting.
+- **Install on your hosting:** [`INSTALL.md`](INSTALL.md), step by step for Namecheap shared hosting (cPanel), about 20 minutes.
 - **Plan:** [`docs/HANDOFF.md`](docs/HANDOFF.md) · decisions: [`docs/decisions.md`](docs/decisions.md) · design map: [`docs/design-map.md`](docs/design-map.md)
 
 ## Layout

@@ -4,19 +4,9 @@ Loft runs on plain shared hosting: PHP 8.2 + SQLite. No Composer, no daemons, no
 
 Production URLs: landing `https://<your-domain>/loft`, app `https://<your-domain>/spaces`.
 
-## 1. Get the build
+**To install, follow [`INSTALL.md`](../INSTALL.md)**: download the release zip, set PHP, upload and extract it, run the install wizard, set the sender address, and check it works. This page covers what comes after that.
 
-Every release on GitHub has a `loft-prod.zip` attached (built by `.github/workflows/release-zip.yml`). To build it yourself:
-
-```bash
-npm ci
-```
-
-```bash
-node scripts/build-prod.mjs --out loft-prod.zip
-```
-
-The zip contains:
+What the zip contains:
 
 | Folder | Goes to | What |
 |---|---|---|
@@ -24,48 +14,22 @@ The zip contains:
 | `public_html/spaces/` | your web root | the app (HTTP adapter, hash routing) and `.htaccess` |
 | `public_html/spaces/api/` | your web root | the API front controller (`index.php`) and `.htaccess` |
 | `loft-app/api/` | **outside** the web root | the PHP code and migrations |
-| `loft-app/data/` | **outside** the web root | created by the installer: `loft.sqlite`, `files/`, `config.php` |
+| `loft-app/data/` | **outside** the web root | filled in by the installer: `loft.sqlite`, `files/`, `config.php` |
 
-## 2. Upload
-
-1. cPanel → **File Manager** → your home folder (the one that contains `public_html`).
-2. **Upload** `loft-prod.zip`, then **Extract** it there. You now have `~/public_html/loft`, `~/public_html/spaces` and `~/loft-app`.
-3. Check that `~/loft-app/data` exists and is writable by PHP (permissions `700` or `750`).
-
-If your web root isn't `public_html` (an addon domain, for example), move `public_html/loft` and `public_html/spaces` into that domain's folder and keep `loft-app` next to it, one level above. The front controller looks for `../../../loft-app/api/src/bootstrap.php` from `spaces/api/`. To use another location, set the environment variable `LOFT_DATA` (data folder) in `.htaccess` with `SetEnv LOFT_DATA /home/<user>/loft-app/data`.
-
-## 3. PHP settings
-
-cPanel → **Select PHP Version**:
-
-- PHP **8.2**
-- Extensions: `pdo_sqlite`, `sqlite3`, `openssl`, `sodium`, `curl`, `mbstring`, `iconv`
-- Options: `upload_max_filesize` and `post_max_size` at least `20M` (board PDFs and files).
-
-## 4. Install
-
-Open `https://<your-domain>/spaces/`. The first visit shows the **install wizard** (Figma 07 · "Install · first run"):
-
-1. **Server check**: PHP version and extensions, a writable data folder outside the web root.
-2. **Owner account**: your name, email and the site address (for example `https://tanziro.com/spaces`). You become the owner; only you can open `/spaces/#/owner`.
-3. **Done**: an encryption key is generated into `loft-app/data/config.php`. Keep that file private and back it up.
-
-Sign-in is by email link (single use, 15 minutes) sent with PHP `mail()`. Namecheap's `mail()` works out of the box; use an address at your domain as the sender (the installer uses your email; edit `mail_from` in `config.php` to change it). If mail lands in spam, add SPF/DKIM for your domain in cPanel → **Email Deliverability**.
-
-## 5. Agent links
+## 1. Agent links
 
 Agents fetch `https://<your-domain>/spaces/a/<token>`. `public_html/spaces/.htaccess` routes `/spaces/a/*` to the API. Nothing else to configure. Rate limits (60 requests a minute per seat) and the audit log are stored in SQLite.
 
-## 6. Calendar feeds and invites
+## 2. Calendar feeds and invites
 
 - Private feeds: `https://<your-domain>/spaces/api/v1/ics/<token>.ics` (each host's token is on Calendar → Availability).
 - Invites are emailed as `.ics` attachments with a stable UID; updates send SEQUENCE+1, cancellations METHOD:CANCEL.
 
-## 7. Branding
+## 3. Branding
 
 The owner switches branding on per organisation in `/spaces/#/owner` with a paid-until date. Branding stays active until paid-until + 14 days. The organisation's admin then publishes their name, colours and address in Brand studio. No checkout, no custom domains: the branded link is `https://<your-domain>/spaces/<org-slug>`.
 
-## 8. Optional: video with your own keys
+## 4. Optional: video with your own keys
 
 Calls work with nothing set up: P2P audio, stage mode and your own Meet/Zoom link. To add video, each organisation's admin opens `/spaces/#/admin` → **Calls & budget**, switches on one provider, pastes its keys and sets a monthly budget (or free minutes):
 
@@ -75,13 +39,13 @@ Calls work with nothing set up: P2P audio, stage mode and your own Meet/Zoom lin
 
 Keys are encrypted with the key in `config.php` and never sent to browsers. The server reaches `rtc.live.cloudflare.com` and `api.daily.co` over HTTPS with PHP's `curl` extension. New video stops for the day at 80% of the daily pool; a call that's already live is never cut.
 
-## 9. Backups, restore and updates
+## 5. Backups, restore and updates
 
 - **Back up**: the owner console (`/spaces/#/owner` → Backups → Download backup) gives a zip of `data/` with a consistent copy of the database (`VACUUM INTO`, safe while people are using Loft), every upload and `config.php`. A daily cPanel backup of `~/loft-app/data/` works too.
 - **Restore**: rename `~/loft-app/data` to `data-old`, upload the backup zip to `~/loft-app/` and extract it (it creates `data/`), open Loft, then delete `data-old`. Keep `config.php` from the backup: it holds the key that decrypts stored provider keys.
 - **Update**: upload the new `loft-prod.zip` and extract it over the old files. `data/` is never touched; database migrations run automatically on the next request.
 
-## 10. Optional: deploy from GitHub
+## 6. Optional: deploy from GitHub
 
 Only if you add FTP/SFTP secrets to the repository (`FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`). Without them nothing is deployed automatically. Uploading the zip by hand is the supported path.
 
@@ -89,7 +53,7 @@ Only if you add FTP/SFTP secrets to the repository (`FTP_HOST`, `FTP_USER`, `FTP
 
 | Symptom | Fix |
 |---|---|
-| "Loft is not installed correctly: the API code was not found" | `loft-app` isn't three levels above `spaces/api/`. Move it, or set `LOFT_DATA` and keep the code path. |
+| "Loft is not installed correctly: the API code was not found" | `loft-app` isn't next to your web root folder. Move it, or add `SetEnv LOFT_APP /home/<user>/loft-app` to `spaces/api/.htaccess` (see INSTALL.md, step 3). |
 | The app loads but every request says "Not signed in" after signing in | The site address in `config.php` (`app_url`) doesn't match the URL you use (http vs https, www). Fix it and sign in again. |
 | Sign-in emails don't arrive | Check `~/loft-app/data/mail.log` exists only if `mail_mode` is `log`; otherwise check cPanel → Track Delivery and set SPF/DKIM. |
 | 500 errors | cPanel → **Errors** (or `error_log` in `public_html/spaces/api/`). Lines starting with `[loft]` come from the API. |

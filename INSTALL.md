@@ -1,0 +1,130 @@
+# Install Loft
+
+Step by step, on Namecheap shared hosting with cPanel. Any host with PHP 8.1+ and SQLite works the same way.
+No Composer, no command line, no cron jobs, nothing to keep running. It takes about 20 minutes.
+
+When you're done:
+
+- the landing page is at `https://<your-domain>/loft`
+- the app is at `https://<your-domain>/spaces`
+
+Whatever is already at the root of your domain keeps working: Loft only adds those two folders.
+
+## What you need
+
+- A Namecheap shared hosting plan with cPanel, and a domain pointing to it.
+- HTTPS on that domain. In cPanel → **SSL/TLS Status**, run **AutoSSL** if the domain isn't covered yet. Loft's sign-in cookies only work over HTTPS.
+- An email address at your domain for Loft to send from, for example `loft@<your-domain>`. Create it in cPanel → **Email Accounts**. Mail sent "from" a Gmail or Outlook address by your server usually lands in spam.
+
+## 1. Download the build
+
+Open the repository on GitHub → **Releases** → the latest release → download **`loft-prod.zip`** (about 1 MB).
+
+To build it yourself instead (Node 20+):
+
+```bash
+npm ci
+```
+
+```bash
+node scripts/build-prod.mjs --out loft-prod.zip
+```
+
+## 2. Set up PHP
+
+cPanel → **Select PHP Version**:
+
+1. Choose **8.2** (or newer) and click **Set as current**.
+2. On the **Extensions** tab, make sure these are ticked: `pdo_sqlite`, `sqlite3`, `sodium`, `openssl`, `curl`, `mbstring`, `iconv`.
+3. On the **Options** tab, set `upload_max_filesize` and `post_max_size` to at least **20M**. Board PDFs and file uploads need this.
+
+If an extension isn't in the list, ask Namecheap support to enable it.
+
+## 3. Upload and extract
+
+1. cPanel → **File Manager**.
+2. Go to your **home folder**: `/home/<your-cpanel-user>`, the folder that *contains* `public_html`. Don't open `public_html` itself.
+3. **Upload** `loft-prod.zip` there.
+4. Right-click the zip → **Extract** → make sure the destination is your home folder → **Extract Files**.
+5. Delete `loft-prod.zip`.
+
+You should now have:
+
+```text
+/home/<your-cpanel-user>/
+├── public_html/
+│   ├── loft/        landing page
+│   └── spaces/      the app
+│       └── api/     the API's front door (index.php)
+└── loft-app/        the code and your data, out of reach of the web
+    ├── api/
+    └── data/        database, uploads and config.php (filled in by the installer)
+```
+
+**If your domain's files aren't in `public_html`** (an addon domain, for example):
+
+- If the domain's folder sits directly in your home folder (`/home/<user>/example.com`), move `loft` and `spaces` into it and leave `loft-app` where it is. Nothing else changes.
+- If the domain's folder is *inside* `public_html` (`/home/<user>/public_html/example.com`), move `loft` and `spaces` into it, keep `loft-app` in your home folder, and add this line at the top of `spaces/api/.htaccess` (File Manager → right-click → **Edit**):
+
+  ```text
+  SetEnv LOFT_APP /home/<your-cpanel-user>/loft-app
+  ```
+
+## 4. Run the installer
+
+Open `https://<your-domain>/spaces/`. The first visit shows the install wizard.
+
+1. **Server check.** Every line should be green: PHP version, PDO SQLite, OpenSSL, Sodium, cURL, and "Data folder is writable". If one is red, fix it in step 2 or 3 and reload the page.
+2. **Owner account.** Enter your name and email. **Site address** is filled in for you (`https://<your-domain>/spaces`); check it starts with `https://` and matches the address you'll use (with or without `www`).
+3. Click **Create owner and finish**.
+
+You're signed in as the **owner**. The installer wrote `loft-app/data/config.php` with your settings and a random encryption key. Keep that file private, and back it up: it decrypts any provider keys your organisations save.
+
+## 5. Set the sender address
+
+Sign-in links, invoices, reminders and calendar invites are sent with PHP's `mail()` from your hosting.
+
+1. File Manager → `loft-app/data/config.php` → right-click → **Edit**.
+2. Change the `'mail_from'` line to the address you created at your domain:
+
+   ```text
+   'mail_from' => 'loft@<your-domain>',
+   ```
+
+3. Save.
+4. cPanel → **Email Deliverability** → make sure SPF and DKIM are valid for your domain (click **Repair** if not).
+
+## 6. Check it works
+
+1. **Email:** in Loft, open **More** → **Settings** → **Sign out**. Then sign in again with your email: the link should arrive within a minute (check spam the first time). Links work once and expire after 15 minutes.
+2. **App:** on Home, click **Start a room**, then **Invite to this room** → **Copy**. Open the link in a private window and join as a guest: you should see each other's cursors and board edits.
+3. **Owner console:** open `https://<your-domain>/spaces/#/owner`. This is where you switch branding on per organisation, with a paid-until date. Only you can open it.
+
+That's it: Loft is live. Daily jobs (invoice drafts on the 1st, reminders, credit expiry, branding notices) run on the first visit of each day, so there's nothing to schedule.
+
+## Updating to a new version
+
+1. Download the new `loft-prod.zip` from **Releases**.
+2. Upload it to your home folder and **Extract** it over the old files.
+
+Your data in `loft-app/data/` is never touched, and database changes apply themselves on the next visit. Back up first if you like (below).
+
+## Backups
+
+Owner console (`/spaces/#/owner`) → **Backups** → **Download backup**: a zip of `loft-app/data/` with a consistent copy of the database, every upload and `config.php`. It's safe to take while people are using Loft. A daily cPanel backup of `loft-app/data/` works too.
+
+To restore: rename `loft-app/data` to `data-old`, upload the backup zip to `loft-app/`, extract it (it recreates `data/`), open Loft, then delete `data-old`.
+
+## If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| "Loft is not installed correctly: the API code was not found" | `loft-app` isn't next to your web root folder. Move it (step 3), or add the `SetEnv LOFT_APP …` line. |
+| A red line on the installer's server check | Fix it in **Select PHP Version** (step 2). For "Data folder is writable", check that `loft-app/data` exists and has permissions 755. |
+| Signed in, but every page then says "Not signed in" | The site address doesn't match the address you use (`http` vs `https`, or `www`). Fix `'app_url'` in `loft-app/data/config.php`, then sign in again. |
+| Sign-in emails don't arrive | Set `'mail_from'` to an address at your domain (step 5), repair SPF/DKIM, and check cPanel → **Track Delivery**. |
+| A blank page or "500" error | cPanel → **Errors**, or the `error_log` file in `public_html/spaces/api/`. Lines starting with `[loft]` come from Loft. |
+
+## More
+
+[`docs/deploy-namecheap.md`](docs/deploy-namecheap.md) covers the optional parts: agent links, calendar feeds, branding, video with your own provider keys, and deploying from GitHub with FTP.
