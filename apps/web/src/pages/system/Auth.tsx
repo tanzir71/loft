@@ -78,8 +78,8 @@ export function InstallPage() {
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   useEffect(() => {
-    if (data?.installed) nav("/signin", { replace: true });
-  }, [data, nav]);
+    if (data?.installed && !done) nav("/signin", { replace: true });
+  }, [data, done, nav]);
   const checks = http ? data?.checks ?? [] : [
     { name: "PHP 8.2 · PDO SQLite · cURL · OpenSSL · Sodium", ok: true, detail: "" },
     { name: "data/ is writable and outside the web root (.htaccess deny)", ok: true, detail: "" },
