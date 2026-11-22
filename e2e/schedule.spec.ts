@@ -21,6 +21,11 @@ test.describe("scheduling (M5)", () => {
   });
 
   test("public booking page: instant booking, approval booking and the manage link", async ({ page }) => {
+    // The page opens on the first day with free times; late in the evening that can be today with one slot
+    // left. Start the clock at 10:00 so there are always a few. Time then runs normally.
+    const morning = new Date();
+    morning.setHours(10, 0, 0, 0);
+    await page.clock.setSystemTime(morning);
     await page.goto("./app/#/book/nusrat");
     await expect(page.getByRole("heading", { name: "Nusrat Rahman" })).toBeVisible();
     await page.getByRole("radio", { name: /Strategy session/ }).click();

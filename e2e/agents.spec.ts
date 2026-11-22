@@ -21,6 +21,11 @@ test.describe("agents (M9)", () => {
   test("queue a prep task, run the demo agent, review and accept its drafts", async ({ page, viewport }) => {
     test.skip((viewport?.width ?? 0) < 768, "desktop flow");
     test.setTimeout(60_000);
+    // The demo seeds today's sessions at fixed times (Sprint · Decide at 18:30); start the clock at 10:00
+    // so that session is still ahead whenever the test runs. Time then runs normally.
+    const morning = new Date();
+    morning.setHours(10, 0, 0, 0);
+    await page.clock.setSystemTime(morning);
     await page.goto("./app/#/s/acme-sprint/prep");
     await page.getByRole("button", { name: "New prep task" }).click();
     await page.getByRole("radio", { name: "Agenda for a session" }).click();
