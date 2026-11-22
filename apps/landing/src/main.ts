@@ -1,5 +1,10 @@
 import "@loft/ui/tokens.css";
 import "./landing.css";
+import "@loft/ui/focus-visibility.css";
+import { initializeFocusVisibility } from "@loft/ui/focus-visibility";
+
+const disposeFocusVisibility = initializeFocusVisibility();
+if (import.meta.hot) import.meta.hot.dispose(disposeFocusVisibility);
 
 const PREVIEW = import.meta.env.VITE_ADAPTER !== "http";
 

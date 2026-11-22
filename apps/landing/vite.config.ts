@@ -16,7 +16,7 @@ function landingContent(): Plugin {
     transformIndexHtml: {
       order: "pre",
       handler(html, ctx) {
-        const L = makeLinks({ base, appUrl: process.env.APP_URL, router: process.env.VITE_ROUTER ?? "hash" });
+        const L = makeLinks({ base, appUrl: process.env.APP_URL, router: process.env.VITE_ROUTER ?? "hash", milestonesUrl: process.env.MILESTONES_URL });
         const body = ctx.path.includes("organisations") ? renderOrganisations(L) : renderLanding(L);
         return html.replace("<!--@content-->", body);
       }

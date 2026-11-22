@@ -91,7 +91,7 @@ main { position: relative; }
 .quick__hint { display: flex; align-items: center; gap: 8px; font: 400 11px/16px var(--mono); color: var(--color-ink-2); }
 .tinput { flex: 1; min-width: 0; height: 40px; padding: 11px 12px; border-radius: 4px; border: 1px solid var(--color-border); background: var(--color-bg); font: 400 12px/16px var(--mono); color: var(--color-fg); }
 .tinput::placeholder { color: var(--color-muted-fg); opacity: 1; }
-.tinput:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.tinput:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -1px; }
 .tinput--inline { height: 24px; padding: 2px 6px; border-color: transparent; background: transparent; font-size: 11px; }
 .tinput--inline:hover, .tinput--inline:focus { border-color: var(--color-border); background: var(--color-bg); }
 .toggle { display: inline-flex; align-items: center; gap: 8px; font: 400 11px/16px var(--mono); color: var(--color-ink-2); cursor: pointer; }

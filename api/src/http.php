@@ -105,7 +105,8 @@ function serve(): void
                 $input = $raw === '' ? [] : (array) json_decode($raw, true);
             }
             $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
-            if (!$isAgent && $origin !== '' && parse_url($origin, PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '')) json_out(['error' => 'Cross-site request refused'], 403);
+            $expectedOrigin = (is_https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
+            if (!$isAgent && $origin !== '' && strtolower(rtrim($origin, '/')) !== strtolower($expectedOrigin)) json_out(['error' => 'Cross-site request refused'], 403);
             if (!$db->takeToken('ip:' . client_ip(), 240, now_ms())) json_out(['error' => 'Too many requests. Slow down a little.'], 429);
         }
         if ($isAgent) {

@@ -52,7 +52,7 @@ for (const [k, t] of Object.entries(tokens.text)) {
 const result = css.join("\n") + "\n";
 
 if (process.argv.includes("--check")) {
-  const current = existsSync(out) ? readFileSync(out, "utf8") : "";
+  const current = existsSync(out) ? readFileSync(out, "utf8").replaceAll("\r\n", "\n") : "";
   if (current !== result) {
     console.error("tokens.css is stale. Run `npm run tokens`.");
     process.exit(1);

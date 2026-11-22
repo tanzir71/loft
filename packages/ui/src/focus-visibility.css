@@ -1,0 +1,2 @@
+/* Pointer autofocus and dialog restoration keep focus, without keyboard indicators. */
+:root[data-pointer-focus] :focus { outline: none; }

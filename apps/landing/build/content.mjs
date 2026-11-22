@@ -6,12 +6,13 @@ import { icon } from "./icons.mjs";
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const mk = (tone = "") => `<span class="mk${tone ? ` mk--${tone}` : ""}" aria-hidden="true"></span>`;
 
-export function makeLinks({ base, appUrl, router }) {
+export function makeLinks({ base, appUrl, router, milestonesUrl }) {
   const app = appUrl ?? `${base}app/`;
   return {
     home: base,
     orgs: `${base}organisations/`,
     app,
+    milestones: milestonesUrl ?? `${base}milestones/`,
     route: (path) => (router === "hash" ? `${app}#${path}` : `${app}${path.replace(/^\//, "")}`),
     img: (name) => `${base}img/${name}`
   };
@@ -57,7 +58,7 @@ export function footer(L) {
   return `<footer class="tfoot">
   <span>loft · by tanzir rahman · tanziro.com/loft</span>
   <span class="tfoot__rule" aria-hidden="true"></span>
-  <nav aria-label="Footer"><a href="https://tanziro.com/tack">tack</a><a href="${L.home}#privacy">privacy</a><a href="${L.home}#terms">terms</a><a href="https://github.com/tanzir71/loft">github</a><a href="${L.home}milestones/">milestones</a></nav>
+  <nav aria-label="Footer"><a href="https://tanziro.com/planner">tack</a><a href="${L.home}#privacy">privacy</a><a href="${L.home}#terms">terms</a><a href="https://github.com/tanzir71/loft">github</a><a href="${L.milestones}">milestones</a></nav>
 </footer>`;
 }
 

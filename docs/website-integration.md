@@ -1,0 +1,13 @@
+# Paired website release
+
+`tanzir71/tanziro-website` serves the original static landing at `/loft`, its organisations page at `/loft/organisations/`, and the production HTTP-backed app at `/spaces/`. The website pins a committed Loft revision and verifies its archive checksum during every build. The portfolio navigation and Tools Index link to `/loft`.
+
+Build with `npm run build:website -- --out <empty-directory>`. Unlike the standalone `build-prod.mjs` archive, this output goes directly inside the website's existing `public_html/` tree. It contains no database, uploads, config, credentials, tests, or demo records. Its landing buttons point at `/spaces/`; the milestones link points at the existing Pages archive.
+
+The public API front controller includes a PHP payload containing only the reviewed backend source and migrations. On the first request for a release, it verifies the payload's SHA-256, serializes installation with a file lock, writes a temporary release directory, and publishes it with a rename. Backend code runs from `~/loft-app/releases/<hash>/`; user state remains at `~/loft-app/data/`, including the encryption key in `config.php`. This is the same data directory used by standalone Loft installations. A runtime update never copies, replaces, or resets that directory. Older code releases are retained. `LOFT_APP` selects the private root for nested document roots; `LOFT_DATA` can retain a previously configured external data directory. Paths inside the document root are rejected.
+
+After committing and pushing Loft source, run `npm run loft:update -- --source <loft-checkout>` in the website checkout. This builds the paired archive, updates `vendor/loft.lock.json`, and runs the website's Namecheap packaging and persistence gates. `--skip-build` updates the source pin only; it does not publish an upload ZIP. Commit and push the website pin and verified upload ZIP too. Do not enable or invoke GitHub workflows for this integration.
+
+Early standalone builds used `loft-app/api/data/` despite documenting `loft-app/data/`. If the legacy directory contains a database/config, the integrated runtime retains it without moving or resetting data. If both directories contain installations, it refuses to guess and requires `LOFT_DATA`. Fresh installs use `loft-app/data/`.
+
+On Namecheap, extract the website upload ZIP over the existing `public_html/` without deleting the installation. PHP must be able to create or write `loft-app` beside the web root. PHP 8.1+, PDO SQLite, OpenSSL, Sodium, cURL, mbstring and iconv are required. Open `/spaces/` and complete the owner wizard only on a fresh installation; set `mail_from` in the private config to a domain email address. Never copy private data into either repository.
