@@ -1,5 +1,7 @@
 # Install Loft
 
+For the combined portfolio `deploy-namecheap.zip`, follow [Tools Index and Loft setup/admin access](https://github.com/tanzir71/tanziro-website/blob/main/docs/SETUP-AND-ADMIN.md): that ZIP is extracted directly into the existing `public_html/`. The steps below describe the separate `loft-prod.zip`, which is extracted into the hosting home. Keep the two archive layouts distinct.
+
 Step by step, on Namecheap shared hosting with cPanel. Any host with PHP 8.1+ and SQLite works the same way.
 No Composer, no command line, no cron jobs, nothing to keep running. It takes about 20 minutes.
 
@@ -79,6 +81,18 @@ Open `https://<your-domain>/spaces/`. The first visit shows the install wizard.
 3. Click **Create owner and finish**.
 
 You're signed in as the **owner**. The installer wrote `loft-app/data/config.php` with your settings and a random encryption key. Keep that file private, and back it up: it decrypts any provider keys your organisations save.
+
+## Owner and admin access
+
+Owner/admin access after setup:
+
+- Sign-in: `/spaces/#/signin`, using the same email entered in the installer.
+- Site owner console: `/spaces/#/owner`, available only to the first-run owner account. It manages branding access, requests and private backups.
+- Organisation admin: `/spaces/#/admin`, for the signed-in account's own calls, optional video providers and budget.
+- Settings: `/spaces/#/settings`, where you can set an optional password of at least 10 characters and sign out. At sign-in choose **Use a password instead** to use it.
+- Brand studio: `/spaces/#/brand`. Organisation admin access does not grant site-owner access.
+
+No default production owner/admin password is supplied. Keep the generated private config and encryption key intact; owner recovery does not require reinstalling or resetting data.
 
 ## 5. Set the sender address
 

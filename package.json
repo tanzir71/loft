@@ -23,6 +23,7 @@
     "build": "npm run build -w @loft/landing && npm run build -w @loft/web",
     "build:pages": "node scripts/build-pages.mjs",
     "build:website": "node scripts/build-website.mjs",
+    "sync:website": "node scripts/sync-website.mjs",
     "serve:site": "node scripts/serve-site.mjs",
     "e2e": "playwright test"
   },

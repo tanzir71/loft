@@ -5,6 +5,8 @@ A free workspace for small teams who run things live: a shared board that opens 
 - **Preview (GitHub Pages):** https://tanzir71.github.io/loft/ · app: https://tanzir71.github.io/loft/app/ · every milestone: https://tanzir71.github.io/loft/milestones/
 - **Production:** landing `tanziro.com/loft`, app `tanziro.com/spaces` on PHP 8 + SQLite shared hosting.
 - **Install on your hosting:** [`INSTALL.md`](INSTALL.md), step by step for Namecheap shared hosting (cPanel), about 20 minutes.
+- **Paired website install and admin access:** [Tools Index + Loft setup](https://github.com/tanzir71/tanziro-website/blob/main/docs/SETUP-AND-ADMIN.md). Owner `/spaces/#/owner` · organisation admin `/spaces/#/admin` · sign-in `/spaces/#/signin`.
+- **Keep both repositories synchronized:** [`docs/website-integration.md`](docs/website-integration.md); `npm run sync:website -- --website <website-checkout>` updates the website from committed Loft source.
 - **Plan:** [`docs/HANDOFF.md`](docs/HANDOFF.md) · decisions: [`docs/decisions.md`](docs/decisions.md) · design map: [`docs/design-map.md`](docs/design-map.md)
 
 ## Layout
@@ -30,6 +32,8 @@ npm run dev          # app at http://localhost:5173
 npm run dev:landing  # landing at http://localhost:5174
 npm run check        # tokens up to date + typecheck + lint + unit tests
 npm run build:pages -- --milestone 0 && npm run e2e   # Pages build + Playwright smoke test
+npm run sync:website -- --website <website-checkout> # Paired production website release
+npm run sync:website -- --website <website-checkout> --check # Check pin + archive without writes
 ```
 
 `npm run tokens` regenerates `packages/ui/src/tokens.css` from `packages/ui/tokens.json` (values copied once from the Figma variables).
