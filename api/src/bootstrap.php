@@ -25,6 +25,7 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/App.php';
 require_once __DIR__ . '/Db.php';
 require_once __DIR__ . '/http.php';
+require_once __DIR__ . '/auth.php';
 
 $cfgFile = data_dir() . '/config.php';
 Config::load(is_file($cfgFile) ? (array) require $cfgFile : []);

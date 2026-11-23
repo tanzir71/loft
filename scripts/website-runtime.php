@@ -7,7 +7,7 @@ if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
     exit;
 }
 $private = $app !== '' ? rtrim($app, '/\\') : dirname(__DIR__, 3) . '/loft-app';
-$public = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__, 2)));
+$public = realpath((string) (($_SERVER['DOCUMENT_ROOT'] ?? '') ?: dirname(__DIR__, 2)));
 if (!is_dir($private) && !mkdir($private, 0700, true) && !is_dir($private)) {
     throw new RuntimeException('Loft needs a writable loft-app folder outside public_html. Set LOFT_APP if your domain uses a nested web root.');
 }

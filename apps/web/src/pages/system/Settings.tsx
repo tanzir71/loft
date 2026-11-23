@@ -7,6 +7,7 @@ import { useAdapter, useQuery } from "../../lib/data";
 import { ADAPTER, IS_PREVIEW } from "../../lib/env";
 import { PageHeader } from "../../shell/PageHeader";
 import { Loading } from "../../components/bits";
+import { RecoveryCode } from "./RecoveryCode";
 
 /** Settings: your name, title, time zone, an optional password, sign out. */
 export function SettingsPage() {
@@ -22,6 +23,8 @@ function SettingsForm({ me }: { me: User & { title?: string; tz?: string } }) {
   const [title, setTitle] = useState(me.title ?? "");
   const [tz, setTz] = useState(me.tz ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"));
   const [pw, setPw] = useState("");
+  const [username, setUsername] = useState(me.username ?? "");
+  const [recovery, setRecovery] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const zones = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? [tz];
   const http = ADAPTER === "http";
@@ -48,15 +51,16 @@ function SettingsForm({ me }: { me: User & { title?: string; tz?: string } }) {
         </section>
         <section className="card-box">
           <h2>Sign-in</h2>
-          <p className="muted-note" style={{ padding: 0 }}>You sign in with an email link. A password is optional, for when email is slow.</p>
+          <p className="muted-note" style={{ padding: 0 }}>Sign in with your username and password. Save a recovery code so you can reset your password without email.</p>
           {http ? (
-            <>
+            recovery ? <RecoveryCode code={recovery} onContinue={() => setRecovery(null)} /> : <div className="auth-form">
+              <label className="form-col">Username<input className="field" value={username} onChange={event => setUsername(event.target.value)} autoComplete="username" minLength={3} maxLength={32} /></label>
               <label className="form-col">New password<input className="field" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" placeholder="At least 10 characters" /></label>
               <div className="part-row">
-                <Button variant="secondary" disabled={pw.length < 10} onClick={() => void run(async () => { await adapter.mutate("auth/password/set", { password: pw }); setPw(""); }, "Password set.")}>Set password</Button>
+                <Button variant="secondary" disabled={pw.length < 10 || !username} onClick={() => void run(async () => { const result = await adapter.mutate<{ recoveryCode: string }>("auth/password/set", { username, password: pw }); setPw(""); setRecovery(result.recoveryCode); }, "Password set.")}>Set password</Button>
                 <Button variant="ghost" icon={<LogOut aria-hidden="true" />} onClick={async () => { await adapter.auth.signOut(); nav("/signin"); }}>Sign out</Button>
               </div>
-            </>
+            </div>
           ) : IS_PREVIEW && <p className="banner-box banner-box--muted">Preview: sign-in and passwords work on your server. Here you're always the demo host.</p>}
         </section>
       </div>

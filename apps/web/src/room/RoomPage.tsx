@@ -8,7 +8,7 @@ import type { LocalAdapter } from "@loft/data";
 import { useAdapter, useQuery } from "../lib/data";
 import { relTime } from "../components/bits";
 import { useBreakpoint, useOnline } from "../lib/media";
-import { IS_PREVIEW } from "../lib/env";
+import { IS_PREVIEW, appUrl } from "../lib/env";
 import { Board, type BoardHandle, type Tool } from "./Board";
 import { RoomChat } from "./Chat";
 import { contentBounds, exportPdf, exportPng } from "./board/render";
@@ -62,8 +62,7 @@ const readGuestName = () => {
 
 /** Absolute link others can open to join (hash routing on Pages). */
 export function roomLink(code: string): string {
-  const base = `${location.origin}${import.meta.env.BASE_URL}`;
-  return IS_PREVIEW ? `${base}#/r/${code}` : `${base}r/${code}`;
+  return appUrl(`/r/${code}`);
 }
 
 /** /r/new: create a room from the "+" sheet or the landing quick start, then open it. */
@@ -71,15 +70,28 @@ export function NewRoom() {
   const adapter = useAdapter();
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const started = useRef(false);
+  const started = useRef<{ key: string; request: Promise<RoomRes> } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const options = params.toString();
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    void adapter
-      .mutate<RoomRes>("rooms", { name: params.get("name") ?? "", guestJoin: params.get("guests") !== "0" })
-      .then((r) => nav(`/r/${r.code}`, { replace: true }));
-  }, [adapter, nav, params]);
-  return <StateScreen title="Opening your room…" />;
+    let active = true;
+    const key = options + ":" + attempt;
+    if (started.current?.key !== key) started.current = { key, request: (async () => {
+      if (!await adapter.auth.me()) throw new Error("SIGN_IN_REQUIRED");
+      const query = new URLSearchParams(options);
+      return adapter.mutate<RoomRes>("rooms", { name: query.get("name") ?? "", guestJoin: query.get("guests") !== "0" });
+    })() };
+    void started.current.request.then(room => { if (active) nav(`/r/${room.code}`, { replace: true }); }).catch((problem: Error) => {
+      if (!active) return;
+      const next = encodeURIComponent("/r/new" + (options ? "?" + options : ""));
+      if (/not installed/i.test(problem.message)) nav(`/install?next=${next}`, { replace: true });
+      else if (/SIGN_IN_REQUIRED|not signed in|forbidden/i.test(problem.message) || problem.name === "ForbiddenError") nav(`/signin?next=${next}`, { replace: true });
+      else setError(problem.message);
+    });
+    return () => { active = false; };
+  }, [adapter, nav, options, attempt]);
+  return <StateScreen title={error ? "Couldn't open your room" : "Opening your room…"} actions={error ? <Button onClick={() => { setError(null); setAttempt(value => value + 1); }}>Try again</Button> : undefined}>{error && <p role="alert">{error}</p>}</StateScreen>;
 }
 
 /** /join: enter a code + your name. In the preview, joining makes this tab a guest so two tabs are two people. */

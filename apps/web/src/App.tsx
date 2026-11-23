@@ -66,6 +66,7 @@ export function App() {
     <Suspense fallback={<Loading />}>
     <Routes>
       <Route path="r/new" element={<NewRoom />} />
+      <Route path="new" element={<NewRoom />} />
       <Route path="r/:code" element={<RoomPage />} />
       <Route path="join" element={<JoinPage />} />
       <Route path="book/:handle" element={<BookingPage />} />

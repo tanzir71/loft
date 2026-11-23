@@ -13,6 +13,7 @@ export function makeLinks({ base, appUrl, router, milestonesUrl, siteHome }) {
     siteHome: siteHome ?? base,
     orgs: `${base}organisations/`,
     app,
+    startShortcut: app === "/spaces/" ? "/spaces/new" : (router === "hash" ? `${app}#/r/new` : `${app}r/new`),
     milestones: milestonesUrl ?? `${base}milestones/`,
     route: (path) => (router === "hash" ? `${app}#${path}` : `${app}${path.replace(/^\//, "")}`),
     img: (name) => `${base}img/${name}`
@@ -220,7 +221,7 @@ function hero(L) {
           <button class="tbtn tbtn--dark" type="submit">${mk("white")}start · free</button>
         </div>
         <label class="toggle"><input type="checkbox" name="guests" checked><span class="toggle__track" aria-hidden="true"></span>guests join without approval</label>
-        <p class="quick__note">no account needed. you get a link to share; sign up later to keep the room.</p>
+        <p class="quick__note">create a free account to host. you get a link to share; guests can join without an account.</p>
       </form>
       <form class="quick__col" id="q-join">
         <p class="quick__label">${mk("accent")}join one</p>
@@ -233,7 +234,7 @@ function hero(L) {
         <p class="quick__note">if the host turned guests off, they'll be asked to let you in.</p>
       </form>
     </div>
-    <p class="hero__links"><a href="${L.route("/signin")}">have an account? sign in to your spaces →</a><span aria-hidden="true">·</span><span class="muted">tanziro.com/spaces</span></p>
+    <p class="hero__links"><a href="${L.route("/signin")}">have an account? sign in to your spaces →</a><span aria-hidden="true">·</span><a class="hero__shortcut" href="${L.startShortcut}" title="Start a room directly">advanced: /spaces/new</a></p>
     <p class="fine">no credit card · up to 12 people per room · guests join with a link</p>
   </div>
   <figure class="hero__visual">${img(L, "hero.webp", 1312, 886, "loft on desktop: Home with today's sessions, spaces and the side panel, plus a client paying an invoice on a phone.", true, "hero-656.webp")}</figure>

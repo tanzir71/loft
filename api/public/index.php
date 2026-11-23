@@ -25,4 +25,7 @@ if (!function_exists('Loft\\db')) {
     exit('Loft is not installed correctly: the API code was not found. Put loft-app next to your web root folder, or set LOFT_APP (see INSTALL.md).');
 }
 
-serve();
+if (PHP_SAPI === 'cli') {
+    if (($argv[1] ?? '') !== 'set-owner-password') { fwrite(STDERR, "Usage: php spaces/api/index.php set-owner-password\n"); exit(1); }
+    try { auth_owner_cli(); } catch (\Throwable $error) { fwrite(STDERR, $error->getMessage() . "\n"); exit(1); }
+} else serve();

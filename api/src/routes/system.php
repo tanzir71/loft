@@ -77,13 +77,25 @@ function nav_brand(Ctx $ctx, array $me): array
 
 function public_user(array $u): array
 {
-    unset($u['passwordHash']);
+    $pending = !empty($u['recoveryHash']) && empty($u['recoveryConfirmed']);
+    unset($u['passwordHash'], $u['recoveryHash']);
+    $u['recoveryPending'] = $pending;
     return $u;
 }
 
 routes()
+    ->post('auth/register', fn (Ctx $ctx, array $p, array $in) => auth_register($ctx, $in))
+    ->post('auth/login', fn (Ctx $ctx, array $p, array $in) => auth_login($ctx, $in))
+    ->post('auth/recover', fn (Ctx $ctx, array $p, array $in) => auth_recover($ctx, $in))
+    ->post('auth/recovery-confirm', function (Ctx $ctx, array $p, array $in) {
+        $me = require_me($ctx);
+        if (($in['saved'] ?? false) !== true || empty($me['recoveryHash']) || !password_verify(auth_code(str($in['recoveryCode'] ?? '', 200)), $me['recoveryHash'])) throw new BadRequest('Confirm that you saved the current recovery code.');
+        $ctx->db->patch('users', $me['id'], ['recoveryConfirmed' => true]);
+        return ['ok' => true];
+    })
     // ---- sign-in links (32-byte token, single use, 15 minutes) ----
     ->post('auth/link', function (Ctx $ctx, array $p, array $in) {
+        if (!Config::get('email_signin_enabled', false)) throw new BadRequest('Email sign-in is not enabled. Use your username and password.');
         $email = strtolower(str($in['email'] ?? '', 200));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new BadRequest('Enter a valid email address');
         if (!$ctx->db->takeToken('link:' . $ctx->ip, 5, $ctx->now()) || !$ctx->db->takeToken('link:' . $email, 3, $ctx->now())) throw new BadRequest('Too many sign-in links. Try again in a minute.');
@@ -115,19 +127,10 @@ routes()
         return new Redirect($app);
     })
     ->post('auth/password', function (Ctx $ctx, array $p, array $in) {
-        $email = strtolower(str($in['email'] ?? '', 200));
-        if (!$ctx->db->takeToken('pw:' . $ctx->ip, 10, $ctx->now())) throw new BadRequest('Too many attempts. Try again in a minute.');
-        $user = find($ctx->db->list('users'), fn ($u) => strtolower((string) ($u['email'] ?? '')) === $email);
-        if (!$user || empty($user['passwordHash']) || !password_verify((string) ($in['password'] ?? ''), (string) $user['passwordHash'])) throw new Forbidden('Email or password is wrong');
-        start_session($ctx->db, $user['id']);
-        return public_user($user);
+        return auth_login($ctx, $in)['user'];
     })
     ->post('auth/password/set', function (Ctx $ctx, array $p, array $in) {
-        $me = require_me($ctx);
-        $pw = (string) ($in['password'] ?? '');
-        if (strlen($pw) < 10) throw new BadRequest('Use at least 10 characters');
-        $ctx->db->patch('users', $me['id'], ['passwordHash' => password_hash($pw, PASSWORD_DEFAULT)]);
-        return ['ok' => true];
+        return auth_set_password($ctx, $in);
     })
     ->post('profile', function (Ctx $ctx, array $p, array $in) {
         $me = require_me($ctx);
@@ -206,23 +209,7 @@ routes()
         return ['installed' => installed(), 'checks' => array_map(fn ($c) => ['name' => $c[0], 'ok' => $c[1], 'detail' => $c[2]], $checks), 'timezone' => date_default_timezone_get()];
     })
     ->post('install', function (Ctx $ctx, array $p, array $in) {
-        if (installed()) throw new Forbidden('Loft is already installed');
-        $email = strtolower(str($in['email'] ?? '', 200));
-        $name = str($in['name'] ?? '', 80);
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $name === '') throw new BadRequest('Enter your name and email');
-        $tz = str($in['timezone'] ?? 'UTC', 64);
-        if (!in_array($tz, \DateTimeZone::listIdentifiers(), true)) $tz = 'UTC';
-        $appUrl = rtrim(str($in['appUrl'] ?? '', 300), '/') . '/';
-        $owner = ['id' => new_id('u'), 'name' => $name, 'email' => $email, 'tz' => $tz, 'status' => 'available', 'createdAt' => $ctx->nowIso()];
-        $ctx->db->put('users', $owner);
-        $cfg = ['installed' => true, 'owner_user_id' => $owner['id'], 'owner_email' => $email, 'app_url' => $appUrl, 'timezone' => $tz, 'mail_from' => str($in['mailFrom'] ?? '', 200) ?: $email, 'key' => base64_encode(random_bytes(32)), 'installed_at' => $ctx->nowIso()];
-        $file = data_dir() . '/config.php';
-        if (file_put_contents($file, "<?php\n// Written by the Loft install wizard. Keep this file private; never commit it.\nreturn " . var_export($cfg, true) . ";\n") === false) throw new BadRequest('Could not write the config file');
-        @chmod($file, 0600);
-        Config::load($cfg);
-        start_session($ctx->db, $owner['id']);
-        $ctx->db->audit($owner['id'], 'install', ['email' => $email]);
-        return ['ok' => true, 'me' => $owner];
+        return auth_install($ctx, $in);
     })
     // ---- owner console (/spaces/owner) ----
     ->get('owner', function (Ctx $ctx) {

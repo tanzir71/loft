@@ -1,129 +1,93 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Check, CircleCheck, DoorOpen, Mail, Send, X } from "lucide-react";
+import { Check, CircleCheck, DoorOpen, X } from "lucide-react";
 import { BrandIcon, Button } from "@loft/ui";
 import { useAdapter, useQuery } from "../../lib/data";
+import { afterAuth } from "../../lib/auth";
 import { ADAPTER, IS_PREVIEW } from "../../lib/env";
+import { RecoveryCode } from "./RecoveryCode";
 
-/** Figma 07 · "Sign in (desktop)" and "Check email (phone)". */
 export function SignInPage() {
-  const adapter = useAdapter();
-  const nav = useNavigate();
+  const adapter = useAdapter(), nav = useNavigate();
   const [params] = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [usePw, setUsePw] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [err, setErr] = useState<string | null>(params.get("error") === "expired" ? "That sign-in link has expired or was already used. Ask for a new one." : null);
+  const next = afterAuth(params.get("next"));
+  const [mode, setMode] = useState<"login" | "register" | "recover">("login");
+  const [username, setUsername] = useState(""), [name, setName] = useState("");
+  const [password, setPassword] = useState(""), [confirm, setConfirm] = useState(""), [code, setCode] = useState("");
+  const [recovery, setRecovery] = useState<string | null>(null), [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const changeMode = (value: typeof mode) => { setMode(value); setError(null); setPassword(""); setConfirm(""); };
   const submit = async () => {
-    setErr(null);
+    setError(null);
+    if (mode !== "login" && password !== confirm) { setError("The passwords do not match."); return; }
+    setBusy(true);
     try {
-      if (usePw) {
-        await adapter.mutate("auth/password", { email, password });
-        nav("/");
-      } else {
-        await adapter.auth.requestLink(email);
-        setSent(true);
-      }
-    } catch (e) {
-      setErr((e as Error).message);
-    }
+      const result = await adapter.mutate<{ recoveryCode: string | null }>(`auth/${mode}`, { username, name, password, recoveryCode: code });
+      if (result.recoveryCode) setRecovery(result.recoveryCode); else nav(next, { replace: true });
+    } catch (problem) { setError((problem as Error).message); }
+    finally { setBusy(false); }
   };
-  return (
-    <main className="auth-page">
-      <section className="auth-card">
-        {sent ? (
-          <>
-            <span className="auth-ic" aria-hidden="true"><Mail /></span>
-            <h1>Check your email</h1>
-            <p className="muted-note">We sent a sign-in link to <b>{email}</b>. It works once, for 15 minutes.</p>
-            <Button variant="secondary" onClick={() => setSent(false)}>Use a different email</Button>
-          </>
-        ) : (
-          <>
-            <BrandIcon className="auth-mark" />
-            <h1>Sign in to loft</h1>
-            <p className="muted-note" style={{ padding: 0 }}>{usePw ? "Use the password you set in Settings." : "We'll email you a link. No password to remember."}</p>
-            {IS_PREVIEW && <p className="banner-box banner-box--info">Preview: you're already signed in as the demo host. <Link className="link" to="/">Go to Home</Link></p>}
-            {err && <p className="state-error" role="alert"><b>{err}</b></p>}
-            <form className="pay-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-              <label className="form-col">Email<span className="money-input"><Send aria-hidden="true" style={{ width: 16, height: 16, color: "var(--color-muted-fg)" }} /><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></span></label>
-              {usePw && <label className="form-col">Password<input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label>}
-              <Button type="submit" block icon={<Send aria-hidden="true" />} disabled={!email.includes("@") || (usePw && !password)}>{usePw ? "Sign in" : "Email me a sign-in link"}</Button>
-            </form>
-            <button type="button" className="link" onClick={() => setUsePw(!usePw)}>{usePw ? "Email me a link instead" : "Use a password instead"}</button>
-            <div className="auth-or"><span>or</span></div>
-            <Link className="lf-btn lf-btn--secondary lf-btn--block" to="/join"><DoorOpen aria-hidden="true" />Join a room with a code</Link>
-            <p className="muted-note" style={{ padding: 0 }}>New here? Start a room from the Loft home page. No account needed until you want to keep it.</p>
-          </>
-        )}
-      </section>
-      <p className="auth-foot">built for small teams · up to 12 people per room</p>
-    </main>
-  );
+  return <main className="auth-page"><section className="auth-card">
+    {recovery ? <RecoveryCode key={recovery} code={recovery} onContinue={() => nav(next, { replace: true })} /> : <>
+      <BrandIcon className="auth-mark" />
+      <h1>{mode === "login" ? "Sign in to loft" : mode === "register" ? "Create your account" : "Recover your account"}</h1>
+      <p className="muted-note">{mode === "login" ? "Use your username and password. No email link needed." : mode === "register" ? "Free to use. No email required. Save a recovery code after signing up." : "Use your saved recovery code to set a new password."}</p>
+      {IS_PREVIEW && <p className="banner-box banner-box--info">Preview: accounts run on your server. <Link className="link" to="/">Open the demo</Link></p>}
+      {error && <p className="state-error" role="alert">{error}</p>}
+      <form className="auth-form" onSubmit={event => { event.preventDefault(); void submit(); }}>
+        <label className="form-col">Username<input className="field" required value={username} onChange={event => setUsername(event.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={mode === "register" ? 3 : undefined} maxLength={mode === "register" ? 32 : 200} /></label>
+        {mode === "register" && <label className="form-col">Your name (optional)<input className="field" value={name} onChange={event => setName(event.target.value)} autoComplete="name" maxLength={80} /></label>}
+        {mode === "recover" && <label className="form-col">Recovery code<textarea className="field auth-recovery-code" required value={code} onChange={event => setCode(event.target.value)} autoComplete="off" rows={3} /></label>}
+        <label className="form-col">{mode === "login" ? "Password" : "New password"}<input className="field" type="password" required value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "login" ? undefined : 10} maxLength={72} /></label>
+        {mode !== "login" && <label className="form-col">Confirm password<input className="field" type="password" required value={confirm} onChange={event => setConfirm(event.target.value)} autoComplete="new-password" /></label>}
+        <Button type="submit" block disabled={busy || !username || !password}>{busy ? "Please wait…" : mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Reset password"}</Button>
+      </form>
+      {mode === "login" && <p className="field-help">Existing accounts can also use their email address with their saved password.</p>}
+      <div className="auth-switches"><button type="button" className="link" onClick={() => changeMode(mode === "register" ? "login" : "register")}>{mode === "register" ? "Already have an account? Sign in" : "Create an account"}</button><button type="button" className="link" onClick={() => changeMode(mode === "recover" ? "login" : "recover")}>{mode === "recover" ? "Back to sign in" : "Use a recovery code"}</button></div>
+      <div className="auth-or"><span>or</span></div>
+      <Link className="lf-btn lf-btn--secondary lf-btn--block" to="/join"><DoorOpen aria-hidden="true" />Join a room with a code</Link>
+    </>}
+  </section><p className="auth-foot">built for small teams · up to 12 people per room</p></main>;
 }
 
 interface InstallInfo { installed: boolean; checks: { name: string; ok: boolean; detail: string }[]; timezone: string }
-
-/** Figma 07 · "Install · first run (desktop)": server check → owner account → done. */
 export function InstallPage() {
-  const adapter = useAdapter();
-  const nav = useNavigate();
+  const adapter = useAdapter(), nav = useNavigate();
+  const [params] = useSearchParams();
+  const next = afterAuth(params.get("next"));
   const http = ADAPTER === "http";
   const { data } = useQuery<InstallInfo>(http ? "install" : null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [site, setSite] = useState(() => `${location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}`);
+  const [name, setName] = useState(""), [username, setUsername] = useState("");
+  const [password, setPassword] = useState(""), [confirm, setConfirm] = useState("");
+  const [site] = useState(() => `${location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}`);
   const [tz] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-  const [err, setErr] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    if (data?.installed && !done) nav("/signin", { replace: true });
-  }, [data, done, nav]);
-  const checks = http ? data?.checks ?? [] : [
-    { name: "PHP 8.2 · PDO SQLite · cURL · OpenSSL · Sodium", ok: true, detail: "" },
-    { name: "data/ is writable and outside the web root (.htaccess deny)", ok: true, detail: "" },
-    { name: "mail() works · test email sent to you", ok: true, detail: "" }
-  ];
-  const allOk = checks.length > 0 && checks.every((c) => c.ok);
+  const [error, setError] = useState<string | null>(null), [recovery, setRecovery] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (data?.installed && !recovery && !busy) nav(`/signin?next=${encodeURIComponent(next)}`, { replace: true }); }, [data, recovery, busy, nav, next]);
+  const checks = data?.checks ?? [], allOk = checks.length > 0 && checks.every(check => check.ok);
   const install = async () => {
-    setErr(null);
-    try {
-      await adapter.mutate("install", { name, email, appUrl: site, timezone: tz });
-      setDone(true);
-    } catch (e) {
-      setErr((e as Error).message);
-    }
+    setError(null);
+    if (password !== confirm) { setError("The passwords do not match."); return; }
+    setBusy(true);
+    try { const result = await adapter.mutate<{ recoveryCode: string }>("install", { username, password, name, appUrl: site, timezone: tz }); setRecovery(result.recoveryCode); }
+    catch (problem) { setError((problem as Error).message); }
+    finally { setBusy(false); }
   };
-  return (
-    <main className="auth-page">
-      <section className="auth-card auth-card--wide">
-        <ol className="steps-line" aria-label="Install steps">
-          <li className={allOk ? "is-done" : "is-on"}><span>{allOk ? <Check aria-hidden="true" /> : "1"}</span>Server check</li>
-          <li className={done ? "is-done" : allOk ? "is-on" : ""}><span>{done ? <Check aria-hidden="true" /> : "2"}</span>Owner account</li>
-          <li className={done ? "is-on" : ""}><span>3</span>Done</li>
-        </ol>
-        {done ? (
-          <>
-            <h1 className="auth-h2">Loft is ready</h1>
-            <p className="muted-note" style={{ padding: 0 }}>You're the owner. Open <code>/spaces/owner</code> any time to switch branding on for organisations. Back up the data/ folder.</p>
-            <Button onClick={() => nav("/")}>Open Loft</Button>
-          </>
-        ) : (
-          <>
-            <h1 className="auth-h2">Create the owner account</h1>
-            <p className="muted-note" style={{ padding: 0 }}>This is you. Only the owner can open /spaces/owner to switch branding on for organisations.</p>
-            {!http && <p className="banner-box banner-box--info">Preview: the install wizard runs on your server the first time you open Loft there. See docs/deploy-namecheap.md.</p>}
-            <ul className="install-checks" role="list">{checks.map((c) => <li key={c.name} className={c.ok ? "" : "is-bad"}>{c.ok ? <CircleCheck aria-hidden="true" /> : <X aria-hidden="true" />}{c.name}{c.detail && !c.ok ? ` · ${c.detail}` : ""}</li>)}</ul>
-            {err && <p className="state-error" role="alert"><b>{err}</b></p>}
-            <label className="form-col">Your name<input className="field" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
-            <label className="form-col">Email<input className="field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
-            <label className="form-col">Site address<input className="field field--mono" value={site} onChange={(e) => setSite(e.target.value)} /></label>
-            <Button block icon={<Check aria-hidden="true" />} disabled={!http || !allOk || !name.trim() || !email.includes("@")} onClick={() => void install()}>Create owner and finish</Button>
-            <p className="money-foot">An encryption key for stored API keys is generated now and saved in data/config.php. Back up the data/ folder.</p>
-          </>
-        )}
-      </section>
-    </main>
-  );
+  return <main className="auth-page"><section className="auth-card auth-card--wide">
+    {recovery ? <RecoveryCode code={recovery} onContinue={() => nav(next, { replace: true })} /> : <>
+      <ol className="steps-line" aria-label="Install steps"><li className={allOk ? "is-done" : "is-on"}><span>{allOk ? <Check /> : "1"}</span>Server check</li><li className={allOk ? "is-on" : ""}><span>2</span>Owner account</li><li><span>3</span>Recovery code</li></ol>
+      <h1 className="auth-h2">Create the owner account</h1>
+      <p>No email sender is needed. This account can open <code>/spaces/#/owner</code> to manage the installation.</p>
+      {!http && <p className="banner-box banner-box--info">Owner setup runs on your server. This build is a preview.</p>}
+      <ul className="install-checks">{checks.map(check => <li key={check.name} className={check.ok ? "" : "is-bad"}>{check.ok ? <CircleCheck aria-hidden="true" /> : <X aria-hidden="true" />}{check.name}{!check.ok && check.detail ? ` · ${check.detail}` : ""}</li>)}</ul>
+      {error && <p className="state-error" role="alert">{error}</p>}
+      <form className="auth-form" onSubmit={event => { event.preventDefault(); void install(); }}>
+        <label className="form-col">Your name<input className="field" value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>
+        <label className="form-col">Username<input className="field" required minLength={3} maxLength={32} value={username} onChange={event => setUsername(event.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} /></label>
+        <label className="form-col">Password<input className="field" required minLength={10} maxLength={72} type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" /></label>
+        <label className="form-col">Confirm password<input className="field" required type="password" value={confirm} onChange={event => setConfirm(event.target.value)} autoComplete="new-password" /></label>
+        <Button type="submit" block disabled={!http || !allOk || busy}>{busy ? "Creating…" : "Create owner and finish"}</Button>
+      </form><p className="money-foot">Your database and encryption key stay in the existing private storage directory.</p>
+    </>}
+  </section></main>;
 }

@@ -44,6 +44,7 @@ test('db: rows, atomic update, op-log, change polling, token bucket', function (
 
 test('auth: sign-in link is single use and expires in 15 minutes', function () {
     $db = fresh();
+    Config::load(TEST_CONFIG + ['email_signin_enabled' => true]);
     call($db, null, 'POST', 'auth/link', ['email' => 'New.Person@Example.test']);
     $mail = end($GLOBALS['loft_mail']);
     eq($mail['to'], 'new.person@example.test');

@@ -8,6 +8,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  username?: string;
+  recoveryPending?: boolean;
   tz: string;
   status: PresenceStatus;
   createdAt: string;

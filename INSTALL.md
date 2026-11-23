@@ -16,7 +16,7 @@ Whatever is already at the root of your domain keeps working: Loft only adds tho
 
 - A Namecheap shared hosting plan with cPanel, and a domain pointing to it.
 - HTTPS on that domain. In cPanel → **SSL/TLS Status**, run **AutoSSL** if the domain isn't covered yet. Loft's sign-in cookies only work over HTTPS.
-- An email address at your domain for Loft to send from, for example `loft@<your-domain>`. Create it in cPanel → **Email Accounts**. Mail sent "from" a Gmail or Outlook address by your server usually lands in spam.
+- Optional: a sender at your domain for invoices, reminders and other email notifications. Account registration, sign-in and recovery work without an email sender.
 
 ## 1. Download the build
 
@@ -77,8 +77,8 @@ You should now have:
 Open `https://<your-domain>/spaces/`. The first visit shows the install wizard.
 
 1. **Server check.** Every line should be green: PHP version, PDO SQLite, OpenSSL, Sodium, cURL, and "Data folder is writable". If one is red, fix it in step 2 or 3 and reload the page.
-2. **Owner account.** Enter your name and email. **Site address** is filled in for you (`https://<your-domain>/spaces`); check it starts with `https://` and matches the address you'll use (with or without `www`).
-3. Click **Create owner and finish**.
+2. **Owner account.** Enter your name, choose a username (3–32 letters, numbers, dots, dashes or underscores) and a password/passphrase (10–72 bytes). The site address and time zone are detected automatically.
+3. Click **Create owner and finish**. Save the recovery code in your password manager, check **I saved my recovery code**, then **Continue**.
 
 You're signed in as the **owner**. The installer wrote `loft-app/data/config.php` with your settings and a random encryption key. Keep that file private, and back it up: it decrypts any provider keys your organisations save.
 
@@ -86,17 +86,27 @@ You're signed in as the **owner**. The installer wrote `loft-app/data/config.php
 
 Owner/admin access after setup:
 
-- Sign-in: `/spaces/#/signin`, using the same email entered in the installer.
+- Sign-in: `/spaces/#/signin`, using your username and password. New users choose **Create an account**; registration never grants installation-owner access.
 - Site owner console: `/spaces/#/owner`, available only to the first-run owner account. It manages branding access, requests and private backups.
 - Organisation admin: `/spaces/#/admin`, for the signed-in account's own calls, optional video providers and budget.
-- Settings: `/spaces/#/settings`, where you can set an optional password of at least 10 characters and sign out. At sign-in choose **Use a password instead** to use it.
+- Settings: `/spaces/#/settings`, where you can change your username/password, save a replacement recovery code and sign out.
 - Brand studio: `/spaces/#/brand`. Organisation admin access does not grant site-owner access.
 
 No default production owner/admin password is supplied. Keep the generated private config and encryption key intact; owner recovery does not require reinstalling or resetting data.
 
-## 5. Set the sender address
+Use **Use a recovery code** at sign-in to reset your password; this revokes existing sessions and replaces the recovery code. Save the replacement. Existing email accounts with a password can still sign in with that email in the Username field and choose a username in Settings.
 
-Sign-in links, invoices, reminders and calendar invites are sent with PHP's `mail()` from your hosting.
+If an existing owner never configured a password or has lost both password and recovery code, run this from `public_html/` in the hosting terminal (for the paired website build):
+
+```sh
+php spaces/api/index.php set-owner-password
+```
+
+For a standalone source install, run `php api/public/index.php set-owner-password` from `loft-app/`. Enter your chosen credentials when prompted and privately save the printed recovery code. This changes only the existing owner's credentials, revokes old sessions, and preserves accounts, spaces, uploads, config and encryption keys. Set the same `LOFT_APP`/`LOFT_DATA` environment overrides in the terminal if your web server uses custom paths. Never reinstall to recover access.
+
+## 5. Optional notification email
+
+Invoices, reminders and calendar invites can use PHP's `mail()` from your hosting. Login/register/recovery do not depend on it. Legacy email-link API sign-in stays disabled unless the private config explicitly sets `email_signin_enabled` to `true`; the default UI uses passwords.
 
 1. File Manager → `loft-app/data/config.php` → right-click → **Edit**.
 2. Change the `'mail_from'` line to the address you created at your domain:
@@ -110,7 +120,7 @@ Sign-in links, invoices, reminders and calendar invites are sent with PHP's `mai
 
 ## 6. Check it works
 
-1. **Email:** in Loft, open **More** → **Settings** → **Sign out**. Then sign in again with your email: the link should arrive within a minute (check spam the first time). Links work once and expire after 15 minutes.
+1. **Sign-in:** in Loft, open **More** → **Settings** → **Sign out**. Sign in again with your username/password. Keep your recovery code privately saved.
 2. **App:** on Home, click **Start a room**, then **Invite to this room** → **Copy**. Open the link in a private window and join as a guest: you should see each other's cursors and board edits.
 3. **Owner console:** open `https://<your-domain>/spaces/#/owner`. This is where you switch branding on per organisation, with a paid-until date. Only you can open it.
 
@@ -136,7 +146,7 @@ To restore: rename `loft-app/data` to `data-old`, upload the backup zip to `loft
 | "Loft is not installed correctly: the API code was not found" | `loft-app` isn't next to your web root folder. Move it (step 3), or add the `SetEnv LOFT_APP …` line. |
 | A red line on the installer's server check | Fix it in **Select PHP Version** (step 2). For "Data folder is writable", check that `loft-app/data` exists and has permissions 755. |
 | Signed in, but every page then says "Not signed in" | The site address doesn't match the address you use (`http` vs `https`, or `www`). Fix `'app_url'` in `loft-app/data/config.php`, then sign in again. |
-| Sign-in emails don't arrive | Set `'mail_from'` to an address at your domain (step 5), repair SPF/DKIM, and check cPanel → **Track Delivery**. |
+| Lost password | Use your saved recovery code. For owner access only, the host terminal command above preserves the existing installation. |
 | A blank page or "500" error | cPanel → **Errors**, or the `error_log` file in `public_html/spaces/api/`. Lines starting with `[loft]` come from Loft. |
 
 ## More
