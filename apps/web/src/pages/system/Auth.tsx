@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Check, CircleCheck, DoorOpen, Mail, Send, X } from "lucide-react";
-import { Button } from "@loft/ui";
+import { BrandIcon, Button } from "@loft/ui";
 import { useAdapter, useQuery } from "../../lib/data";
 import { ADAPTER, IS_PREVIEW } from "../../lib/env";
 
@@ -41,7 +41,7 @@ export function SignInPage() {
           </>
         ) : (
           <>
-            <span className="lf-mark auth-mark" aria-hidden="true">L</span>
+            <BrandIcon className="auth-mark" />
             <h1>Sign in to loft</h1>
             <p className="muted-note" style={{ padding: 0 }}>{usePw ? "Use the password you set in Settings." : "We'll email you a link. No password to remember."}</p>
             {IS_PREVIEW && <p className="banner-box banner-box--info">Preview: you're already signed in as the demo host. <Link className="link" to="/">Go to Home</Link></p>}

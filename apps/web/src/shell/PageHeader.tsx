@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Search } from "lucide-react";
-import { Avatar } from "@loft/ui";
+import { Avatar, BrandIcon } from "@loft/ui";
 import { useBreakpoint } from "../lib/media";
 import { useQuery } from "../lib/data";
 import type { NavData } from "./AppShell";
@@ -13,7 +13,7 @@ export function PageHeader({ title, actions }: { title: string; actions?: ReactN
   if (bp === "phone") {
     return (
       <header className="phone-header">
-        <span className="lf-mark" aria-hidden="true">{data?.brand.monogram ?? "L"}</span>
+        <BrandIcon monogram={data?.brand.monogram} name={data?.brand.name} />
         <h1 className="phone-header__title">{title}</h1>
         {actions}
         <button type="button" className="lf-icon-btn" aria-label="Search">

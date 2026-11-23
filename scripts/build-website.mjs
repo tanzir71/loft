@@ -17,7 +17,7 @@ const vite = join(root, "node_modules/vite/bin/vite.js");
 for (const [workspace, base, folder] of [["landing", "/loft/", "loft"], ["web", "/spaces/", "spaces"]]) {
   execFileSync(process.execPath, [vite, "build", "--outDir", join(destination, folder)], {
     cwd: join(root, "apps", workspace), stdio: "inherit", windowsHide: true,
-    env: { ...process.env, BASE: base, APP_URL: "/spaces/", MILESTONES_URL: "https://tanzir71.github.io/loft/milestones/",
+    env: { ...process.env, BASE: base, APP_URL: "/spaces/", SITE_HOME: "/", MILESTONES_URL: "https://tanzir71.github.io/loft/milestones/",
       VITE_ADAPTER: "http", VITE_ROUTER: "hash", VITE_API_BASE: "/spaces/api/v1", VITE_MILESTONE: "prod" },
   });
 }

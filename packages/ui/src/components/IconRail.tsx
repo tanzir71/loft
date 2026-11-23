@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { BrandIcon } from "./BrandMark";
 import { AnchorLink, isCurrent, type LinkLike, type NavItem } from "./nav";
 
 /** Tablet (768–1199): 56 px icon rail. Tapping the brand mark opens the side panel as a drawer. */
@@ -13,7 +14,7 @@ export function IconRail({ brand, nav, current, Link = AnchorLink, onOpenDrawer,
   return (
     <nav className="lf-rail" aria-label="Main">
       <button type="button" className="lf-rail__item" onClick={onOpenDrawer} aria-label={`Open ${brand.name} menu`}>
-        <span className="lf-mark" aria-hidden="true">{brand.monogram}</span>
+        <BrandIcon monogram={brand.monogram} name={brand.name} />
       </button>
       <button type="button" className="lf-icon-btn lf-icon-btn--primary" onClick={onNewRoom} aria-label="Start a room">
         <Plus aria-hidden="true" />

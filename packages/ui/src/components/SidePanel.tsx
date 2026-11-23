@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, DoorOpen, Hand, Plus, Settings } from "lucide-react";
 import { Avatar } from "./Avatar";
+import { BrandIcon } from "./BrandMark";
 import { Count } from "./Badge";
 import { AnchorLink, isCurrent, type DmLink, type LinkLike, type LiveRoomLink, type Me, type NavItem, type SpaceLink } from "./nav";
 
@@ -49,7 +50,7 @@ export function SidePanel(p: SidePanelProps) {
   return (
     <nav className="lf-side" aria-label="Main">
       <div className="lf-side__brand">
-        <span className="lf-mark" aria-hidden="true">{p.brand.monogram}</span>
+        <BrandIcon monogram={p.brand.monogram} name={p.brand.name} />
         <span className="lf-wordmark">{p.brand.name}</span>
         <button type="button" className="lf-icon-btn lf-icon-btn--primary" onClick={p.onNewRoom} aria-label="Start a room" title="Start a room">
           <Plus aria-hidden="true" />

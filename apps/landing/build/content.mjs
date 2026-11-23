@@ -6,10 +6,11 @@ import { icon } from "./icons.mjs";
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const mk = (tone = "") => `<span class="mk${tone ? ` mk--${tone}` : ""}" aria-hidden="true"></span>`;
 
-export function makeLinks({ base, appUrl, router, milestonesUrl }) {
+export function makeLinks({ base, appUrl, router, milestonesUrl, siteHome }) {
   const app = appUrl ?? `${base}app/`;
   return {
     home: base,
+    siteHome: siteHome ?? base,
     orgs: `${base}organisations/`,
     app,
     milestones: milestonesUrl ?? `${base}milestones/`,
@@ -39,7 +40,7 @@ function img(L, name, w, h, alt, eager = false, small = "") {
 export function nav(L, active = "") {
   const link = (label, href, key) => `<a href="${href}"${active === key ? ' class="is-active" aria-current="page"' : ""}>${label}</a>`;
   return `<header class="tnav">
-  <a class="tbrand" href="${L.home}" aria-label="loft home"><span class="tbrand__word">loft</span><span class="tbrand__mk" aria-hidden="true"></span><span class="tbrand__by">by tanzir rahman</span></a>
+  <a class="tbrand" href="${L.siteHome}" aria-label="${L.siteHome === L.home ? "loft home" : "Tanzir Rahman home"}"><img class="tbrand__logo" src="${L.home}favicon.png" width="28" height="28" alt=""><span class="tbrand__word">loft</span><span class="tbrand__by">by tanzir rahman</span></a>
   <nav class="tnav__links" aria-label="Sections">
     ${link("rooms", `${L.home}#rooms`, "rooms")}
     ${link("spaces", `${L.home}#spaces`, "spaces")}

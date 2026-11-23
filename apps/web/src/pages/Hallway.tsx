@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, DoorOpen, Hand, Pencil, Play, Plus, Search } from "lucide-react";
-import { Avatar, Button, Count } from "@loft/ui";
+import { Avatar, BrandIcon, Button, Count } from "@loft/ui";
 import { useAdapter, useQuery } from "../lib/data";
 import { useBreakpoint } from "../lib/media";
 import { ErrorState, Loading } from "../components/bits";
@@ -90,7 +90,7 @@ export function ChatsPage() {
   return (
     <div className="page chats">
       <header className="phone-header">
-        <span className="lf-mark" aria-hidden="true">L</span>
+        <BrandIcon monogram={navData?.brand.monogram} name={navData?.brand.name} />
         <h1 className="phone-header__title">Chats</h1>
         <button type="button" className="lf-icon-btn" aria-label="Search"><Search aria-hidden="true" /></button>
         <Link to="/spaces/new" className="lf-icon-btn" aria-label="New space"><Plus aria-hidden="true" /></Link>

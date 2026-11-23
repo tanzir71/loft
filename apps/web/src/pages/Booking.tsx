@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Download, Plus, Trash2 } from "lucide-react";
-import { Avatar, Button, PreviewBanner } from "@loft/ui";
+import { Avatar, BrandIcon, Button, PreviewBanner } from "@loft/ui";
 import { buildIcsCalendar, formatTime, formatUSD, parseUSD } from "@loft/core";
 import { useAdapter, useQuery } from "../lib/data";
 import { IS_PREVIEW } from "../lib/env";
@@ -204,7 +204,7 @@ export function BookingPage() {
     <div className="book-page">
       {IS_PREVIEW && <PreviewBanner />}
       <header className="book-top">
-        <span className="lf-mark" aria-hidden="true">L</span>
+        <BrandIcon />
         <span className="book-top__word">loft</span>
         <span className="book-top__spacer" />
         <label className="book-top__tz">Times in {tz}{tz === viewerTz ? " (detected)" : ""}
