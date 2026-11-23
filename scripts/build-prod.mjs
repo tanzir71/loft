@@ -80,8 +80,10 @@ writeFileSync(
 2. cPanel → File Manager: upload loft-prod.zip to your home folder (the one that contains
    public_html) and extract it there. It creates public_html/loft, public_html/spaces and
    loft-app (outside the web root).
-3. Open https://<your-domain>/spaces/ and follow the install wizard.
-4. In loft-app/data/config.php, set 'mail_from' to an address at your domain.
+3. Open https://<your-domain>/spaces/ and follow the install wizard: choose a username and
+   password, and save the recovery code it shows.
+4. Optional, for invoice and reminder emails: set 'mail_from' in loft-app/data/config.php to an
+   address at your domain. Sign-in doesn't use email.
 5. Back up loft-app/data/ (database, uploads and config.php), e.g. from the owner console.
 
 Step-by-step guide with checks and fixes: INSTALL.md in the repository.

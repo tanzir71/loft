@@ -96,20 +96,20 @@ No default production owner/admin password is supplied. Keep the generated priva
 
 Use **Use a recovery code** at sign-in to reset your password; this revokes existing sessions and replaces the recovery code. Save the replacement. Existing email accounts with a password can still sign in with that email in the Username field and choose a username in Settings.
 
-If an existing owner never configured a password or has lost both password and recovery code, run this from `public_html/` in the hosting terminal (for the paired website build):
+If an existing owner never configured a password or has lost both password and recovery code, run this in the hosting terminal, from the folder that contains `spaces/` (usually `public_html/`):
 
 ```sh
 php spaces/api/index.php set-owner-password
 ```
 
-For a standalone source install, run `php api/public/index.php set-owner-password` from `loft-app/`. Enter your chosen credentials when prompted and privately save the printed recovery code. This changes only the existing owner's credentials, revokes old sessions, and preserves accounts, spaces, uploads, config and encryption keys. Set the same `LOFT_APP`/`LOFT_DATA` environment overrides in the terminal if your web server uses custom paths. Never reinstall to recover access.
+In a source checkout, run `php api/public/index.php set-owner-password` from the repository root instead. Enter your chosen credentials when prompted and privately save the printed recovery code. This changes only the existing owner's credentials, revokes old sessions, and preserves accounts, spaces, uploads, config and encryption keys. Set the same `LOFT_APP`/`LOFT_DATA` environment overrides in the terminal if your web server uses custom paths. Never reinstall to recover access.
 
 ## 5. Optional notification email
 
 Invoices, reminders and calendar invites can use PHP's `mail()` from your hosting. Login/register/recovery do not depend on it. Legacy email-link API sign-in stays disabled unless the private config explicitly sets `email_signin_enabled` to `true`; the default UI uses passwords.
 
 1. File Manager → `loft-app/data/config.php` → right-click → **Edit**.
-2. Change the `'mail_from'` line to the address you created at your domain:
+2. Change the `'mail_from'` line to an address at your domain (create one in cPanel → **Email Accounts**):
 
    ```text
    'mail_from' => 'loft@<your-domain>',

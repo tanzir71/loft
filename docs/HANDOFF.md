@@ -242,7 +242,7 @@ interface DataAdapter {
 ### 7.4 PHP API (api/)
 - **Front controller** `public/index.php` with `.htaccess` rewrite. Tiny router, PDO SQLite (WAL mode, `busy_timeout=3000`).
 - **Auth:**
-  - email sign-in link (32-byte token, single use, 15-minute expiry) via `mail()`
+  - username + password with a one-time recovery code (replaced email sign-in links in v1.1.1; see `docs/decisions.md`)
   - optional password
   - session cookie (HttpOnly, SameSite=Lax).
 - **Rate limits** per IP and per agent seat (token bucket in SQLite).
@@ -396,7 +396,7 @@ Each milestone ends with the **Definition of done** in §11. Figma frame names a
 - [x] On Pages: a **simulated agent run** (scripted drafts) so the flow is demoable. Write `docs/agent-link.md` (§12).
 
 ### M10: PHP backend + production on Namecheap
-- [x] `api/` with every endpoint the app uses (`docs/api.md`), `HttpAdapter`, migrations, install wizard, email sign-in links, uploads, daily task, owner console, branding toggle + expiry, contact form, `.ics` feeds and invites, booking iCal busy blocks.
+- [x] `api/` with every endpoint the app uses (`docs/api.md`), `HttpAdapter`, migrations, install wizard, sign-in (username + password since v1.1.1), uploads, daily task, owner console, branding toggle + expiry, contact form, `.ics` feeds and invites, booking iCal busy blocks.
 - [x] **Agent link protocol live** (§12) with rate limits and audit log.
 - [x] Deploy:
   - build artefact `loft-prod.zip` (landing → `/loft`, SPA → `/spaces`, `api/` → `/spaces/api`, `data/` outside the web root) attached to the GitHub release

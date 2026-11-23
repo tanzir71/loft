@@ -16,11 +16,15 @@ test.describe("money (M7)", () => {
     await page.getByRole("combobox", { name: "Payer" }).selectOption({ label: "Dipa Saha (pays for themself)" });
     await page.getByRole("button", { name: "Save payer" }).click();
     await expect(page.getByText("no payer set")).toHaveCount(0);
-    await page.getByRole("button", { name: "Send 3 ready" }).click();
-    await expect(page.getByRole("status")).toContainText("Sent 3 invoices");
+    // How many payers are due depends on the date (the demo's sessions and package credits follow the calendar).
+    const send = page.getByRole("button", { name: /^Send \d+ ready$/ });
+    const count = Number((await send.textContent())!.match(/\d+/)![0]);
+    expect(count).toBeGreaterThanOrEqual(3);
+    await send.click();
+    await expect(page.getByRole("status")).toContainText(`Sent ${count} invoices`);
     await expect(page.getByRole("link", { name: /WhatsApp Shirin Karim/ })).toHaveAttribute("href", /^https:\/\/wa\.me\/8801700000001\?text=/);
     await expect(page.locator(".inv-row", { hasText: "LF-0414" })).toBeVisible();
-    await expect(page.locator(".inv-row", { hasText: "LF-0416" })).toBeVisible();
+    await expect(page.locator(".inv-row", { hasText: `LF-${String(413 + count).padStart(4, "0")}` })).toBeVisible();
   });
 
   test("payer taps I've paid on the pay page; the host confirms and a receipt goes out", async ({ page, context, viewport }) => {

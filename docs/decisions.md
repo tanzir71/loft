@@ -10,6 +10,12 @@ Living log. Newest entries at the top of each section. Mirrors `claude/loft-desi
 
 ## Log
 
+### 2026-11-23 — v1.1.1: password accounts, paired website, install guide
+- **Accounts.** Sign-in moved from email links to a username and password with a one-time recovery code, so registering, signing in and recovering need no email sender on shared hosting. Email-link sign-in stays in the API but is off unless the private config sets `email_signin_enabled`. A locked-out owner can reset from the host terminal (`php spaces/api/index.php set-owner-password`) without touching data. Earlier log entries that mention sign-in links describe M10 as it first shipped.
+- **Paired website.** `tanzir71/tanziro-website` pins a Loft commit and serves `/loft` and `/spaces/` (`docs/website-integration.md`). The standalone `loft-prod.zip` on each release stays for installs outside that website.
+- **Install guide.** `INSTALL.md` is the one place for setup steps. `docs/deploy-namecheap.md` covers what comes after.
+- **Tests that followed the clock.** The demo seed follows today's date, so tests no longer assume a time of day (agents, booking) or a fixed number of payers due (money).
+
 ### 2026-11-21 — M10 PHP backend, M11 live features, M12 hardening
 - **One logic, two runtimes.** The PHP API stores the same JSON documents as the browser's local adapter (`rows(tbl, id, data)` in SQLite, WAL, busy_timeout 3000) plus relational tables for the op-log, sessions, sign-in links, rate limits, uploads, change polling, presence, signals and the audit log. Each `api/src/routes/*.php` is a line-for-line port of one `packages/data/src/local/routes*.ts` (conventions in `api/PORTING.md`). This replaces the handoff §8 table-per-entity schema: it keeps the ports faithful and the tables map 1:1 to document "tables". Money stays integer cents; times stay UTC ISO strings so string order is time order.
 - **HTTP edge.** JSON-only writes (forms from other sites can't send JSON without a preflight) plus a same-origin check guard against CSRF; session cookies are HttpOnly + SameSite=Lax (Secure on https); 240 writes/min per IP; sign-in links are 32-byte, single-use, 15-minute; passwords optional (≥10 chars). Errors carry the same messages the preview shows.

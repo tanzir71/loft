@@ -4,7 +4,7 @@ Loft runs on plain shared hosting: PHP 8.2 + SQLite. No Composer, no daemons, no
 
 Production URLs: landing `https://<your-domain>/loft`, app `https://<your-domain>/spaces`.
 
-**To install, follow [`INSTALL.md`](../INSTALL.md)**: download the release zip, set PHP, upload and extract it, run the install wizard, set the sender address, and check it works. This page covers what comes after that.
+**To install, follow [`INSTALL.md`](../INSTALL.md)**: download the release zip, set PHP, upload and extract it, create the owner account, save the recovery code, and check it works. This page covers what comes after that.
 
 What the zip contains:
 
@@ -55,5 +55,5 @@ Only if you add FTP/SFTP secrets to the repository (`FTP_HOST`, `FTP_USER`, `FTP
 |---|---|
 | "Loft is not installed correctly: the API code was not found" | `loft-app` isn't next to your web root folder. Move it, or add `SetEnv LOFT_APP /home/<user>/loft-app` to `spaces/api/.htaccess` (see INSTALL.md, step 3). |
 | The app loads but every request says "Not signed in" after signing in | The site address in `config.php` (`app_url`) doesn't match the URL you use (http vs https, www). Fix it and sign in again. |
-| Sign-in emails don't arrive | Check `~/loft-app/data/mail.log` exists only if `mail_mode` is `log`; otherwise check cPanel → Track Delivery and set SPF/DKIM. |
+| Invoice or reminder emails don't arrive | Set `mail_from` in `config.php` to an address at your domain, repair SPF/DKIM, and check cPanel → Track Delivery. Sign-in doesn't use email. |
 | 500 errors | cPanel → **Errors** (or `error_log` in `public_html/spaces/api/`). Lines starting with `[loft]` come from the API. |

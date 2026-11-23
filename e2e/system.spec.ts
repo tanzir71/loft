@@ -44,7 +44,7 @@ test.describe("owner console, Brand studio, sign-in, install, settings (M10)", (
   test("sign-in and install explain the preview; settings save your profile", async ({ page }) => {
     await page.goto("./app/#/signin");
     await expect(page.getByRole("heading", { name: "Sign in to loft" })).toBeVisible();
-    await expect(page.getByText(/Preview: you're already signed in as the demo host/)).toBeVisible();
+    await expect(page.getByText(/Preview: accounts run on your server/)).toBeVisible();
     await page.goto("./app/#/install");
     await expect(page.getByRole("heading", { name: "Create the owner account" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create owner and finish" })).toBeDisabled();

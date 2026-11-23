@@ -5,6 +5,7 @@
 // Checks: 12 people get a seat and the 13th waits (and gets in when someone leaves), 12 people
 // drawing at once never lose an op or reuse a seq, presence expires, and a burst from one IP gets 429s.
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 
 const API = (process.argv[2] ?? "http://127.0.0.1:8099/api/v1").replace(/\/$/, "");
 const CAPACITY = 12;
@@ -46,7 +47,7 @@ const log = (...a) => console.log("·", ...a);
 const host = new Client("Host");
 const inst = await host.get("install");
 if (!inst.json?.installed) {
-  const r = await host.post("install", { name: "Load Host", email: "host@load.test", appUrl: "http://127.0.0.1:8099/", timezone: "UTC" });
+  const r = await host.post("install", { name: "Load Host", username: "loadhost", password: randomBytes(18).toString("base64url"), appUrl: "http://127.0.0.1:8099/", timezone: "UTC" });
   assert.equal(r.status, 200, `install failed: ${JSON.stringify(r.json)}`);
   log("installed; host signed in");
 } else {

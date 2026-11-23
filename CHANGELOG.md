@@ -2,6 +2,16 @@
 
 Every milestone is a tagged release with a frozen GitHub Pages snapshot at `https://tanzir71.github.io/loft/m<N>/` (landing) and `…/m<N>/app/` (app). The format below feeds the `/milestones/` index: `## vX.Y.Z — M<N>: Title (YYYY-MM-DD)` followed by `- ` notes.
 
+## v1.1.1 — M12: Accounts and install guide (2026-11-23)
+- Accounts use a username and password: registering, signing in and recovering need no email. Each account gets a recovery code to save, and a locked-out owner can reset from the host terminal without touching any data.
+- `INSTALL.md`: a step-by-step install on Namecheap shared hosting, from downloading the zip to checking that sign-in, rooms and the owner console work, plus updating, backups and fixes for common problems.
+- Starting a room from the landing page carries through sign-in: signed-out visitors sign in or register, then the room starts.
+- Loft's current app icon and favicons, with the landing page's original wordmark. Focus rings show for keyboard users and stay out of the way for mouse clicks.
+- A paired build for the tanziro.com website (`npm run build:website`, `npm run sync:website`).
+- Addon domains whose folder sits inside `public_html` can find Loft's code with one line in `spaces/api/.htaccess` (`SetEnv LOFT_APP …`).
+- Release zips now carry the release version; earlier ones were labelled 0.0.0.
+- Browser tests no longer depend on the time of day or the date.
+
 ## v1.1.0 — M11: Video with your own keys (2026-11-21)
 - Video in rooms with the organisation's own provider, set up in Admin → Calls & budget. With Cloudflare Realtime, everyone's camera shows as tiles beside the board and audio stays on P2P or stage. With Daily or Jitsi as a Service (8×8), the provider's call opens in a panel and carries the audio.
 - Cloudflare TURN: add a TURN key and every call (P2P audio included) gets relay servers for people on blocked networks.

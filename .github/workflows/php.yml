@@ -2,7 +2,7 @@ name: PHP API
 
 on:
   push:
-    paths: ["api/**", ".github/workflows/php.yml"]
+    paths: ["api/**", "scripts/load-room.mjs", ".github/workflows/php.yml"]
   pull_request:
     paths: ["api/**"]
   workflow_dispatch:
