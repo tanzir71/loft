@@ -3,6 +3,7 @@
 @font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 600; font-display: swap; src: url("/fonts/jetbrains-mono-var.woff2") format("woff2"); }
 
 :root { --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; --sans: "Host Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --wrap: 1200px; --gut: 120px; }
+:root { --font-mono:var(--mono); --media-loading-ink:var(--color-fg); --media-loading-surface:var(--color-bg); }
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

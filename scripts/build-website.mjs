@@ -64,7 +64,9 @@ for (const [relative, canonical] of [["loft/index.html", "https://tanziro.com/lo
   let html = readFileSync(file, "utf8");
   const title = html.match(/<title>(.*?)<\/title>/s)[1];
   const description = html.match(/<meta name="description" content="([^"]*)"/)[1];
-  html = html.replace("</head>", `<link rel="canonical" href="${canonical}" /><meta property="og:url" content="${canonical}" /><meta property="og:title" content="${title}" /><meta property="og:description" content="${description}" /><meta property="og:image" content="https://tanziro.com/loft/img/hero.webp" /><meta name="twitter:card" content="summary_large_image" /></head>`);
+  // The paired host provides the same per-image loading feedback as its Tack landing.
+  // Keep these references in canonical output; the host versions the shared assets.
+  html = html.replace("</head>", `<link rel="stylesheet" href="/media-loading.css" /><script src="/media-loading.js" defer></script><link rel="canonical" href="${canonical}" /><meta property="og:url" content="${canonical}" /><meta property="og:title" content="${title}" /><meta property="og:description" content="${description}" /><meta property="og:image" content="https://tanziro.com/loft/img/hero.webp" /><meta name="twitter:card" content="summary_large_image" /></head>`);
   writeFileSync(file, html);
 }
 const appIndex = join(destination, "spaces/index.html");
