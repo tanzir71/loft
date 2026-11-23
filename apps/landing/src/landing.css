@@ -53,10 +53,10 @@ button, input, select { font: inherit; color: inherit; }
 
 /* nav */
 .tnav { position: relative; z-index: 2; display: flex; align-items: center; gap: 28px; height: 88px; padding: 24px 48px; max-width: 1440px; margin: 0 auto; }
-.tbrand { display: inline-flex; align-items: center; gap: 8px; }
+.tbrand { display: inline-flex; align-items: flex-end; gap: 0; }
 .tbrand__word { font: 600 24px/27px var(--sans); letter-spacing: -0.02em; color: var(--color-fg); }
-.tbrand__logo { flex: none; width: 28px; height: 28px; }
-.tbrand__by { font: 400 11px/16px var(--mono); color: var(--color-muted-fg); }
+.tbrand__mk { width: 7px; height: 7px; background: var(--color-primary); margin: 0 10px 4px 3px; }
+.tbrand__by { font: 400 11px/16px var(--mono); color: var(--color-muted-fg); margin-bottom: 4px; }
 .tnav__links { flex: 1; display: flex; justify-content: center; gap: 28px; font: 400 12px/16px var(--mono); color: var(--color-ink-2); }
 .tnav__links a:hover { color: var(--color-fg); }
 .tnav__links a.is-active { color: var(--color-primary); font-weight: 500; }

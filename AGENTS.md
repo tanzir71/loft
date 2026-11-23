@@ -45,6 +45,10 @@ without keyboard rings. Do not blur controls to hide focus indicators.
 
 ## Operator documentation
 
+Keep the landing header's original `loft` wordmark, small blue square and byline.
+It is distinct from the dot-grid app icon and favicons. App-icon updates must not
+replace that landing wordmark. The website build's wordmark still links home.
+
 Keep `INSTALL.md` and `docs/website-integration.md` current when setup or owner/admin
 access changes. The website's `docs/SETUP-AND-ADMIN.md` documents Tools Index and Loft
 setup together. Owner/admin URLs use hash routing: `/spaces/#/owner`, `/spaces/#/admin`
